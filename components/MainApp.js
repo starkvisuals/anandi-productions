@@ -647,14 +647,14 @@ export default function MainApp() {
                   {/* Image Container */}
                   <div style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                     {selectedAsset.type === 'video' ? (
-                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: isMobile ? '300px' : 'calc(85vh - 350px)', objectFit: 'contain' }} />
+                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }} />
                     ) : selectedAsset.type === 'audio' ? (
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
                         <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
                       </div>
                     ) : selectedAsset.type === 'image' ? (
-                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: isMobile ? '300px' : 'calc(85vh - 350px)', objectFit: 'contain', borderRadius: '8px' }} />
+                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain', borderRadius: '8px' }} />
                     ) : (
                       <div style={{ fontSize: '60px' }}>📄</div>
                     )}
