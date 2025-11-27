@@ -639,27 +639,25 @@ export default function MainApp() {
               </div>
             </div>
 
-            {/* Preview Tab - FIXED LAYOUT */}
+            {/* Preview Tab - FIXED WITH EXPLICIT HEIGHTS */}
             {assetTab === 'preview' && (
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 110px)', overflow: 'hidden' }}>
                 {/* LEFT: Preview Area */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', overflow: 'hidden', minWidth: 0 }}>
-                  {/* Image Container - ABSOLUTE POSITIONING for guaranteed containment */}
-                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: '200px' }}>
-                    <div style={{ position: 'absolute', inset: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {selectedAsset.type === 'video' ? (
-                        <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                      ) : selectedAsset.type === 'audio' ? (
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
-                          <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
-                        </div>
-                      ) : selectedAsset.type === 'image' ? (
-                        <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
-                      ) : (
-                        <div style={{ fontSize: '60px' }}>📄</div>
-                      )}
-                    </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', overflow: 'hidden', minWidth: 0, height: isMobile ? 'auto' : '100%' }}>
+                  {/* Image Container - EXPLICIT HEIGHT */}
+                  <div style={{ height: isMobile ? '300px' : 'calc(100% - 160px)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    {selectedAsset.type === 'video' ? (
+                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    ) : selectedAsset.type === 'audio' ? (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
+                        <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
+                      </div>
+                    ) : selectedAsset.type === 'image' ? (
+                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                    ) : (
+                      <div style={{ fontSize: '60px' }}>📄</div>
+                    )}
                     {/* Fullscreen Button */}
                     {(selectedAsset.type === 'image' || selectedAsset.type === 'video') && (
                       <button onClick={() => setShowFullScreen(true)} style={{ position: 'absolute', bottom: '26px', right: '26px', padding: '10px 16px', background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', zIndex: 5 }}>
@@ -668,8 +666,8 @@ export default function MainApp() {
                     )}
                   </div>
                   
-                  {/* Feedback Section - Fixed at bottom */}
-                  <div style={{ padding: '14px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a', flexShrink: 0 }}>
+                  {/* Feedback Section - Fixed height at bottom */}
+                  <div style={{ height: '160px', padding: '14px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a', flexShrink: 0 }}>
                     <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>💬 Feedback ({selectedAsset.feedback?.length || 0})</div>
                     <div style={{ maxHeight: '80px', overflow: 'auto', marginBottom: '8px' }}>
                       {(selectedAsset.feedback || []).length === 0 ? (
