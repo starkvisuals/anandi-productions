@@ -5,8 +5,6 @@ import { getProjects, getProjectsForUser, createProject, updateProject, getUsers
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import AnnotationCanvas from './AnnotationCanvas';
-import VersionComparison from './VersionComparison';
 
 const DEFAULT_CATEGORIES = [
   { id: 'cgi', name: 'CGI', icon: '🌐', color: '#3b82f6' },
@@ -122,7 +120,7 @@ export default function MainApp() {
       {!isMobile && <div style={{ padding: '18px' }}><div style={{ fontSize: '18px', fontWeight: '800', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ANANDI</div><div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Production Hub</div></div>}
       <nav style={{ flex: 1, padding: isMobile ? '10px' : '0 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '6px' : '0' }}>
         {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'projects', icon: '📁', label: 'Projects' }, ...(isProducer ? [{ id: 'team', icon: '👥', label: 'Team' }] : [])].map(item => (
-          <div key={item.id} onClick={() => { setView(item.id); setSelectedProjectId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '10px 14px' : '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: view === item.id || (view === 'project' && item.id === 'projects') ? 'rgba(99,102,241,0.15)' : 'transparent', color: view === item.id || (view === 'project' && item.id === 'projects') ? '#fff' : 'rgba(255,255,255,0.6)', marginBottom: isMobile ? '0' : '2px' }}><span style={{ fontSize: '14px' }}>{item.icon}</span>{!isMobile && item.label}</div>
+          <div key={item.id} onClick={() => { setView(item.id); setSelectedProjectId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '10px 14px' : '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: view === item.id ? 'rgba(99,102,241,0.15)' : 'transparent', color: view === item.id ? '#fff' : 'rgba(255,255,255,0.6)', marginBottom: isMobile ? '0' : '2px' }}><span style={{ fontSize: '14px' }}>{item.icon}</span>{!isMobile && item.label}</div>
         ))}
       </nav>
       {!isMobile && (
@@ -156,7 +154,7 @@ export default function MainApp() {
               const notifs = getProjectNotifs(p);
               const hasNotifs = notifs.pendingReview > 0 || notifs.newFeedback > 0 || notifs.changesRequested > 0;
               return (
-                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('project'); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#0d0d14', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', border: hasNotifs ? '1px solid rgba(251,191,36,0.3)' : 'none' }}>
+                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#0d0d14', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', border: hasNotifs ? '1px solid rgba(251,191,36,0.3)' : 'none' }}>
                   <div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '13px' }}>{p.name}</div><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{p.client}</div></div>
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                     {notifs.pendingReview > 0 && <span style={{ padding: '2px 6px', background: '#a855f7', borderRadius: '4px', fontSize: '9px' }}>👁️{notifs.pendingReview}</span>}
@@ -223,7 +221,7 @@ export default function MainApp() {
               const totalNotifs = notifs.pendingReview + notifs.newFeedback + notifs.changesRequested + notifs.newVersions;
               
               return (
-                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('project'); }} style={{ background: '#16161f', borderRadius: '12px', border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : '1px solid #1e1e2e', padding: '18px', cursor: 'pointer', position: 'relative' }}>
+                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: '#16161f', borderRadius: '12px', border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : '1px solid #1e1e2e', padding: '18px', cursor: 'pointer', position: 'relative' }}>
                   {totalNotifs > 0 && (
                     <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '22px', height: '22px', background: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', border: '2px solid #16161f' }}>{totalNotifs}</div>
                   )}
