@@ -342,6 +342,7 @@ export default function MainApp() {
     const [uploadingVersion, setUploadingVersion] = useState(false);
     const fileInputRef = useRef(null);
     const versionInputRef = useRef(null);
+    const videoRef = useRef(null);
 
     if (!selectedProject) return null;
     const cats = selectedProject.categories || [];
@@ -412,7 +413,24 @@ export default function MainApp() {
     const handleUpdateStatus = async (assetId, status) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, status } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); if (selectedAsset) setSelectedAsset({ ...selectedAsset, status }); };
     const handleAssign = async (assetId, editorId) => { const editor = editors.find(e => e.id === editorId); const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, assignedTo: editorId, assignedToName: editor?.name, status: editorId ? 'assigned' : a.status } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
     const handleSetGdriveLink = async (assetId, link) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, gdriveLink: link, status: link ? 'delivered' : a.status } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); if (selectedAsset) setSelectedAsset({ ...selectedAsset, gdriveLink: link, status: link ? 'delivered' : selectedAsset.status }); showToast('Link saved', 'success'); };
-    const handleAddFeedback = async () => { if (!newFeedback.trim() || !selectedAsset) return; const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString() }; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: [...(a.feedback || []), fb], status: 'changes-requested' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAsset({ ...selectedAsset, feedback: [...(selectedAsset.feedback || []), fb], status: 'changes-requested' }); setNewFeedback(''); };
+    const handleAddFeedback = async () => { 
+      if (!newFeedback.trim() || !selectedAsset) return; 
+      const videoTime = selectedAsset.type === 'video' && videoRef.current ? videoRef.current.currentTime : null;
+      const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false }; 
+      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: [...(a.feedback || []), fb], status: 'changes-requested' } : a); 
+      await updateProject(selectedProject.id, { assets: updated }); 
+      await refreshProject(); 
+      setSelectedAsset({ ...selectedAsset, feedback: [...(selectedAsset.feedback || []), fb], status: 'changes-requested' }); 
+      setNewFeedback(''); 
+    };
+    
+    const handleToggleFeedbackDone = async (feedbackId) => {
+      const updatedFeedback = (selectedAsset.feedback || []).map(fb => fb.id === feedbackId ? { ...fb, isDone: !fb.isDone } : fb);
+      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback } : a);
+      await updateProject(selectedProject.id, { assets: updated });
+      await refreshProject();
+      setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback });
+    };
     const handleSaveAnnotations = async (annotations) => { const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, annotations } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAsset({ ...selectedAsset, annotations }); showToast('Annotations saved', 'success'); };
     const handleCreateLink = async () => { if (!newLinkName) { showToast('Enter name', 'error'); return; } const linkData = { name: newLinkName, type: newLinkType, createdBy: userProfile.id }; if (newLinkExpiry) linkData.expiresAt = new Date(newLinkExpiry).toISOString(); await createShareLink(selectedProject.id, linkData); await refreshProject(); setNewLinkName(''); setNewLinkExpiry(''); showToast('Link created!', 'success'); };
     const handleDeleteLink = async (linkId) => { const updated = (selectedProject.shareLinks || []).map(l => l.id === linkId ? { ...l, active: false } : l); await updateProject(selectedProject.id, { shareLinks: updated }); await refreshProject(); showToast('Link deleted', 'success'); };
@@ -633,7 +651,7 @@ export default function MainApp() {
                   {/* Image Container - Responsive within bounds */}
                   <div style={{ flex: 1, padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     {selectedAsset.type === 'video' ? (
-                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                      <video ref={videoRef} src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                     ) : selectedAsset.type === 'audio' ? (
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
@@ -648,21 +666,49 @@ export default function MainApp() {
                   
                   {/* Feedback Section */}
                   <div style={{ padding: '14px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a', flexShrink: 0 }}>
-                    <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>💬 Feedback ({selectedAsset.feedback?.length || 0})</div>
-                    <div style={{ maxHeight: '80px', overflow: 'auto', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>💬 Feedback ({selectedAsset.feedback?.length || 0})</span>
+                      {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
+                        <span style={{ fontSize: '10px', padding: '2px 8px', background: '#ef4444', borderRadius: '10px' }}>
+                          {(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ maxHeight: '120px', overflow: 'auto', marginBottom: '8px' }}>
                       {(selectedAsset.feedback || []).length === 0 ? (
                         <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No feedback yet</div>
                       ) : (selectedAsset.feedback || []).map(fb => (
-                        <div key={fb.id} style={{ padding: '8px', background: '#1e1e2e', borderRadius: '6px', marginBottom: '4px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                            <span style={{ fontSize: '10px', fontWeight: '600' }}>{fb.userName}</span>
-                            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>{formatTimeAgo(fb.timestamp)}</span>
+                        <div key={fb.id} style={{ padding: '10px', background: fb.isDone ? '#1a2e1a' : '#1e1e2e', borderRadius: '6px', marginBottom: '6px', borderLeft: fb.isDone ? '3px solid #22c55e' : '3px solid #ef4444', opacity: fb.isDone ? 0.7 : 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                            <div style={{ flex: 1 }}>
+                              <span style={{ fontSize: '10px', fontWeight: '600' }}>{fb.userName}</span>
+                              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '8px' }}>{formatTimeAgo(fb.timestamp)}</span>
+                              {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
+                                <span 
+                                  onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }}
+                                  style={{ fontSize: '9px', color: '#6366f1', marginLeft: '8px', cursor: 'pointer', background: 'rgba(99,102,241,0.2)', padding: '1px 6px', borderRadius: '4px' }}
+                                >
+                                  ▶ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}
+                                </span>
+                              )}
+                            </div>
+                            {isProducer && (
+                              <button 
+                                onClick={() => handleToggleFeedbackDone(fb.id)}
+                                style={{ background: fb.isDone ? '#22c55e' : '#3a3a4a', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '9px', color: '#fff', cursor: 'pointer', marginLeft: '8px', flexShrink: 0 }}
+                              >
+                                {fb.isDone ? '✓ Done' : '○ Pending'}
+                              </button>
+                            )}
                           </div>
-                          <div style={{ fontSize: '11px' }}>{fb.text}</div>
+                          <div style={{ fontSize: '11px', textDecoration: fb.isDone ? 'line-through' : 'none', color: fb.isDone ? 'rgba(255,255,255,0.5)' : '#fff' }}>{fb.text}</div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {selectedAsset.type === 'video' && (
+                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>📍 at current time</span>
+                      )}
                       <Input value={newFeedback} onChange={setNewFeedback} placeholder="Add feedback..." style={{ flex: 1, padding: '8px 10px', fontSize: '12px' }} />
                       <Btn onClick={handleAddFeedback} disabled={!newFeedback.trim()} small>Send</Btn>
                     </div>
