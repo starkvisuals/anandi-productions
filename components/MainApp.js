@@ -1050,7 +1050,7 @@ export default function MainApp() {
         {/* Annotation List */}
         {annots.length > 0 && (
           <div style={{ marginTop: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
-            {annots.length} annotation{annots.length !== 1 ? 's'} • Click to select, drag to move
+            {annots.length} annotation{annots.length !== 1 ? 's' : ''} • Click to select, drag to move
           </div>
         )}
       </div>
