@@ -905,7 +905,4 @@ export default function MainApp() {
       </div>
     </div>
   );
-};
-
-export default MainApp;
-
+}
