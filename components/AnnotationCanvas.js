@@ -1,24 +1,8 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-const ASPECT_RATIOS = {
-  '9:16': 9/16,
-  '1:1': 1,
-  '16:9': 16/9,
-  '4:5': 4/5,
-  '3:2': 3/2,
-  'free': null
-};
-
-const TOOLS = {
-  select: { icon: '👆', label: 'Select' },
-  crop: { icon: '⬜', label: 'Crop' },
-  rect: { icon: '□', label: 'Rectangle' },
-  circle: { icon: '○', label: 'Circle' },
-  arrow: { icon: '→', label: 'Arrow' },
-  text: { icon: 'T', label: 'Text' },
-};
-
+const ASPECT_RATIOS = { '9:16': 9/16, '1:1': 1, '16:9': 16/9, '4:5': 4/5, '3:2': 3/2, 'free': null };
+const TOOLS = { select: { icon: '👆', label: 'Select/Move' }, crop: { icon: '⬜', label: 'Crop' }, rect: { icon: '□', label: 'Rectangle' }, circle: { icon: '○', label: 'Circle' }, arrow: { icon: '→', label: 'Arrow' }, text: { icon: 'T', label: 'Text' } };
 const COLORS = ['#ef4444', '#f97316', '#fbbf24', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff'];
 
 export default function AnnotationCanvas({ imageUrl, annotations = [], onChange, readonly = false }) {
@@ -28,6 +12,8 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
   const [color, setColor] = useState('#ef4444');
   const [cropRatio, setCropRatio] = useState('free');
   const [drawing, setDrawing] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState(null);
   const [startPos, setStartPos] = useState(null);
   const [currentShape, setCurrentShape] = useState(null);
   const [shapes, setShapes] = useState(annotations);
@@ -37,17 +23,15 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
   const [textPos, setTextPos] = useState(null);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDirty, setIsDirty] = useState(false);
 
-  // Load image dimensions
   useEffect(() => {
     const img = new Image();
     img.onload = () => {
       const container = containerRef.current;
       if (!container) return;
-      const maxWidth = Math.min(container.clientWidth, 800);
-      const maxHeight = 500;
+      const maxWidth = Math.min(container.clientWidth - 40, 900);
+      const maxHeight = 600;
       const scaleX = maxWidth / img.width;
       const scaleY = maxHeight / img.height;
       const s = Math.min(scaleX, scaleY, 1);
@@ -56,22 +40,16 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
     img.src = imageUrl;
   }, [imageUrl]);
 
-  useEffect(() => {
-    setShapes(annotations);
-  }, [annotations]);
+  useEffect(() => { setShapes(annotations); }, [annotations]);
 
-  // Draw canvas
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !imageSize.width) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     ctx.save();
-    ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
 
-    // Draw all shapes
     [...shapes, currentShape].filter(Boolean).forEach((shape) => {
       ctx.strokeStyle = shape.color || '#ef4444';
       ctx.fillStyle = shape.color || '#ef4444';
@@ -119,7 +97,7 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
       }
     });
 
-    // Draw selection handles
+    // Draw selection handles + move indicator
     if (selectedShape && !readonly) {
       ctx.fillStyle = '#fff';
       ctx.strokeStyle = '#6366f1';
@@ -131,26 +109,32 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
         ctx.fillRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
         ctx.strokeRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
       });
+      // Draw move icon in center for rect/crop/circle
+      if (['rect', 'crop', 'circle'].includes(selectedShape.type)) {
+        const cx = selectedShape.x + selectedShape.width / 2;
+        const cy = selectedShape.y + selectedShape.height / 2;
+        ctx.fillStyle = 'rgba(99,102,241,0.8)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 12/zoom, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = `${10/zoom}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✥', cx, cy);
+        ctx.textAlign = 'start';
+        ctx.textBaseline = 'alphabetic';
+      }
     }
-
     ctx.restore();
-  }, [shapes, currentShape, selectedShape, imageSize, zoom, pan, readonly]);
+  }, [shapes, currentShape, selectedShape, imageSize, zoom, readonly]);
 
-  useEffect(() => {
-    drawCanvas();
-  }, [drawCanvas]);
+  useEffect(() => { drawCanvas(); }, [drawCanvas]);
 
   const getHandles = (shape) => {
     if (!shape) return [];
-    if (shape.type === 'arrow') {
-      return [
-        { x: shape.x, y: shape.y, type: 'start' },
-        { x: shape.endX, y: shape.endY, type: 'end' }
-      ];
-    }
-    if (shape.type === 'text') {
-      return [{ x: shape.x, y: shape.y, type: 'move' }];
-    }
+    if (shape.type === 'arrow') return [{ x: shape.x, y: shape.y, type: 'start' }, { x: shape.endX, y: shape.endY, type: 'end' }];
+    if (shape.type === 'text') return [{ x: shape.x, y: shape.y, type: 'move' }];
     return [
       { x: shape.x, y: shape.y, type: 'nw' },
       { x: shape.x + shape.width, y: shape.y, type: 'ne' },
@@ -161,9 +145,7 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
 
   const getMousePos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left - pan.x) / zoom;
-    const y = (e.clientY - rect.top - pan.y) / zoom;
-    return { x, y };
+    return { x: (e.clientX - rect.left) / zoom, y: (e.clientY - rect.top) / zoom };
   };
 
   const getHandleAtPos = (pos) => {
@@ -173,11 +155,18 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
     return handles.find(h => Math.abs(h.x - pos.x) < handleSize && Math.abs(h.y - pos.y) < handleSize);
   };
 
+  const isInMoveZone = (pos, shape) => {
+    if (!shape || !['rect', 'crop', 'circle'].includes(shape.type)) return false;
+    const cx = shape.x + shape.width / 2;
+    const cy = shape.y + shape.height / 2;
+    return Math.sqrt((pos.x - cx) ** 2 + (pos.y - cy) ** 2) < 20 / zoom;
+  };
+
   const handleMouseDown = (e) => {
     if (readonly) return;
     const pos = getMousePos(e);
     
-    // Check if clicking on resize handle
+    // Check resize handle
     const handle = getHandleAtPos(pos);
     if (handle && selectedShape) {
       setResizing(handle.type);
@@ -185,19 +174,24 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
       return;
     }
 
+    // Check move zone (center of selected shape)
+    if (selectedShape && isInMoveZone(pos, selectedShape)) {
+      setDragging(true);
+      setDragStart({ x: pos.x - selectedShape.x, y: pos.y - selectedShape.y });
+      return;
+    }
+
     if (tool === 'select') {
       const clicked = [...shapes].reverse().find(s => isPointInShape(pos, s));
       setSelectedShape(clicked || null);
       if (clicked) {
-        setStartPos(pos);
+        setDragging(true);
+        setDragStart({ x: pos.x - clicked.x, y: pos.y - clicked.y });
       }
       return;
     }
 
-    if (tool === 'text') {
-      setTextPos(pos);
-      return;
-    }
+    if (tool === 'text') { setTextPos(pos); return; }
 
     setDrawing(true);
     setStartPos(pos);
@@ -208,11 +202,29 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
     if (readonly) return;
     const pos = getMousePos(e);
 
+    // Dragging (moving) shape
+    if (dragging && selectedShape && dragStart) {
+      const newX = pos.x - dragStart.x;
+      const newY = pos.y - dragStart.y;
+      const newShapes = shapes.map(s => {
+        if (s.id !== selectedShape.id) return s;
+        if (s.type === 'arrow') {
+          const dx = newX - s.x;
+          const dy = newY - s.y;
+          return { ...s, x: newX, y: newY, endX: s.endX + dx, endY: s.endY + dy };
+        }
+        return { ...s, x: newX, y: newY };
+      });
+      setShapes(newShapes);
+      setSelectedShape(newShapes.find(s => s.id === selectedShape.id));
+      setIsDirty(true);
+      return;
+    }
+
     // Resizing
     if (resizing && selectedShape) {
       const newShapes = shapes.map(s => {
         if (s.id !== selectedShape.id) return s;
-        
         if (s.type === 'arrow') {
           if (resizing === 'start') return { ...s, x: pos.x, y: pos.y };
           if (resizing === 'end') return { ...s, endX: pos.x, endY: pos.y };
@@ -234,17 +246,13 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
       return;
     }
 
-    // Drawing
+    // Drawing new shape
     if (!drawing || !startPos) return;
-    
     let width = pos.x - startPos.x;
     let height = pos.y - startPos.y;
-
     if (tool === 'crop' && cropRatio !== 'free' && ASPECT_RATIOS[cropRatio]) {
-      const ratio = ASPECT_RATIOS[cropRatio];
-      height = width / ratio;
+      height = width / ASPECT_RATIOS[cropRatio];
     }
-
     if (tool === 'arrow') {
       setCurrentShape({ type: 'arrow', x: startPos.x, y: startPos.y, endX: pos.x, endY: pos.y, color, id: 'temp' });
     } else {
@@ -253,11 +261,8 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
   };
 
   const handleMouseUp = () => {
-    if (resizing) {
-      setResizing(null);
-      return;
-    }
-
+    if (dragging) { setDragging(false); setDragStart(null); return; }
+    if (resizing) { setResizing(null); return; }
     if (currentShape && currentShape.id === 'temp') {
       const newShape = { ...currentShape, id: Date.now().toString() };
       setShapes(prev => [...prev, newShape]);
@@ -284,9 +289,7 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
       const dist = distToSegment(pos, { x: shape.x, y: shape.y }, { x: shape.endX, y: shape.endY });
       return dist < 15 / zoom;
     }
-    if (shape.type === 'text') {
-      return pos.x >= shape.x - 4 && pos.x <= shape.x + 150 && pos.y >= shape.y - 20 && pos.y <= shape.y + 10;
-    }
+    if (shape.type === 'text') return pos.x >= shape.x - 4 && pos.x <= shape.x + 150 && pos.y >= shape.y - 20 && pos.y <= shape.y + 10;
     const minX = Math.min(shape.x, shape.x + shape.width);
     const maxX = Math.max(shape.x, shape.x + shape.width);
     const minY = Math.min(shape.y, shape.y + shape.height);
@@ -302,41 +305,20 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
     return Math.sqrt((p.x - (v.x + t * (w.x - v.x))) ** 2 + (p.y - (v.y + t * (w.y - v.y))) ** 2);
   };
 
-  const deleteSelected = () => {
-    if (!selectedShape) return;
-    setShapes(prev => prev.filter(s => s.id !== selectedShape.id));
-    setSelectedShape(null);
-    setIsDirty(true);
-  };
-
-  const clearAll = () => {
-    setShapes([]);
-    setSelectedShape(null);
-    setIsDirty(true);
-  };
-
-  const handleSave = () => {
-    onChange?.(shapes);
-    setIsDirty(false);
-  };
-
-  const handleZoom = (delta) => {
-    setZoom(z => Math.max(0.5, Math.min(3, z + delta)));
-  };
+  const deleteSelected = () => { if (!selectedShape) return; setShapes(prev => prev.filter(s => s.id !== selectedShape.id)); setSelectedShape(null); setIsDirty(true); };
+  const clearAll = () => { setShapes([]); setSelectedShape(null); setIsDirty(true); };
+  const handleSave = () => { onChange?.(shapes); setIsDirty(false); };
+  const handleZoom = (delta) => { setZoom(z => Math.max(0.5, Math.min(3, z + delta))); };
 
   return (
     <div ref={containerRef} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* Toolbar */}
       {!readonly && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '12px', background: '#1e1e2e', borderRadius: '10px' }}>
-          {/* Tools */}
           <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
             {Object.entries(TOOLS).map(([key, { icon, label }]) => (
               <button key={key} onClick={() => setTool(key)} title={label} style={{ width: '40px', height: '40px', background: tool === key ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</button>
             ))}
           </div>
-
-          {/* Crop Ratios */}
           {tool === 'crop' && (
             <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
               {Object.keys(ASPECT_RATIOS).map(ratio => (
@@ -344,22 +326,14 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
               ))}
             </div>
           )}
-
-          {/* Colors */}
           <div style={{ display: 'flex', gap: '4px' }}>
-            {COLORS.map(c => (
-              <div key={c} onClick={() => setColor(c)} style={{ width: '28px', height: '28px', borderRadius: '6px', background: c, border: color === c ? '3px solid #fff' : '2px solid transparent', cursor: 'pointer', boxSizing: 'border-box' }} />
-            ))}
+            {COLORS.map(c => <div key={c} onClick={() => setColor(c)} style={{ width: '28px', height: '28px', borderRadius: '6px', background: c, border: color === c ? '3px solid #fff' : '2px solid transparent', cursor: 'pointer', boxSizing: 'border-box' }} />)}
           </div>
-
-          {/* Zoom Controls */}
           <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
             <button onClick={() => handleZoom(-0.25)} style={{ width: '36px', height: '36px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer' }}>−</button>
             <span style={{ display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>{Math.round(zoom * 100)}%</span>
             <button onClick={() => handleZoom(0.25)} style={{ width: '36px', height: '36px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer' }}>+</button>
           </div>
-
-          {/* Actions */}
           <div style={{ display: 'flex', gap: '6px' }}>
             {selectedShape && <button onClick={deleteSelected} style={{ padding: '8px 14px', background: '#ef4444', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>🗑️ Delete</button>}
             {shapes.length > 0 && <button onClick={clearAll} style={{ padding: '8px 14px', background: '#1e1e2e', border: '1px solid #3a3a4a', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Clear All</button>}
@@ -367,39 +341,17 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
           </div>
         </div>
       )}
-
-      {/* Canvas Container */}
       <div style={{ position: 'relative', display: 'inline-block', borderRadius: '10px', overflow: 'hidden', border: '1px solid #2a2a3e' }}>
         <img src={imageUrl} alt="" style={{ width: imageSize.width * zoom, height: imageSize.height * zoom, display: 'block' }} />
-        <canvas
-          ref={canvasRef}
-          width={imageSize.width * zoom}
-          height={imageSize.height * zoom}
-          style={{ position: 'absolute', top: 0, left: 0, cursor: tool === 'select' ? (resizing ? 'nwse-resize' : 'default') : 'crosshair' }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        />
-
-        {/* Text Input Popup */}
+        <canvas ref={canvasRef} width={imageSize.width * zoom} height={imageSize.height * zoom} style={{ position: 'absolute', top: 0, left: 0, cursor: tool === 'select' ? (dragging ? 'grabbing' : resizing ? 'nwse-resize' : 'default') : 'crosshair' }} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} />
         {textPos && (
           <div style={{ position: 'absolute', left: textPos.x * zoom, top: textPos.y * zoom, zIndex: 10 }}>
-            <input
-              autoFocus
-              value={textInput}
-              onChange={e => setTextInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleTextSubmit(); if (e.key === 'Escape') setTextPos(null); }}
-              placeholder="Type & press Enter"
-              style={{ padding: '8px 12px', background: '#0d0d14', border: `2px solid ${color}`, borderRadius: '6px', color: '#fff', fontSize: '14px', minWidth: '150px' }}
-            />
+            <input autoFocus value={textInput} onChange={e => setTextInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleTextSubmit(); if (e.key === 'Escape') setTextPos(null); }} placeholder="Type & press Enter" style={{ padding: '8px 12px', background: '#0d0d14', border: `2px solid ${color}`, borderRadius: '6px', color: '#fff', fontSize: '14px', minWidth: '150px' }} />
           </div>
         )}
       </div>
-
-      {/* Help Text */}
       <div style={{ marginTop: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
-        {shapes.length} annotation{shapes.length !== 1 ? 's' : ''} • Select tool to move/resize • Click Save when done
+        {shapes.length} annotation{shapes.length !== 1 ? 's' : ''} • Select to move (drag center ✥) or resize (drag corners) • Click Save when done
       </div>
     </div>
   );
