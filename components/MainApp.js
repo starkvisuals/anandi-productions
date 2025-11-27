@@ -641,26 +641,28 @@ export default function MainApp() {
 
             {/* Preview Tab - FIXED LAYOUT */}
             {assetTab === 'preview' && (
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 130px)', overflow: 'hidden' }}>
-                {/* LEFT: Preview Area with PROPER CONSTRAINTS */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', overflow: 'hidden' }}>
-                  {/* Image Container - FIXED with overflow:hidden and proper sizing */}
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', position: 'relative', overflow: 'hidden', minHeight: isMobile ? '250px' : '0' }}>
-                    {selectedAsset.type === 'video' ? (
-                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                    ) : selectedAsset.type === 'audio' ? (
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
-                        <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
-                      </div>
-                    ) : selectedAsset.type === 'image' ? (
-                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
-                    ) : (
-                      <div style={{ fontSize: '60px' }}>📄</div>
-                    )}
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: 'hidden' }}>
+                {/* LEFT: Preview Area */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', overflow: 'hidden', minWidth: 0 }}>
+                  {/* Image Container - ABSOLUTE POSITIONING for guaranteed containment */}
+                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: '200px' }}>
+                    <div style={{ position: 'absolute', inset: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {selectedAsset.type === 'video' ? (
+                        <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                      ) : selectedAsset.type === 'audio' ? (
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
+                          <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
+                        </div>
+                      ) : selectedAsset.type === 'image' ? (
+                        <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                      ) : (
+                        <div style={{ fontSize: '60px' }}>📄</div>
+                      )}
+                    </div>
                     {/* Fullscreen Button */}
                     {(selectedAsset.type === 'image' || selectedAsset.type === 'video') && (
-                      <button onClick={() => setShowFullScreen(true)} style={{ position: 'absolute', bottom: '16px', right: '16px', padding: '10px 16px', background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button onClick={() => setShowFullScreen(true)} style={{ position: 'absolute', bottom: '26px', right: '26px', padding: '10px 16px', background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', zIndex: 5 }}>
                         ⛶ Fullscreen
                       </button>
                     )}
