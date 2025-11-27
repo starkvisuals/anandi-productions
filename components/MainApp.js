@@ -51,17 +51,6 @@ const getProjectNotifs = (project) => {
 };
 
 // Full Screen Image/Video Modal
-const FullScreenModal = ({ url, type, onClose }) => (
-  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.98)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }} onClick={onClose}>
-    <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '50px', height: '50px', borderRadius: '50%', fontSize: '24px', cursor: 'pointer', zIndex: 10 }}>×</button>
-    {type === 'video' ? (
-      <video src={url} controls autoPlay style={{ maxWidth: '95vw', maxHeight: '95vh' }} onClick={e => e.stopPropagation()} />
-    ) : (
-      <img src={url} alt="" style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain' }} onClick={e => e.stopPropagation()} />
-    )}
-  </div>
-);
-
 const Modal = ({ title, onClose, children, wide }) => {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
@@ -353,7 +342,6 @@ export default function MainApp() {
     const [newLinkExpiry, setNewLinkExpiry] = useState('');
     const [versionFile, setVersionFile] = useState(null);
     const [uploadingVersion, setUploadingVersion] = useState(false);
-    const [showFullScreen, setShowFullScreen] = useState(false);
     const fileInputRef = useRef(null);
     const versionInputRef = useRef(null);
 
@@ -641,33 +629,27 @@ export default function MainApp() {
 
             {/* Preview Tab */}
             {assetTab === 'preview' && (
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: 'hidden' }}>
                 {/* LEFT: Preview Area */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0 }}>
-                  {/* Image Container */}
-                  <div style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0, overflow: 'hidden' }}>
+                  {/* Image Container - Responsive within bounds */}
+                  <div style={{ flex: 1, padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     {selectedAsset.type === 'video' ? (
-                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }} />
+                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                     ) : selectedAsset.type === 'audio' ? (
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
                         <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
                       </div>
                     ) : selectedAsset.type === 'image' ? (
-                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain', borderRadius: '8px' }} />
+                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
                     ) : (
                       <div style={{ fontSize: '60px' }}>📄</div>
-                    )}
-                    {/* Fullscreen Button */}
-                    {(selectedAsset.type === 'image' || selectedAsset.type === 'video') && (
-                      <button onClick={() => setShowFullScreen(true)} style={{ position: 'absolute', bottom: '26px', right: '26px', padding: '10px 16px', background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        ⛶ Fullscreen
-                      </button>
                     )}
                   </div>
                   
                   {/* Feedback Section */}
-                  <div style={{ padding: '14px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a' }}>
+                  <div style={{ padding: '14px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a', flexShrink: 0 }}>
                     <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>💬 Feedback ({selectedAsset.feedback?.length || 0})</div>
                     <div style={{ maxHeight: '80px', overflow: 'auto', marginBottom: '8px' }}>
                       {(selectedAsset.feedback || []).length === 0 ? (
@@ -784,10 +766,6 @@ export default function MainApp() {
           </Modal>
         )}
 
-        {/* Fullscreen Modal */}
-        {showFullScreen && selectedAsset && (
-          <FullScreenModal url={selectedAsset.url} type={selectedAsset.type} onClose={() => setShowFullScreen(false)} />
-        )}
       </div>
     );
   };
@@ -806,7 +784,7 @@ export default function MainApp() {
       const rect = containerRef.current.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
-      const newAnnot = { id: generateId(), x, y, width: 12, height: 12, text: newText || 'Note', color: '#ef4444' };
+      const newAnnot = { id: generateId(), x, y, width: 12, height: 12, text: newText || 'Note', color: '#ef4444', createdAt: new Date().toISOString(), author: 'You' };
       const updated = [...annots, newAnnot];
       setAnnots(updated);
       onChange(updated);
@@ -854,15 +832,34 @@ export default function MainApp() {
           <img src={imageUrl} alt="" style={{ width: '100%', display: 'block' }} />
           {annots.map(a => (
             <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2px solid ${a.color}`, borderRadius: '4px', background: 'rgba(239,68,68,0.15)', cursor: 'move' }} onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-              <div style={{ position: 'absolute', top: '-24px', left: '0', background: a.color, padding: '2px 8px', borderRadius: '4px', fontSize: '10px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {a.text}
-                <button onClick={(e) => { e.stopPropagation(); deleteAnnot(a.id); }} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0, fontSize: '10px' }}>×</button>
+              <div style={{ position: 'absolute', top: '-32px', left: '0', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '10px', whiteSpace: 'nowrap', minWidth: '100px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontWeight: '600' }}>{a.text}</span>
+                  <button onClick={(e) => { e.stopPropagation(); deleteAnnot(a.id); }} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0, fontSize: '12px', marginLeft: 'auto' }}>×</button>
+                </div>
+                <div style={{ fontSize: '9px', opacity: 0.8, marginTop: '2px' }}>{a.author || 'Unknown'} • {a.createdAt ? formatDate(a.createdAt) : 'No date'}</div>
               </div>
               <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '10px', height: '10px', background: a.color, borderRadius: '2px', cursor: 'se-resize' }} />
             </div>
           ))}
         </div>
-        {annots.length > 0 && <div style={{ marginTop: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{annots.length} annotation{annots.length !== 1 ? 's' : ''} • Drag to move, corner to resize</div>}
+        {annots.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '10px' }}>{annots.length} annotation{annots.length !== 1 ? 's' : ''} • Drag to move, corner to resize</div>
+            <div style={{ background: '#0d0d14', borderRadius: '8px', padding: '12px', maxHeight: '150px', overflowY: 'auto' }}>
+              {annots.map((a, idx) => (
+                <div key={a.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px 0', borderBottom: idx < annots.length - 1 ? '1px solid #1e1e2e' : 'none' }}>
+                  <div style={{ width: '20px', height: '20px', background: a.color, borderRadius: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '600' }}>{idx + 1}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12px', fontWeight: '500' }}>{a.text}</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>{a.author || 'Unknown'} • {a.createdAt ? formatDate(a.createdAt) : 'No date'}</div>
+                  </div>
+                  <button onClick={() => deleteAnnot(a.id)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '14px', padding: '0 4px' }}>×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
