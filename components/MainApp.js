@@ -639,35 +639,35 @@ export default function MainApp() {
               </div>
             </div>
 
-            {/* Preview Tab - FIXED WITH EXPLICIT HEIGHTS */}
+            {/* Preview Tab */}
             {assetTab === 'preview' && (
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 110px)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'auto' }}>
                 {/* LEFT: Preview Area */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', overflow: 'hidden', minWidth: 0, height: isMobile ? 'auto' : '100%' }}>
-                  {/* Image Container - EXPLICIT HEIGHT */}
-                  <div style={{ height: isMobile ? '300px' : 'calc(100% - 160px)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0 }}>
+                  {/* Image Container */}
+                  <div style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                     {selectedAsset.type === 'video' ? (
-                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                      <video src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: isMobile ? '300px' : 'calc(85vh - 350px)', objectFit: 'contain' }} />
                     ) : selectedAsset.type === 'audio' ? (
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
                         <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
                       </div>
                     ) : selectedAsset.type === 'image' ? (
-                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: isMobile ? '300px' : 'calc(85vh - 350px)', objectFit: 'contain', borderRadius: '8px' }} />
                     ) : (
                       <div style={{ fontSize: '60px' }}>📄</div>
                     )}
                     {/* Fullscreen Button */}
                     {(selectedAsset.type === 'image' || selectedAsset.type === 'video') && (
-                      <button onClick={() => setShowFullScreen(true)} style={{ position: 'absolute', bottom: '26px', right: '26px', padding: '10px 16px', background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', zIndex: 5 }}>
+                      <button onClick={() => setShowFullScreen(true)} style={{ position: 'absolute', bottom: '26px', right: '26px', padding: '10px 16px', background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         ⛶ Fullscreen
                       </button>
                     )}
                   </div>
                   
-                  {/* Feedback Section - Fixed height at bottom */}
-                  <div style={{ height: '160px', padding: '14px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a', flexShrink: 0 }}>
+                  {/* Feedback Section */}
+                  <div style={{ padding: '14px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a' }}>
                     <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>💬 Feedback ({selectedAsset.feedback?.length || 0})</div>
                     <div style={{ maxHeight: '80px', overflow: 'auto', marginBottom: '8px' }}>
                       {(selectedAsset.feedback || []).length === 0 ? (
