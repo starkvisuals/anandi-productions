@@ -897,7 +897,7 @@ export default function MainApp() {
     <div style={{ minHeight: '100vh', background: '#0d0d14', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <Sidebar />
-      <div style={{ marginLeft: isMobile ? '0' : '200px', paddingTop: isMobile ? '46px' : '0' }}>
+      <div style={{ marginLeft: isMobile ? '0' : '200px', padding: isMobile ? '60px 16px 16px' : '24px' }}>
         {view === 'dashboard' && <Dashboard />}
         {view === 'projects' && !selectedProjectId && <ProjectsList />}
         {view === 'projects' && selectedProjectId && <ProjectDetail />}
