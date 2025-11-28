@@ -26,6 +26,89 @@ const getFileType = f => { if (f.type?.startsWith('video/')) return 'video'; if 
 const isNewVersion = (uploadedAt) => { if (!uploadedAt) return false; const hours = (Date.now() - new Date(uploadedAt).getTime()) / (1000 * 60 * 60); return hours < 24; };
 const isRecent = (timestamp, hours = 24) => { if (!timestamp) return false; return (Date.now() - new Date(timestamp).getTime()) / (1000 * 60 * 60) < hours; };
 
+// Generate thumbnail from image file (400px max)
+const generateThumbnail = (file, maxSize = 400) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > maxSize) { h = h * maxSize / w; w = maxSize; } }
+        else { if (h > maxSize) { w = w * maxSize / h; h = maxSize; } }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(resolve, 'image/jpeg', 0.7);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+// Generate video thumbnail from first frame
+const generateVideoThumbnail = (file) => {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadeddata = () => {
+      video.currentTime = 1; // Skip to 1 second
+    };
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas');
+      const maxSize = 400;
+      let w = video.videoWidth, h = video.videoHeight;
+      if (w > h) { if (w > maxSize) { h = h * maxSize / w; w = maxSize; } }
+      else { if (h > maxSize) { w = w * maxSize / h; h = maxSize; } }
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, w, h);
+      canvas.toBlob(resolve, 'image/jpeg', 0.7);
+      URL.revokeObjectURL(video.src);
+    };
+    video.src = URL.createObjectURL(file);
+  });
+};
+
+// LazyImage with Intersection Observer - loads only when visible
+const LazyImage = ({ src, thumbnail, alt = '', style = {}, onClick }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [inView, setInView] = useState(false);
+  const imgRef = useRef(null);
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect(); } },
+      { rootMargin: '100px' }
+    );
+    if (imgRef.current) observer.observe(imgRef.current);
+    return () => observer.disconnect();
+  }, []);
+  
+  const thumbSrc = thumbnail || src;
+  
+  return (
+    <div ref={imgRef} style={{ ...style, position: 'relative', overflow: 'hidden' }} onClick={onClick}>
+      {/* Blur placeholder */}
+      {!loaded && (
+        <div style={{ position: 'absolute', inset: 0, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: '24px', opacity: 0.3 }}>🖼️</span>
+        </div>
+      )}
+      {inView && (
+        <img 
+          src={thumbSrc}
+          alt={alt}
+          onLoad={() => setLoaded(true)}
+          style={{ width: '100%', height: '100%', objectFit: style.objectFit || 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s' }}
+        />
+      )}
+    </div>
+  );
+};
+
 const Badge = ({ status }) => { const s = STATUS[status]; return s ? <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: s.bg, color: s.color }}>{s.label}</span> : null; };
 const RoleBadge = ({ role }) => { const r = TEAM_ROLES[role] || CORE_ROLES[role] || { label: role, color: '#6366f1' }; return <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: `${r.color}20`, color: r.color }}>{r.icon || '👤'} {r.label}</span>; };
 const Avatar = ({ user, size = 32 }) => { const c = (TEAM_ROLES[user?.role] || CORE_ROLES[user?.role])?.color || '#6366f1'; return <div style={{ width: size, height: size, borderRadius: '50%', background: `linear-gradient(135deg, ${c}40, ${c}20)`, border: `2px solid ${c}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, flexShrink: 0 }}>{user?.avatar || user?.firstName?.[0] || '?'}</div>; };
@@ -75,14 +158,25 @@ const StarRating = ({ rating = 0, onChange, size = 18, readonly = false }) => {
   return <div style={{ display: 'flex', gap: '3px' }}>{[1,2,3,4,5].map(star => <span key={star} onClick={() => !readonly && onChange?.(star === rating ? 0 : star)} onMouseEnter={() => !readonly && setHover(star)} onMouseLeave={() => !readonly && setHover(0)} style={{ cursor: readonly ? 'default' : 'pointer', fontSize: size, color: star <= (hover || rating) ? '#fbbf24' : '#3a3a4a', transition: 'color 0.1s' }}>★</span>)}</div>;
 };
 
-const VideoThumbnail = ({ src, duration, style }) => {
+const VideoThumbnail = ({ src, thumbnail, duration, style }) => {
+  const containerRef = useRef(null);
   const videoRef = useRef(null);
   const [scrubPos, setScrubPos] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [inView, setInView] = useState(false);
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect(); } },
+      { rootMargin: '100px' }
+    );
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
   
   const handleMove = (clientX, rect) => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !isLoaded) return;
     const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     setScrubPos(pos);
     videoRef.current.currentTime = pos * (videoRef.current.duration || 0);
@@ -97,6 +191,7 @@ const VideoThumbnail = ({ src, duration, style }) => {
   
   return (
     <div 
+      ref={containerRef}
       style={{ position: 'relative', width: '100%', height: '100%', background: '#1a1a2e', ...style }} 
       onMouseEnter={() => setIsHovering(true)} 
       onMouseLeave={() => setIsHovering(false)} 
@@ -105,18 +200,25 @@ const VideoThumbnail = ({ src, duration, style }) => {
       onTouchEnd={() => setIsHovering(false)}
       onTouchMove={handleTouchMove}
     >
-      {!isLoaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '24px' }}>🎬</span></div>}
-      <video 
-        ref={videoRef} 
-        src={src} 
-        muted 
-        preload="metadata" 
-        playsInline
-        onLoadedData={() => setIsLoaded(true)}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isLoaded ? 1 : 0 }} 
-      />
-      {isHovering && <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${scrubPos * 100}%`, width: '2px', background: '#ef4444', pointerEvents: 'none' }} />}
+      {/* Show thumbnail first if available */}
+      {thumbnail && !isLoaded && (
+        <img src={thumbnail} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      )}
+      {!thumbnail && !isLoaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '24px' }}>🎬</span></div>}
+      {inView && (
+        <video 
+          ref={videoRef} 
+          src={src} 
+          muted 
+          preload="metadata" 
+          playsInline
+          onLoadedData={() => setIsLoaded(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isLoaded ? 1 : 0, transition: 'opacity 0.2s' }} 
+        />
+      )}
+      {isHovering && isLoaded && <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${scrubPos * 100}%`, width: '2px', background: '#ef4444', pointerEvents: 'none' }} />}
       {duration && <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>{formatDuration(duration)}</div>}
+      {!isLoaded && <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '9px' }}>🎬</div>}
     </div>
   );
 };
@@ -424,7 +526,23 @@ export default function MainApp() {
             async () => {
               const url = await getDownloadURL(task.snapshot.ref);
               const type = getFileType(file);
-              const newAsset = { id: generateId(), name: file.name, type, category: cat, url, path, thumbnail: type === 'image' ? url : null, fileSize: file.size, mimeType: file.type, status: 'pending', rating: 0, isSelected: false, assignedTo: null, uploadedBy: userProfile.id, uploadedByName: userProfile.name, uploadedAt: new Date().toISOString(), versions: [{ version: 1, url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }], currentVersion: 1, feedback: [], annotations: [], gdriveLink: '' };
+              
+              // Generate and upload thumbnail for images and videos
+              let thumbnailUrl = null;
+              try {
+                let thumbBlob = null;
+                if (type === 'image') thumbBlob = await generateThumbnail(file);
+                else if (type === 'video') thumbBlob = await generateVideoThumbnail(file);
+                
+                if (thumbBlob) {
+                  const thumbPath = `projects/${selectedProject.id}/${cat}/thumbs/${Date.now()}-thumb.jpg`;
+                  const thumbRef = ref(storage, thumbPath);
+                  await uploadBytesResumable(thumbRef, thumbBlob);
+                  thumbnailUrl = await getDownloadURL(thumbRef);
+                }
+              } catch (e) { console.log('Thumb generation failed:', e); }
+              
+              const newAsset = { id: generateId(), name: file.name, type, category: cat, url, path, thumbnail: thumbnailUrl || (type === 'image' ? url : null), fileSize: file.size, mimeType: file.type, status: 'pending', rating: 0, isSelected: false, assignedTo: null, uploadedBy: userProfile.id, uploadedByName: userProfile.name, uploadedAt: new Date().toISOString(), versions: [{ version: 1, url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }], currentVersion: 1, feedback: [], annotations: [], gdriveLink: '' };
               const updatedAssets = [...(selectedProject.assets || []), newAsset];
               const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name}`, timestamp: new Date().toISOString() };
               await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(selectedProject.activityLog || []), activity] });
@@ -570,7 +688,7 @@ export default function MainApp() {
                           {(a.annotations?.length > 0) && <div style={{ position: 'absolute', bottom: appearance.showInfo ? '80px' : '10px', right: '10px', background: '#ec4899', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>✏️ {a.annotations.length}</div>}
                           
                           <div onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: '#0d0d14', position: 'relative' }}>
-                            {a.type === 'video' ? <VideoThumbnail src={a.url} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : a.thumbnail ? <img src={a.thumbnail} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
+                            {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px' }}>{a.feedback.length}💬</div>}
                           </div>
                           {appearance.showInfo && (
