@@ -79,8 +79,46 @@ const VideoThumbnail = ({ src, duration, style }) => {
   const videoRef = useRef(null);
   const [scrubPos, setScrubPos] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
-  const handleMouseMove = (e) => { if (!videoRef.current) return; const rect = e.currentTarget.getBoundingClientRect(); const pos = (e.clientX - rect.left) / rect.width; setScrubPos(pos); videoRef.current.currentTime = pos * (videoRef.current.duration || 0); };
-  return <div style={{ position: 'relative', width: '100%', height: '100%', ...style }} onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)} onMouseMove={handleMouseMove}><video ref={videoRef} src={src} muted preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{isHovering && <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${scrubPos * 100}%`, width: '2px', background: '#ef4444', pointerEvents: 'none' }} />}{duration && <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>{formatDuration(duration)}</div>}</div>;
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  const handleMove = (clientX, rect) => {
+    if (!videoRef.current) return;
+    const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    setScrubPos(pos);
+    videoRef.current.currentTime = pos * (videoRef.current.duration || 0);
+  };
+  
+  const handleMouseMove = (e) => handleMove(e.clientX, e.currentTarget.getBoundingClientRect());
+  const handleTouchMove = (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    handleMove(touch.clientX, e.currentTarget.getBoundingClientRect());
+  };
+  
+  return (
+    <div 
+      style={{ position: 'relative', width: '100%', height: '100%', background: '#1a1a2e', ...style }} 
+      onMouseEnter={() => setIsHovering(true)} 
+      onMouseLeave={() => setIsHovering(false)} 
+      onMouseMove={handleMouseMove}
+      onTouchStart={() => setIsHovering(true)}
+      onTouchEnd={() => setIsHovering(false)}
+      onTouchMove={handleTouchMove}
+    >
+      {!isLoaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '24px' }}>🎬</span></div>}
+      <video 
+        ref={videoRef} 
+        src={src} 
+        muted 
+        preload="metadata" 
+        playsInline
+        onLoadedData={() => setIsLoaded(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isLoaded ? 1 : 0 }} 
+      />
+      {isHovering && <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${scrubPos * 100}%`, width: '2px', background: '#ef4444', pointerEvents: 'none' }} />}
+      {duration && <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>{formatDuration(duration)}</div>}
+    </div>
+  );
 };
 
 const AppearancePanel = ({ settings, onChange, onClose }) => (
@@ -104,9 +142,22 @@ export default function MainApp() {
   const [loading, setLoading] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [toast, setToast] = useState(null);
-  const [appearance, setAppearance] = useState({ layout: 'grid', cardSize: 'M', aspectRatio: 'landscape', thumbScale: 'fill', showInfo: true });
+  const [appearance, setAppearance] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('anandi-appearance');
+      if (saved) return JSON.parse(saved);
+    }
+    return { layout: 'grid', cardSize: 'M', aspectRatio: 'square', thumbScale: 'fill', showInfo: true };
+  });
   const [isMobile, setIsMobile] = useState(false);
   const isProducer = ['producer', 'admin', 'team-lead'].includes(userProfile?.role);
+
+  // Save appearance to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('anandi-appearance', JSON.stringify(appearance));
+    }
+  }, [appearance]);
 
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   useEffect(() => { loadData(); }, []);
@@ -507,7 +558,7 @@ export default function MainApp() {
                     {isProducer && <Btn onClick={() => setShowUpload(true)}>⬆️ Upload</Btn>}
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? (appearance.cardSize === 'L' ? '1fr' : appearance.cardSize === 'S' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)') : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
                     {assets.map(a => {
                       const latestVersionDate = getLatestVersionDate(a);
                       const hasNewVersion = latestVersionDate && isNewVersion(latestVersionDate);
@@ -518,8 +569,8 @@ export default function MainApp() {
                           {hasNewVersion && <div style={{ position: 'absolute', top: a.isSelected ? '38px' : '10px', right: '10px', background: '#f97316', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>🆕 v{a.currentVersion}</div>}
                           {(a.annotations?.length > 0) && <div style={{ position: 'absolute', bottom: appearance.showInfo ? '80px' : '10px', right: '10px', background: '#ec4899', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>✏️ {a.annotations.length}</div>}
                           
-                          <div onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? '120px' : `${cardWidth / aspectRatio}px`, background: '#0d0d14', position: 'relative' }}>
-                            {a.type === 'video' ? <VideoThumbnail src={a.url} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : a.thumbnail ? <img src={a.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
+                          <div onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: '#0d0d14', position: 'relative' }}>
+                            {a.type === 'video' ? <VideoThumbnail src={a.url} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : a.thumbnail ? <img src={a.thumbnail} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px' }}>{a.feedback.length}💬</div>}
                           </div>
                           {appearance.showInfo && (
@@ -650,20 +701,20 @@ export default function MainApp() {
 
             {/* Preview Tab */}
             {assetTab === 'preview' && (
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: isMobile ? 'auto' : 'hidden' }}>
                 {/* LEFT: Preview Area */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0, overflow: 'hidden' }}>
+                <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0, overflow: 'hidden' }}>
                   {/* Image Container - Responsive within bounds */}
-                  <div style={{ flex: 1, padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <div style={{ flex: isMobile ? 'none' : 1, minHeight: isMobile ? '300px' : 'auto', padding: isMobile ? '12px' : '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     {selectedAsset.type === 'video' ? (
-                      <video ref={videoRef} src={selectedAsset.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                      <video ref={videoRef} src={selectedAsset.url} controls playsInline style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '100%', objectFit: 'contain' }} />
                     ) : selectedAsset.type === 'audio' ? (
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
                         <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
                       </div>
                     ) : selectedAsset.type === 'image' ? (
-                      <img src={selectedAsset.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                      <img src={selectedAsset.url} alt="" loading="lazy" style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '100%', objectFit: 'contain', borderRadius: '8px' }} />
                     ) : (
                       <div style={{ fontSize: '60px' }}>📄</div>
                     )}
@@ -1029,7 +1080,7 @@ export default function MainApp() {
           onMouseLeave={() => { if (isDrawing) handleMouseUp({ clientX: 0, clientY: 0 }); }}
           onClick={() => setSelectedAnnot(null)}
           style={{ position: 'relative', background: '#0d0d14', borderRadius: '8px', overflow: 'hidden', cursor: tool === 'freehand' ? 'crosshair' : 'crosshair', userSelect: 'none' }}>
-          <img src={imageUrl} alt="" style={{ width: '100%', display: 'block', pointerEvents: 'none' }} />
+          <img src={imageUrl} alt="" loading="lazy" style={{ width: '100%', display: 'block', pointerEvents: 'none' }} />
           
           {/* Render existing annotations */}
           {annots.map(renderAnnotation)}
@@ -1074,11 +1125,11 @@ export default function MainApp() {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
           <div style={{ background: '#0d0d14', borderRadius: '10px', overflow: 'hidden' }}>
             <div style={{ padding: '10px', borderBottom: '1px solid #1e1e2e', fontSize: '12px', fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}><span>v{left.version}</span><span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>{formatDate(left.uploadedAt)}</span></div>
-            <div style={{ padding: '12px' }}><img src={left.url} alt="" style={{ width: '100%', borderRadius: '6px' }} /></div>
+            <div style={{ padding: '12px' }}><img src={left.url} alt="" loading="lazy" style={{ width: '100%', borderRadius: '6px' }} /></div>
           </div>
           <div style={{ background: '#0d0d14', borderRadius: '10px', overflow: 'hidden' }}>
             <div style={{ padding: '10px', borderBottom: '1px solid #1e1e2e', fontSize: '12px', fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}><span>v{right.version} {right.version === currentVersion && <span style={{ color: '#22c55e' }}>✓</span>}</span><span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>{formatDate(right.uploadedAt)}</span></div>
-            <div style={{ padding: '12px' }}><img src={right.url} alt="" style={{ width: '100%', borderRadius: '6px' }} /></div>
+            <div style={{ padding: '12px' }}><img src={right.url} alt="" loading="lazy" style={{ width: '100%', borderRadius: '6px' }} /></div>
           </div>
         </div>
       </div>
