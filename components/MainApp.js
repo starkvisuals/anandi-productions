@@ -504,7 +504,13 @@ export default function MainApp() {
     const editors = [...coreTeam, ...freelancers].filter(u => Object.keys(TEAM_ROLES).includes(u.role));
     const availableTeam = [...coreTeam, ...freelancers].filter(u => !team.find(m => m.id === u.id));
 
-    const getAssets = () => { let a = (selectedProject.assets || []).filter(x => !x.deleted); if (selectedCat) a = a.filter(x => x.category === selectedCat); return a; };
+    const getAssets = () => { 
+      let a = (selectedProject.assets || []).filter(x => !x.deleted); 
+      if (selectedCat) a = a.filter(x => x.category === selectedCat); 
+      // Sort by type: images first, then videos, then audio, then other
+      const typeOrder = { image: 0, video: 1, audio: 2, other: 3 };
+      return a.sort((x, y) => (typeOrder[x.type] || 3) - (typeOrder[y.type] || 3));
+    };
     const assets = getAssets();
     const getCatCount = id => (selectedProject.assets || []).filter(a => !a.deleted && a.category === id).length;
     const cardWidth = CARD_SIZES[appearance.cardSize];
@@ -807,7 +813,7 @@ export default function MainApp() {
             {/* Asset Tabs */}
             <div style={{ display: 'flex', gap: '6px', padding: '12px 20px', borderBottom: '1px solid #1e1e2e', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: '6px' }}>
-                {[{ id: 'preview', icon: '👁️', label: 'Preview' }, { id: 'annotate', icon: '✏️', label: 'Annotate' }, { id: 'compare', icon: '📊', label: 'Compare' }].map(t => (
+                {[{ id: 'preview', icon: '👁️', label: 'Preview' }, { id: 'compare', icon: '📊', label: 'Compare' }].map(t => (
                   <button key={t.id} onClick={() => setAssetTab(t.id)} style={{ padding: '8px 14px', background: assetTab === t.id ? '#6366f1' : 'transparent', border: assetTab === t.id ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>{t.icon} {!isMobile && t.label}</button>
                 ))}
               </div>
@@ -821,20 +827,22 @@ export default function MainApp() {
             {assetTab === 'preview' && (
               <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: isMobile ? 'auto' : 'hidden' }}>
                 {/* LEFT: Preview Area */}
-                <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0, overflow: 'hidden' }}>
-                  {/* Image Container - Responsive within bounds */}
-                  <div style={{ flex: isMobile ? 'none' : 1, minHeight: isMobile ? '300px' : 'auto', padding: isMobile ? '12px' : '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0, overflow: 'auto' }}>
+                  {/* Content Area */}
+                  <div style={{ flex: isMobile ? 'none' : 1, minHeight: isMobile ? '300px' : 'auto', padding: isMobile ? '12px' : '20px', overflow: 'auto' }}>
                     {selectedAsset.type === 'video' ? (
-                      <video ref={videoRef} src={selectedAsset.url} controls playsInline style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '100%', objectFit: 'contain' }} />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+                        <video ref={videoRef} src={selectedAsset.url} controls playsInline style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '60vh', objectFit: 'contain' }} />
+                      </div>
                     ) : selectedAsset.type === 'audio' ? (
-                      <div style={{ textAlign: 'center' }}>
+                      <div style={{ textAlign: 'center', padding: '40px' }}>
                         <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
                         <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
                       </div>
                     ) : selectedAsset.type === 'image' ? (
-                      <img src={selectedAsset.url} alt="" loading="lazy" style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                      <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
                     ) : (
-                      <div style={{ fontSize: '60px' }}>📄</div>
+                      <div style={{ textAlign: 'center', padding: '40px', fontSize: '60px' }}>📄</div>
                     )}
                   </div>
                   
@@ -959,28 +967,6 @@ export default function MainApp() {
                   {/* Download */}
                   <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '12px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: '600', textAlign: 'center', textDecoration: 'none' }}>⬇️ Download</a>
                 </div>
-              </div>
-            )}
-
-            {/* Annotate Tab */}
-            {assetTab === 'annotate' && selectedAsset.type === 'image' && (
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: isMobile ? 'auto' : 'hidden' }}>
-                <div style={{ flex: 1, padding: isMobile ? '12px' : '20px', overflow: 'auto', background: '#0a0a10' }}>
-                  <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
-                </div>
-                {/* Same sidebar as preview */}
-                <div style={{ width: isMobile ? '100%' : '240px', background: '#12121a', borderLeft: isMobile ? 'none' : '1px solid #1e1e2e', padding: '16px', overflow: 'auto', flexShrink: 0 }}>
-                  <div style={{ marginBottom: '16px' }}><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Rating</div><StarRating rating={selectedAsset.rating} onChange={r => handleRate(selectedAsset.id, r)} size={24} /></div>
-                  <Btn onClick={() => handleToggleSelected(selectedAsset.id)} color={selectedAsset.isSelected ? '#22c55e' : undefined} style={{ width: '100%', marginBottom: '16px' }}>{selectedAsset.isSelected ? '⭐ Selected' : '☆ Select'}</Btn>
-                  <div style={{ marginBottom: '16px' }}><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Status</div><Select value={selectedAsset.status || 'Pending'} onChange={v => handleStatusChange(selectedAsset.id, v)} options={STATUS_OPTIONS} /></div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '16px' }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span>Size</span><span>{formatSize(selectedAsset.size)}</span></div><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span>Type</span><span>{selectedAsset.type}</span></div></div>
-                </div>
-              </div>
-            )}
-            {assetTab === 'annotate' && selectedAsset.type !== 'image' && (
-              <div style={{ padding: '60px 20px', textAlign: 'center', background: '#0d0d14', margin: '20px', borderRadius: '12px' }}>
-                <div style={{ fontSize: '50px', marginBottom: '14px' }}>🎬</div>
-                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>Annotations available for images only</div>
               </div>
             )}
 
