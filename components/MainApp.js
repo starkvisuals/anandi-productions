@@ -178,11 +178,33 @@ const ActivityTimeline = ({ activities = [], maxItems = 10 }) => {
   );
 };
 
-// Email notification helper (simulated - in production would call API)
-const sendEmailNotification = async (to, subject, body) => {
-  console.log('📧 Email notification:', { to, subject, body });
-  // In production: await fetch('/api/send-email', { method: 'POST', body: JSON.stringify({ to, subject, body }) });
-  return true;
+// Predefined tags for assets
+const PREDEFINED_TAGS = [
+  { id: 'hero', label: 'Hero', color: '#ef4444' },
+  { id: 'bts', label: 'BTS', color: '#f97316' },
+  { id: 'detail', label: 'Detail', color: '#fbbf24' },
+  { id: 'portrait', label: 'Portrait', color: '#22c55e' },
+  { id: 'landscape', label: 'Landscape', color: '#3b82f6' },
+  { id: 'product', label: 'Product', color: '#8b5cf6' },
+  { id: 'lifestyle', label: 'Lifestyle', color: '#ec4899' },
+  { id: 'final', label: 'Final', color: '#10b981' },
+];
+
+// Email notification via Resend API
+const sendEmailNotification = async (to, subject, body, type = 'default') => {
+  try {
+    const response = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, body, type })
+    });
+    const data = await response.json();
+    if (data.success) console.log('📧 Email sent:', subject);
+    return data.success;
+  } catch (error) {
+    console.error('Email error:', error);
+    return false;
+  }
 };
 
 const Toast = ({ message, type, onClose }) => { useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]); return <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', padding: '14px 24px', background: type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '500', zIndex: 2000, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>{message}</div>; };
@@ -371,20 +393,35 @@ export default function MainApp() {
     const [showCreate, setShowCreate] = useState(false);
     const [newProj, setNewProj] = useState({ name: '', client: '', type: 'photoshoot', deadline: '', selectedCats: ['statics'] });
     const [creating, setCreating] = useState(false);
-    const filtered = projects.filter(p => !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client?.toLowerCase().includes(search.toLowerCase()));
+    const [projectTab, setProjectTab] = useState('active'); // 'active' or 'completed'
+    
+    // Filter by search and tab
+    const activeProjects = projects.filter(p => p.status === 'active' && (!search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client?.toLowerCase().includes(search.toLowerCase())));
+    const completedProjects = projects.filter(p => p.status === 'completed' && (!search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client?.toLowerCase().includes(search.toLowerCase())));
+    const displayProjects = projectTab === 'active' ? activeProjects : completedProjects;
 
     const handleCreate = async () => {
       if (!newProj.name || !newProj.client) { showToast('Fill name & client', 'error'); return; }
       setCreating(true);
       try {
         const cats = DEFAULT_CATEGORIES.filter(c => newProj.selectedCats.includes(c.id));
-        const proj = await createProject({ name: newProj.name, client: newProj.client, type: newProj.type, deadline: newProj.deadline, status: 'active', categories: cats, assets: [], assignedTeam: [{ odId: userProfile.id, odRole: userProfile.role, isOwner: true }], clientContacts: [], shareLinks: [], activityLog: [{ id: generateId(), type: 'created', message: `Project created by ${userProfile.name}`, userId: userProfile.id, timestamp: new Date().toISOString() }], createdBy: userProfile.id, createdByName: userProfile.name, selectionConfirmed: false });
+        const proj = await createProject({ name: newProj.name, client: newProj.client, type: newProj.type, deadline: newProj.deadline, status: 'active', categories: cats, assets: [], assignedTeam: [{ odId: userProfile.id, odRole: userProfile.role, isOwner: true }], clientContacts: [], shareLinks: [], activityLog: [{ id: generateId(), type: 'created', message: `Project created by ${userProfile.name}`, userId: userProfile.id, timestamp: new Date().toISOString() }], createdBy: userProfile.id, createdByName: userProfile.name, selectionConfirmed: false, workflowPhase: 'selection' });
         setProjects([proj, ...projects]);
         setNewProj({ name: '', client: '', type: 'photoshoot', deadline: '', selectedCats: ['statics'] });
         setShowCreate(false);
         showToast('Project created!', 'success');
       } catch (e) { showToast('Failed', 'error'); }
       setCreating(false);
+    };
+    
+    const handleToggleProjectStatus = async (projId, e) => {
+      e.stopPropagation();
+      const proj = projects.find(p => p.id === projId);
+      const newStatus = proj.status === 'active' ? 'completed' : 'active';
+      const activity = { id: generateId(), type: 'status', message: `Project marked as ${newStatus} by ${userProfile.name}`, timestamp: new Date().toISOString() };
+      await updateProject(projId, { status: newStatus, activityLog: [...(proj.activityLog || []), activity] });
+      await refreshProject();
+      showToast(`Project ${newStatus}!`, 'success');
     };
 
     return (
@@ -396,15 +433,27 @@ export default function MainApp() {
             {isProducer && <Btn onClick={() => setShowCreate(true)}>+ New</Btn>}
           </div>
         </div>
-        {projects.length === 0 ? (
+        
+        {/* Active / Completed Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <button onClick={() => setProjectTab('active')} style={{ padding: '10px 20px', background: projectTab === 'active' ? '#6366f1' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            📂 Active <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px' }}>{activeProjects.length}</span>
+          </button>
+          <button onClick={() => setProjectTab('completed')} style={{ padding: '10px 20px', background: projectTab === 'completed' ? '#22c55e' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            ✅ Completed <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px' }}>{completedProjects.length}</span>
+          </button>
+        </div>
+        
+        {displayProjects.length === 0 ? (
           <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '60px 20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '50px', marginBottom: '16px' }}>📁</div><h3 style={{ marginBottom: '8px', fontSize: '16px' }}>No Projects Yet</h3>
-            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginBottom: '20px' }}>Create your first project</p>
-            {isProducer && <Btn onClick={() => setShowCreate(true)}>+ Create Project</Btn>}
+            <div style={{ fontSize: '50px', marginBottom: '16px' }}>{projectTab === 'active' ? '📁' : '✅'}</div>
+            <h3 style={{ marginBottom: '8px', fontSize: '16px' }}>{projectTab === 'active' ? 'No Active Projects' : 'No Completed Projects'}</h3>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginBottom: '20px' }}>{projectTab === 'active' ? 'Create your first project' : 'Complete a project to see it here'}</p>
+            {isProducer && projectTab === 'active' && <Btn onClick={() => setShowCreate(true)}>+ Create Project</Btn>}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
-            {filtered.map(p => {
+            {displayProjects.map(p => {
               const cnt = p.assets?.length || 0;
               const approved = p.assets?.filter(a => ['approved', 'delivered'].includes(a.status)).length || 0;
               const notifs = getProjectNotifs(p);
@@ -417,10 +466,15 @@ export default function MainApp() {
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <div><div style={{ fontWeight: '600', fontSize: '15px' }}>{p.name}</div><div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>{p.client}</div></div>
-                    <Badge status={p.status} />
+                    {isProducer && (
+                      <button onClick={(e) => handleToggleProjectStatus(p.id, e)} title={p.status === 'active' ? 'Mark Complete' : 'Reopen'} style={{ padding: '6px 10px', background: p.status === 'active' ? '#1e1e2e' : '#22c55e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>
+                        {p.status === 'active' ? '✓ Complete' : '↩ Reopen'}
+                      </button>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
                     <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', background: 'rgba(99,102,241,0.15)', color: '#6366f1' }}>{cnt} assets</span>
+                    <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', background: p.type === 'photoshoot' ? 'rgba(236,72,153,0.15)' : 'rgba(249,115,22,0.15)', color: p.type === 'photoshoot' ? '#ec4899' : '#f97316' }}>{p.type === 'photoshoot' ? '📸' : '🎬'} {p.type}</span>
                     {notifs.pendingReview > 0 && <NotifBadge count={notifs.pendingReview} icon="👁️" color="#a855f7" title="Pending review" />}
                     {notifs.newFeedback > 0 && <NotifBadge count={notifs.newFeedback} icon="💬" color="#ef4444" title="New feedback" />}
                     {notifs.changesRequested > 0 && <NotifBadge count={notifs.changesRequested} icon="⚠️" color="#f97316" title="Changes requested" />}
@@ -525,6 +579,8 @@ export default function MainApp() {
     const [uploadFiles, setUploadFiles] = useState([]);
     const [uploadProgress, setUploadProgress] = useState({});
     const [newFeedback, setNewFeedback] = useState('');
+    const [showMentions, setShowMentions] = useState(false);
+    const [mentionSearch, setMentionSearch] = useState('');
     const [newLinkName, setNewLinkName] = useState('');
     const [newLinkType, setNewLinkType] = useState('client');
     const [newLinkExpiry, setNewLinkExpiry] = useState('');
@@ -533,6 +589,7 @@ export default function MainApp() {
     const fileInputRef = useRef(null);
     const versionInputRef = useRef(null);
     const videoRef = useRef(null);
+    const feedbackInputRef = useRef(null);
     const [videoTime, setVideoTime] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
 
@@ -670,19 +727,39 @@ export default function MainApp() {
     const handleAddFeedback = async () => { 
       if (!newFeedback.trim() || !selectedAsset) return; 
       const videoTime = selectedAsset.type === 'video' && videoRef.current ? videoRef.current.currentTime : null;
-      const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false }; 
+      
+      // Extract mentions from feedback text
+      const mentionRegex = /@([A-Za-z\s]+?)(?=\s|$|@)/g;
+      const mentions = [];
+      let match;
+      while ((match = mentionRegex.exec(newFeedback)) !== null) {
+        const mentionedName = match[1].trim();
+        const mentionedUser = team.find(m => m.name?.toLowerCase() === mentionedName.toLowerCase());
+        if (mentionedUser) mentions.push(mentionedUser);
+      }
+      
+      const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false, mentions: mentions.map(m => m.id) }; 
       const updatedFeedback = [...(selectedAsset.feedback || []), fb];
       // Update local state first to keep modal open
       setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback, status: 'changes-requested' }); 
       setNewFeedback(''); 
+      setShowMentions(false);
       // Then update database in background with activity log
       const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback, status: 'changes-requested' } : a); 
-      const activity = { id: generateId(), type: 'feedback', message: `${userProfile.name} added feedback on ${selectedAsset.name}`, timestamp: new Date().toISOString() };
+      const activity = { id: generateId(), type: 'feedback', message: `${userProfile.name} added feedback on ${selectedAsset.name}${mentions.length > 0 ? ` (mentioned ${mentions.map(m => m.name).join(', ')})` : ''}`, timestamp: new Date().toISOString() };
       await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); 
+      
       // Email notification to assigned person
       if (selectedAsset.assignedTo) {
         const assignee = editors.find(e => e.id === selectedAsset.assignedTo);
-        if (assignee?.email) sendEmailNotification(assignee.email, `New feedback: ${selectedAsset.name}`, `${userProfile.name} commented: "${newFeedback}"`);
+        if (assignee?.email) sendEmailNotification(assignee.email, `New feedback: ${selectedAsset.name}`, `${userProfile.name} commented: "${newFeedback}"`, 'feedback');
+      }
+      
+      // Email notifications to mentioned users
+      for (const mentioned of mentions) {
+        if (mentioned.email && mentioned.id !== selectedAsset.assignedTo) {
+          sendEmailNotification(mentioned.email, `You were mentioned: ${selectedAsset.name}`, `${userProfile.name} mentioned you: "${newFeedback}"`, 'mention');
+        }
       }
     };
     
@@ -738,8 +815,27 @@ export default function MainApp() {
 
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               {['assets', 'team', 'activity', 'links'].map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{isMobile ? t.charAt(0).toUpperCase() : t}</button>)}
+              {/* Photoshoot Workflow Phase Indicator */}
+              {selectedProject.type === 'photoshoot' && (
+                <div style={{ marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: '#0d0d14', padding: '6px 12px', borderRadius: '8px' }}>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Phase:</span>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: selectedProject.workflowPhase === 'review' ? '#22c55e' : '#fbbf24' }}>
+                    {selectedProject.workflowPhase === 'review' ? '📝 Review' : '👆 Selection'}
+                  </span>
+                  {isProducer && selectedProject.workflowPhase !== 'review' && selectedProject.selectionConfirmed && (
+                    <button onClick={async () => {
+                      const activity = { id: generateId(), type: 'status', message: `${userProfile.name} started review phase`, timestamp: new Date().toISOString() };
+                      await updateProject(selectedProject.id, { workflowPhase: 'review', activityLog: [...(selectedProject.activityLog || []), activity] });
+                      await refreshProject();
+                      showToast('Review phase started!', 'success');
+                    }} style={{ marginLeft: '6px', padding: '4px 10px', background: '#22c55e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>
+                      Start Review →
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -769,16 +865,53 @@ export default function MainApp() {
                     {isProducer && <Btn onClick={() => setShowUpload(true)}>⬆️ Upload</Btn>}
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? (appearance.cardSize === 'L' ? '1fr' : appearance.cardSize === 'S' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)') : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
-                    {assets.map(a => {
+                  <div>
+                    {/* Photoshoot Selection Phase Filter */}
+                    {selectedProject.type === 'photoshoot' && selectedProject.selectionConfirmed && (
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                        <button onClick={() => setSelectedCat(null)} style={{ padding: '6px 14px', background: !selectedCat ? '#6366f1' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>All ({assets.length})</button>
+                        <button onClick={() => setSelectedCat('__selected__')} style={{ padding: '6px 14px', background: selectedCat === '__selected__' ? '#22c55e' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>⭐ Selected ({assets.filter(a => a.isSelected).length})</button>
+                        <button onClick={() => setSelectedCat('__not_selected__')} style={{ padding: '6px 14px', background: selectedCat === '__not_selected__' ? '#f97316' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Not Selected ({assets.filter(a => !a.isSelected).length})</button>
+                      </div>
+                    )}
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? (appearance.cardSize === 'L' ? '1fr' : appearance.cardSize === 'S' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)') : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
+                    {assets
+                      .filter(a => {
+                        if (selectedCat === '__selected__') return a.isSelected;
+                        if (selectedCat === '__not_selected__') return !a.isSelected;
+                        return true;
+                      })
+                      .map(a => {
                       const latestVersionDate = getLatestVersionDate(a);
                       const hasNewVersion = latestVersionDate && isNewVersion(latestVersionDate);
+                      const isPhotoshootSelection = selectedProject.type === 'photoshoot' && selectedProject.workflowPhase !== 'review';
+                      const isDimmed = selectedProject.type === 'photoshoot' && selectedProject.workflowPhase === 'review' && !a.isSelected;
+                      
                       return (
-                        <div key={a.id} style={{ background: '#16161f', borderRadius: '10px', overflow: 'hidden', border: selectedAssets.has(a.id) ? '2px solid #6366f1' : '1px solid #1e1e2e', position: 'relative' }}>
+                        <div key={a.id} style={{ 
+                          background: '#16161f', 
+                          borderRadius: '10px', 
+                          overflow: 'hidden', 
+                          border: a.isSelected ? '2px solid #22c55e' : selectedAssets.has(a.id) ? '2px solid #6366f1' : '1px solid #1e1e2e', 
+                          position: 'relative',
+                          opacity: isDimmed ? 0.5 : 1,
+                          transition: 'opacity 0.2s'
+                        }}>
                           <div onClick={e => { e.stopPropagation(); setSelectedAssets(s => { const n = new Set(s); n.has(a.id) ? n.delete(a.id) : n.add(a.id); return n; }); }} style={{ position: 'absolute', top: '10px', left: '10px', width: '22px', height: '22px', borderRadius: '6px', background: selectedAssets.has(a.id) ? '#6366f1' : 'rgba(0,0,0,0.6)', border: '2px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}>{selectedAssets.has(a.id) && <span style={{ color: '#fff', fontSize: '12px' }}>✓</span>}</div>
                           {a.isSelected && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#22c55e', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', zIndex: 5, fontWeight: '600' }}>⭐</div>}
                           {hasNewVersion && <div style={{ position: 'absolute', top: a.isSelected ? '38px' : '10px', right: '10px', background: '#f97316', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>🆕 v{a.currentVersion}</div>}
                           {(a.annotations?.length > 0) && <div style={{ position: 'absolute', bottom: appearance.showInfo ? '80px' : '10px', right: '10px', background: '#ec4899', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>✏️ {a.annotations.length}</div>}
+                          {/* Tags display */}
+                          {a.tags?.length > 0 && (
+                            <div style={{ position: 'absolute', top: a.isSelected ? (hasNewVersion ? '66px' : '38px') : (hasNewVersion ? '38px' : '10px'), right: '10px', display: 'flex', gap: '4px', zIndex: 5 }}>
+                              {a.tags.slice(0, 2).map(tagId => {
+                                const tag = PREDEFINED_TAGS.find(t => t.id === tagId);
+                                return tag ? <span key={tagId} style={{ background: tag.color, padding: '2px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: '600' }}>{tag.label}</span> : null;
+                              })}
+                              {a.tags.length > 2 && <span style={{ background: '#6366f1', padding: '2px 6px', borderRadius: '4px', fontSize: '8px' }}>+{a.tags.length - 2}</span>}
+                            </div>
+                          )}
                           
                           <div onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: '#0d0d14', position: 'relative' }}>
                             {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
@@ -795,6 +928,7 @@ export default function MainApp() {
                         </div>
                       );
                     })}
+                  </div>
                   </div>
                 )}
               </div>
@@ -986,11 +1120,55 @@ export default function MainApp() {
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
                       {selectedAsset.type === 'video' && (
                         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>📍 at current time</span>
                       )}
-                      <Input value={newFeedback} onChange={setNewFeedback} placeholder="Add feedback..." style={{ flex: 1, padding: '8px 10px', fontSize: '12px' }} />
+                      <div style={{ flex: 1, position: 'relative' }}>
+                        <input 
+                          ref={feedbackInputRef}
+                          value={newFeedback} 
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewFeedback(val);
+                            // Check for @ mentions
+                            const lastAt = val.lastIndexOf('@');
+                            if (lastAt !== -1 && lastAt === val.length - 1) {
+                              setShowMentions(true);
+                              setMentionSearch('');
+                            } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) {
+                              setShowMentions(true);
+                              setMentionSearch(val.substring(lastAt + 1).toLowerCase());
+                            } else {
+                              setShowMentions(false);
+                            }
+                          }}
+                          placeholder="Add feedback... (@ to mention)"
+                          style={{ width: '100%', padding: '8px 10px', background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                        />
+                        {/* Mentions Dropdown */}
+                        {showMentions && (
+                          <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: '8px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100 }}>
+                            {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5).map(member => (
+                              <div key={member.id} onClick={() => {
+                                const lastAt = newFeedback.lastIndexOf('@');
+                                const newVal = newFeedback.substring(0, lastAt) + `@${member.name} `;
+                                setNewFeedback(newVal);
+                                setShowMentions(false);
+                                feedbackInputRef.current?.focus();
+                              }} style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}
+                              onMouseEnter={(e) => e.target.style.background = '#2a2a3e'}
+                              onMouseLeave={(e) => e.target.style.background = 'transparent'}>
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>{member.name?.[0]}</div>
+                                {member.name}
+                              </div>
+                            ))}
+                            {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).length === 0 && (
+                              <div style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>No team members found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <Btn onClick={handleAddFeedback} disabled={!newFeedback.trim()} small>Send</Btn>
                     </div>
                   </div>
@@ -1002,6 +1180,28 @@ export default function MainApp() {
                   <div style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>Rating</label>
                     <StarRating rating={selectedAsset.rating} onChange={r => { handleRate(selectedAsset.id, r); setSelectedAsset({ ...selectedAsset, rating: r }); }} size={24} />
+                  </div>
+
+                  {/* Tags */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>🏷️ Tags</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {PREDEFINED_TAGS.map(tag => {
+                        const isActive = (selectedAsset.tags || []).includes(tag.id);
+                        return (
+                          <button key={tag.id} onClick={async () => {
+                            const newTags = isActive 
+                              ? (selectedAsset.tags || []).filter(t => t !== tag.id)
+                              : [...(selectedAsset.tags || []), tag.id];
+                            const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, tags: newTags } : a);
+                            setSelectedAsset({ ...selectedAsset, tags: newTags });
+                            await updateProject(selectedProject.id, { assets: updated });
+                          }} style={{ padding: '4px 10px', background: isActive ? `${tag.color}30` : '#0d0d14', border: `1px solid ${isActive ? tag.color : '#2a2a3e'}`, borderRadius: '12px', color: isActive ? tag.color : 'rgba(255,255,255,0.6)', fontSize: '10px', cursor: 'pointer', fontWeight: '500' }}>
+                            {tag.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* Selection Toggle */}
@@ -1092,7 +1292,23 @@ export default function MainApp() {
                   </div>
 
                   {/* Download */}
-                  <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '12px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: '600', textAlign: 'center', textDecoration: 'none' }}>⬇️ Download</a>
+                  <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '12px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: '600', textAlign: 'center', textDecoration: 'none', marginBottom: '10px' }}>⬇️ Download</a>
+                  
+                  {/* Delete Asset (Soft Delete) */}
+                  {isProducer && (
+                    <button onClick={async () => {
+                      if (!confirm(`Delete "${selectedAsset.name}"? It will be permanently removed after 30 days.`)) return;
+                      const deletedAt = new Date().toISOString();
+                      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a);
+                      const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAsset.name}`, timestamp: new Date().toISOString() };
+                      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] });
+                      setSelectedAsset(null);
+                      await refreshProject();
+                      showToast('Asset moved to trash', 'success');
+                    }} style={{ width: '100%', padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#ef4444', fontSize: '11px', cursor: 'pointer', fontWeight: '500' }}>
+                      🗑️ Delete Asset
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -1110,7 +1326,7 @@ export default function MainApp() {
     );
   };
 
-  // Annotation Canvas Component
+  // Annotation Canvas Component with fixed drawing and pinch zoom
   const AnnotationCanvas = ({ imageUrl, annotations = [], onChange }) => {
     const [annots, setAnnots] = useState(annotations);
     const [tool, setTool] = useState('rect');
@@ -1124,8 +1340,9 @@ export default function MainApp() {
     const [resizing, setResizing] = useState(null);
     const [selectedAnnot, setSelectedAnnot] = useState(null);
     const [zoom, setZoom] = useState(100);
-    const containerRef = useRef(null);
-    const imageRef = useRef(null);
+    const [lastPinchDist, setLastPinchDist] = useState(0);
+    const wrapperRef = useRef(null);
+    const imageContainerRef = useRef(null);
 
     const COLORS = ['#ef4444', '#f97316', '#fbbf24', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff'];
     const TOOLS = [
@@ -1136,21 +1353,44 @@ export default function MainApp() {
       { id: 'text', icon: 'T', label: 'Text' },
     ];
 
-    // Get position relative to image
+    // Get position relative to image container
     const getPos = (e) => {
-      if (!imageRef.current) return { x: 0, y: 0 };
-      const rect = imageRef.current.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      if (!imageContainerRef.current) return { x: 0, y: 0 };
+      const rect = imageContainerRef.current.getBoundingClientRect();
+      let clientX, clientY;
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
       return {
         x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
         y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100))
       };
     };
 
+    // Pinch to zoom handler
+    const getPinchDist = (e) => {
+      if (!e.touches || e.touches.length < 2) return 0;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
     const handleStart = (e) => {
+      // Pinch zoom detection
+      if (e.touches && e.touches.length === 2) {
+        setLastPinchDist(getPinchDist(e));
+        return;
+      }
       if (dragging || resizing) return;
       e.preventDefault();
+      e.stopPropagation();
       const pos = getPos(e);
       setDrawStart(pos);
       setCurrentEnd(pos);
@@ -1159,6 +1399,18 @@ export default function MainApp() {
     };
 
     const handleMove = (e) => {
+      // Handle pinch zoom
+      if (e.touches && e.touches.length === 2) {
+        e.preventDefault();
+        const dist = getPinchDist(e);
+        if (lastPinchDist > 0) {
+          const delta = dist - lastPinchDist;
+          setZoom(z => Math.max(50, Math.min(200, z + delta * 0.5)));
+        }
+        setLastPinchDist(dist);
+        return;
+      }
+
       if (dragging) {
         e.preventDefault();
         const pos = getPos(e);
@@ -1186,6 +1438,7 @@ export default function MainApp() {
     };
 
     const handleEnd = (e) => {
+      setLastPinchDist(0);
       if (dragging) { setDragging(null); onChange(annots); return; }
       if (resizing) { setResizing(null); onChange(annots); return; }
       if (!isDrawing || !drawStart) return;
@@ -1233,10 +1486,10 @@ export default function MainApp() {
       const isSelected = selectedAnnot === a.id;
       
       if (a.type === 'freehand' && a.path) {
-        const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x}% ${p.y}%`).join(' ');
+        const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
         return (
-          <svg key={a.id} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
-            <path d={pathD} stroke={a.color} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <svg key={a.id} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
+            <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: '3px' }} />
           </svg>
         );
       }
@@ -1244,7 +1497,7 @@ export default function MainApp() {
       if (a.type === 'text') {
         return (
           <div key={a.id} 
-            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, color: a.color, fontSize: '16px', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.9)', border: isSelected ? `2px dashed ${a.color}` : 'none', padding: '4px 8px', cursor: 'move', background: isSelected ? 'rgba(0,0,0,0.3)' : 'transparent', borderRadius: '4px' }}
+            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, color: a.color, fontSize: '16px', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.9)', border: isSelected ? `2px dashed ${a.color}` : 'none', padding: '4px 8px', cursor: 'move', background: isSelected ? 'rgba(0,0,0,0.3)' : 'transparent', borderRadius: '4px', zIndex: 10 }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
             onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
             onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
@@ -1257,7 +1510,7 @@ export default function MainApp() {
       if (a.type === 'circle') {
         return (
           <div key={a.id} 
-            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `3px solid ${a.color}`, borderRadius: '50%', background: `${a.color}20`, cursor: 'move', boxSizing: 'border-box' }}
+            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `3px solid ${a.color}`, borderRadius: '50%', background: `${a.color}20`, cursor: 'move', boxSizing: 'border-box', zIndex: 10 }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
             onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
             onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
@@ -1270,7 +1523,7 @@ export default function MainApp() {
 
       if (a.type === 'arrow') {
         return (
-          <svg key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, overflow: 'visible', cursor: 'move' }}
+          <svg key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, overflow: 'visible', cursor: 'move', zIndex: 10 }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
             onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}>
             <defs><marker id={`arr-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs>
@@ -1282,7 +1535,7 @@ export default function MainApp() {
       // Rectangle
       return (
         <div key={a.id} 
-          style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `3px solid ${a.color}`, borderRadius: '4px', background: `${a.color}20`, cursor: 'move', boxSizing: 'border-box' }}
+          style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `3px solid ${a.color}`, borderRadius: '4px', background: `${a.color}20`, cursor: 'move', boxSizing: 'border-box', zIndex: 10 }}
           onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
           onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
           onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
@@ -1297,8 +1550,8 @@ export default function MainApp() {
     const renderPreview = () => {
       if (!isDrawing || !drawStart || !currentEnd || tool === 'text') return null;
       if (tool === 'freehand' && currentPath.length > 1) {
-        const pathD = currentPath.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x}% ${p.y}%`).join(' ');
-        return <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}><path d={pathD} stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.7" /></svg>;
+        const pathD = currentPath.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        return <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}><path d={pathD} stroke={color} strokeWidth="0.5" fill="none" strokeLinecap="round" opacity="0.7" vectorEffect="non-scaling-stroke" style={{ strokeWidth: '3px' }} /></svg>;
       }
       const x = Math.min(drawStart.x, currentEnd.x);
       const y = Math.min(drawStart.y, currentEnd.y);
@@ -1336,14 +1589,32 @@ export default function MainApp() {
           </div>
         </div>
 
-        {/* Canvas with zoom */}
-        <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: zoom <= 100 ? 'center' : 'flex-start' }}>
-          <div ref={containerRef}
-            onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleEnd} onMouseLeave={handleEnd}
-            onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd}
+        {/* Canvas area with scroll */}
+        <div ref={wrapperRef} style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: zoom <= 100 ? 'center' : 'flex-start', padding: '10px' }}>
+          {/* Image container - all events and annotations happen here */}
+          <div 
+            ref={imageContainerRef}
+            onMouseDown={handleStart} 
+            onMouseMove={handleMove} 
+            onMouseUp={handleEnd} 
+            onMouseLeave={handleEnd}
+            onTouchStart={handleStart} 
+            onTouchMove={handleMove} 
+            onTouchEnd={handleEnd}
             onClick={() => setSelectedAnnot(null)}
-            style={{ position: 'relative', background: '#0d0d14', borderRadius: '8px', overflow: 'hidden', cursor: 'crosshair', userSelect: 'none', touchAction: 'none', width: `${zoom}%`, maxWidth: zoom > 100 ? 'none' : '100%' }}>
-            <img ref={imageRef} src={imageUrl} alt="" loading="lazy" style={{ width: '100%', display: 'block', pointerEvents: 'none' }} />
+            style={{ 
+              position: 'relative', 
+              background: '#0d0d14', 
+              borderRadius: '8px', 
+              overflow: 'visible',
+              cursor: 'crosshair', 
+              userSelect: 'none', 
+              touchAction: 'none',
+              transform: `scale(${zoom / 100})`,
+              transformOrigin: 'center center',
+              maxWidth: '100%'
+            }}>
+            <img src={imageUrl} alt="" loading="lazy" draggable={false} style={{ display: 'block', maxWidth: '100%', pointerEvents: 'none' }} />
             {annots.map(renderAnnotation)}
             {renderPreview()}
           </div>
