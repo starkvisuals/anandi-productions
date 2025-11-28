@@ -135,6 +135,12 @@ const getProjectNotifs = (project) => {
 const Modal = ({ title, onClose, children, wide }) => {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
+  // ESC key to close
+  useEffect(() => { 
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px' }} onClick={onClose}>
       <div style={{ background: '#16161f', borderRadius: isMobile ? 0 : '16px', border: isMobile ? 'none' : '1px solid #1e1e2e', width: '100%', maxWidth: isMobile ? '100%' : (wide ? '1200px' : '550px'), height: isMobile ? '100%' : (wide ? '85vh' : 'auto'), maxHeight: isMobile ? '100%' : '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
@@ -146,6 +152,37 @@ const Modal = ({ title, onClose, children, wide }) => {
       </div>
     </div>
   );
+};
+
+// Activity Timeline Component
+const ActivityTimeline = ({ activities = [], maxItems = 10 }) => {
+  const sorted = [...activities].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, maxItems);
+  const getIcon = (type) => {
+    const icons = { upload: '⬆️', feedback: '💬', status: '🔄', version: '📦', rating: '⭐', select: '✅', assign: '👤', delete: '🗑️', create: '➕' };
+    return icons[type] || '📌';
+  };
+  if (sorted.length === 0) return <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>No activity yet</div>;
+  return (
+    <div style={{ position: 'relative', paddingLeft: '24px' }}>
+      <div style={{ position: 'absolute', left: '8px', top: '8px', bottom: '8px', width: '2px', background: '#2a2a3e' }} />
+      {sorted.map((a, i) => (
+        <div key={a.id || i} style={{ position: 'relative', paddingBottom: '16px' }}>
+          <div style={{ position: 'absolute', left: '-20px', width: '18px', height: '18px', background: '#1e1e2e', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', border: '2px solid #2a2a3e' }}>{getIcon(a.type)}</div>
+          <div style={{ background: '#0d0d14', borderRadius: '8px', padding: '10px 12px' }}>
+            <div style={{ fontSize: '12px', marginBottom: '4px' }}>{a.message}</div>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{formatTimeAgo(a.timestamp)}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Email notification helper (simulated - in production would call API)
+const sendEmailNotification = async (to, subject, body) => {
+  console.log('📧 Email notification:', { to, subject, body });
+  // In production: await fetch('/api/send-email', { method: 'POST', body: JSON.stringify({ to, subject, body }) });
+  return true;
 };
 
 const Toast = ({ message, type, onClose }) => { useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]); return <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', padding: '14px 24px', background: type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '500', zIndex: 2000, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>{message}</div>; };
@@ -499,6 +536,26 @@ export default function MainApp() {
     const [videoTime, setVideoTime] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
 
+    // Keyboard shortcuts for navigation (must be before conditional return)
+    useEffect(() => {
+      if (!selectedAsset || !selectedProject) return;
+      const allAssets = (selectedProject.assets || []).filter(x => !x.deleted);
+      const filteredAssets = selectedCat ? allAssets.filter(x => x.category === selectedCat) : allAssets;
+      const typeOrder = { image: 0, video: 1, audio: 2, other: 3 };
+      const sortedAssets = filteredAssets.sort((x, y) => (typeOrder[x.type] || 3) - (typeOrder[y.type] || 3));
+      const currentIndex = sortedAssets.findIndex(a => a.id === selectedAsset.id);
+      const handleKeyNav = (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === 'ArrowLeft' && currentIndex > 0) {
+          setSelectedAsset(sortedAssets[currentIndex - 1]);
+        } else if (e.key === 'ArrowRight' && currentIndex < sortedAssets.length - 1) {
+          setSelectedAsset(sortedAssets[currentIndex + 1]);
+        }
+      };
+      window.addEventListener('keydown', handleKeyNav);
+      return () => window.removeEventListener('keydown', handleKeyNav);
+    }, [selectedAsset, selectedProject, selectedCat]);
+
     if (!selectedProject) return null;
     const cats = selectedProject.categories || [];
     const team = (selectedProject.assignedTeam || []).map(t => ({ ...users.find(u => u.id === t.odId), isOwner: t.isOwner })).filter(m => m?.id);
@@ -509,7 +566,6 @@ export default function MainApp() {
     const getAssets = () => { 
       let a = (selectedProject.assets || []).filter(x => !x.deleted); 
       if (selectedCat) a = a.filter(x => x.category === selectedCat); 
-      // Sort by type: images first, then videos, then audio, then other
       const typeOrder = { image: 0, video: 1, audio: 2, other: 3 };
       return a.sort((x, y) => (typeOrder[x.type] || 3) - (typeOrder[y.type] || 3));
     };
@@ -587,8 +643,29 @@ export default function MainApp() {
     const handleToggleSelect = async (assetId) => { const asset = (selectedProject.assets || []).find(a => a.id === assetId); const newSelected = !asset?.isSelected; const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
     const handleBulkSelect = async (select) => { const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAssets(new Set()); showToast(`${selectedAssets.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
     const handleConfirmSelection = async () => { const activity = { id: generateId(), type: 'selection', message: `Selection confirmed by ${userProfile.name}`, timestamp: new Date().toISOString() }; await updateProject(selectedProject.id, { selectionConfirmed: true, activityLog: [...(selectedProject.activityLog || []), activity] }); await refreshProject(); showToast('Selection confirmed! 🎉', 'success'); };
-    const handleUpdateStatus = async (assetId, status) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, status } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); if (selectedAsset) setSelectedAsset({ ...selectedAsset, status }); };
-    const handleAssign = async (assetId, editorId) => { const editor = editors.find(e => e.id === editorId); const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, assignedTo: editorId, assignedToName: editor?.name, status: editorId ? 'assigned' : a.status } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
+    const handleUpdateStatus = async (assetId, status) => { 
+      const asset = (selectedProject.assets || []).find(a => a.id === assetId);
+      const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, status } : a); 
+      const activity = { id: generateId(), type: 'status', message: `${userProfile.name} changed ${asset?.name || 'asset'} to ${status}`, timestamp: new Date().toISOString() };
+      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); 
+      await refreshProject(); 
+      if (selectedAsset) setSelectedAsset({ ...selectedAsset, status }); 
+      // Notify assigned person on status change
+      if (asset?.assignedTo) {
+        const assignee = editors.find(e => e.id === asset.assignedTo);
+        if (assignee?.email) sendEmailNotification(assignee.email, `Status changed: ${asset.name}`, `New status: ${status}`);
+      }
+    };
+    const handleAssign = async (assetId, editorId) => { 
+      const editor = editors.find(e => e.id === editorId); 
+      const asset = (selectedProject.assets || []).find(a => a.id === assetId);
+      const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, assignedTo: editorId, assignedToName: editor?.name, status: editorId ? 'assigned' : a.status } : a); 
+      const activity = { id: generateId(), type: 'assign', message: `${userProfile.name} assigned ${asset?.name || 'asset'} to ${editor?.name || 'unassigned'}`, timestamp: new Date().toISOString() };
+      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); 
+      await refreshProject(); 
+      // Email notification to assigned person
+      if (editor?.email) sendEmailNotification(editor.email, `New assignment: ${asset?.name}`, `You have been assigned to work on ${asset?.name} in project ${selectedProject.name}`);
+    };
     const handleSetGdriveLink = async (assetId, link) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, gdriveLink: link, status: link ? 'delivered' : a.status } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); if (selectedAsset) setSelectedAsset({ ...selectedAsset, gdriveLink: link, status: link ? 'delivered' : selectedAsset.status }); showToast('Link saved', 'success'); };
     const handleAddFeedback = async () => { 
       if (!newFeedback.trim() || !selectedAsset) return; 
@@ -598,9 +675,15 @@ export default function MainApp() {
       // Update local state first to keep modal open
       setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback, status: 'changes-requested' }); 
       setNewFeedback(''); 
-      // Then update database in background
+      // Then update database in background with activity log
       const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback, status: 'changes-requested' } : a); 
-      await updateProject(selectedProject.id, { assets: updated }); 
+      const activity = { id: generateId(), type: 'feedback', message: `${userProfile.name} added feedback on ${selectedAsset.name}`, timestamp: new Date().toISOString() };
+      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); 
+      // Email notification to assigned person
+      if (selectedAsset.assignedTo) {
+        const assignee = editors.find(e => e.id === selectedAsset.assignedTo);
+        if (assignee?.email) sendEmailNotification(assignee.email, `New feedback: ${selectedAsset.name}`, `${userProfile.name} commented: "${newFeedback}"`);
+      }
     };
     
     const handleToggleFeedbackDone = async (feedbackId, e) => {
@@ -700,6 +783,7 @@ export default function MainApp() {
                           <div onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: '#0d0d14', position: 'relative' }}>
                             {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px' }}>{a.feedback.length}💬</div>}
+                            {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px' }}>{new Date(a.dueDate) < new Date() ? '⚠️' : '📅'}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
                           </div>
                           {appearance.showInfo && (
                             <div style={{ padding: '10px' }}>
@@ -725,8 +809,8 @@ export default function MainApp() {
 
             {tab === 'activity' && (
               <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '18px' }}>
-                <h3 style={{ margin: '0 0 14px', fontSize: '14px' }}>📋 Activity Log</h3>
-                {(selectedProject.activityLog || []).length === 0 ? <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No activity</div> : (selectedProject.activityLog || []).slice().reverse().map(log => <div key={log.id} style={{ display: 'flex', gap: '10px', padding: '10px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px' }}><div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', marginTop: '6px', flexShrink: 0 }} /><div><div style={{ fontSize: '12px' }}>{log.message}</div><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{formatTimeAgo(log.timestamp)}</div></div></div>)}
+                <h3 style={{ margin: '0 0 14px', fontSize: '14px' }}>📋 Activity Timeline</h3>
+                <ActivityTimeline activities={selectedProject.activityLog || []} maxItems={20} />
               </div>
             )}
 
@@ -941,6 +1025,34 @@ export default function MainApp() {
                         <option value="">-- Unassigned --</option>
                         {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                       </Select>
+                    </div>
+                  )}
+
+                  {/* Due Date */}
+                  {isProducer && (
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>📅 Due Date</label>
+                      <input 
+                        type="date" 
+                        value={selectedAsset.dueDate?.split('T')[0] || ''} 
+                        onChange={async (e) => {
+                          const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null;
+                          const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a);
+                          setSelectedAsset({ ...selectedAsset, dueDate });
+                          await updateProject(selectedProject.id, { assets: updated });
+                          // Notify assigned person
+                          if (selectedAsset.assignedTo && dueDate) {
+                            const assignee = editors.find(e => e.id === selectedAsset.assignedTo);
+                            if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`);
+                          }
+                        }}
+                        style={{ width: '100%', padding: '8px 10px', background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                      />
+                      {selectedAsset.dueDate && (
+                        <div style={{ marginTop: '6px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>
+                          {new Date(selectedAsset.dueDate) < new Date() ? '⚠️ Overdue!' : `⏳ ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days left`}
+                        </div>
+                      )}
                     </div>
                   )}
 
