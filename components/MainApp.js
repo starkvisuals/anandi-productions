@@ -487,7 +487,7 @@ export default function MainApp() {
     
     // Can mark feedback done: producers, editors, video editors, freelancers - NOT clients
     const canMarkFeedbackDone = ['producer', 'admin', 'team-lead', 'editor', 'video-editor', 'colorist', 'animator', 'vfx-artist', 'sound-designer'].includes(userProfile?.role);
-    const handleSaveAnnotations = async (annotations) => { const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, annotations } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAsset({ ...selectedAsset, annotations }); showToast('Annotations saved', 'success'); };
+    const handleSaveAnnotations = async (annotations) => { const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, annotations } : a); setSelectedAsset({ ...selectedAsset, annotations }); await updateProject(selectedProject.id, { assets: updated }); };
     const handleCreateLink = async () => { if (!newLinkName) { showToast('Enter name', 'error'); return; } const linkData = { name: newLinkName, type: newLinkType, createdBy: userProfile.id }; if (newLinkExpiry) linkData.expiresAt = new Date(newLinkExpiry).toISOString(); await createShareLink(selectedProject.id, linkData); await refreshProject(); setNewLinkName(''); setNewLinkExpiry(''); showToast('Link created!', 'success'); };
     const handleDeleteLink = async (linkId) => { const updated = (selectedProject.shareLinks || []).map(l => l.id === linkId ? { ...l, active: false } : l); await updateProject(selectedProject.id, { shareLinks: updated }); await refreshProject(); showToast('Link deleted', 'success'); };
     const copyLink = token => { navigator.clipboard.writeText(`${window.location.origin}/share/${token}`); showToast('Copied!', 'success'); };
@@ -846,8 +846,17 @@ export default function MainApp() {
 
             {/* Annotate Tab */}
             {assetTab === 'annotate' && selectedAsset.type === 'image' && (
-              <div style={{ padding: '20px', overflow: 'auto', flex: 1 }}>
-                <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: isMobile ? 'auto' : 'hidden' }}>
+                <div style={{ flex: 1, padding: isMobile ? '12px' : '20px', overflow: 'auto', background: '#0a0a10' }}>
+                  <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
+                </div>
+                {/* Same sidebar as preview */}
+                <div style={{ width: isMobile ? '100%' : '240px', background: '#12121a', borderLeft: isMobile ? 'none' : '1px solid #1e1e2e', padding: '16px', overflow: 'auto', flexShrink: 0 }}>
+                  <div style={{ marginBottom: '16px' }}><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Rating</div><StarRating rating={selectedAsset.rating} onChange={r => handleRate(selectedAsset.id, r)} size={24} /></div>
+                  <Btn onClick={() => handleToggleSelected(selectedAsset.id)} color={selectedAsset.isSelected ? '#22c55e' : undefined} style={{ width: '100%', marginBottom: '16px' }}>{selectedAsset.isSelected ? '⭐ Selected' : '☆ Select'}</Btn>
+                  <div style={{ marginBottom: '16px' }}><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Status</div><Select value={selectedAsset.status || 'Pending'} onChange={v => handleStatusChange(selectedAsset.id, v)} options={STATUS_OPTIONS} /></div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '16px' }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span>Size</span><span>{formatSize(selectedAsset.size)}</span></div><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span>Type</span><span>{selectedAsset.type}</span></div></div>
+                </div>
               </div>
             )}
             {assetTab === 'annotate' && selectedAsset.type !== 'image' && (
