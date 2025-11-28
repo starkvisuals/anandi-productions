@@ -496,6 +496,8 @@ export default function MainApp() {
     const fileInputRef = useRef(null);
     const versionInputRef = useRef(null);
     const videoRef = useRef(null);
+    const [videoTime, setVideoTime] = useState(0);
+    const [videoDuration, setVideoDuration] = useState(0);
 
     if (!selectedProject) return null;
     const cats = selectedProject.categories || [];
@@ -592,11 +594,13 @@ export default function MainApp() {
       if (!newFeedback.trim() || !selectedAsset) return; 
       const videoTime = selectedAsset.type === 'video' && videoRef.current ? videoRef.current.currentTime : null;
       const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false }; 
-      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: [...(a.feedback || []), fb], status: 'changes-requested' } : a); 
-      await updateProject(selectedProject.id, { assets: updated }); 
-      await refreshProject(); 
-      setSelectedAsset({ ...selectedAsset, feedback: [...(selectedAsset.feedback || []), fb], status: 'changes-requested' }); 
+      const updatedFeedback = [...(selectedAsset.feedback || []), fb];
+      // Update local state first to keep modal open
+      setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback, status: 'changes-requested' }); 
       setNewFeedback(''); 
+      // Then update database in background
+      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback, status: 'changes-requested' } : a); 
+      await updateProject(selectedProject.id, { assets: updated }); 
     };
     
     const handleToggleFeedbackDone = async (feedbackId, e) => {
@@ -831,8 +835,19 @@ export default function MainApp() {
                   {/* Content Area */}
                   <div style={{ flex: isMobile ? 'none' : 1, minHeight: isMobile ? '300px' : 'auto', padding: isMobile ? '12px' : '20px', overflow: 'auto' }}>
                     {selectedAsset.type === 'video' ? (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
-                        <video ref={videoRef} src={selectedAsset.url} controls playsInline style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '60vh', objectFit: 'contain' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+                        <video 
+                          ref={videoRef} 
+                          src={selectedAsset.url} 
+                          controls 
+                          playsInline 
+                          onTimeUpdate={(e) => setVideoTime(e.target.currentTime)}
+                          onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
+                          style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '55vh', objectFit: 'contain' }} 
+                        />
+                        <div style={{ marginTop: '10px', padding: '6px 14px', background: '#1e1e2e', borderRadius: '8px', fontSize: '14px', fontFamily: 'monospace', fontWeight: '600' }}>
+                          {Math.floor(videoTime / 60).toString().padStart(2, '0')}:{Math.floor(videoTime % 60).toString().padStart(2, '0')}:{Math.floor((videoTime % 1) * 30).toString().padStart(2, '0')} / {Math.floor(videoDuration / 60).toString().padStart(2, '0')}:{Math.floor(videoDuration % 60).toString().padStart(2, '0')}
+                        </div>
                       </div>
                     ) : selectedAsset.type === 'audio' ? (
                       <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -986,17 +1001,19 @@ export default function MainApp() {
   // Annotation Canvas Component
   const AnnotationCanvas = ({ imageUrl, annotations = [], onChange }) => {
     const [annots, setAnnots] = useState(annotations);
-    const [tool, setTool] = useState('rect'); // rect, circle, arrow, freehand, text
+    const [tool, setTool] = useState('rect');
     const [color, setColor] = useState('#ef4444');
     const [newText, setNewText] = useState('');
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawStart, setDrawStart] = useState(null);
     const [currentPath, setCurrentPath] = useState([]);
+    const [currentEnd, setCurrentEnd] = useState(null);
     const [dragging, setDragging] = useState(null);
     const [resizing, setResizing] = useState(null);
     const [selectedAnnot, setSelectedAnnot] = useState(null);
+    const [zoom, setZoom] = useState(100);
     const containerRef = useRef(null);
-    const canvasRef = useRef(null);
+    const imageRef = useRef(null);
 
     const COLORS = ['#ef4444', '#f97316', '#fbbf24', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff'];
     const TOOLS = [
@@ -1007,33 +1024,38 @@ export default function MainApp() {
       { id: 'text', icon: 'T', label: 'Text' },
     ];
 
+    // Get position relative to image
     const getPos = (e) => {
-      if (!containerRef.current) return { x: 0, y: 0 };
-      const rect = containerRef.current.getBoundingClientRect();
+      if (!imageRef.current) return { x: 0, y: 0 };
+      const rect = imageRef.current.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       return {
-        x: ((e.clientX - rect.left) / rect.width) * 100,
-        y: ((e.clientY - rect.top) / rect.height) * 100
+        x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
+        y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100))
       };
     };
 
-    const handleMouseDown = (e) => {
+    const handleStart = (e) => {
       if (dragging || resizing) return;
+      e.preventDefault();
       const pos = getPos(e);
       setDrawStart(pos);
+      setCurrentEnd(pos);
       setIsDrawing(true);
-      if (tool === 'freehand') {
-        setCurrentPath([pos]);
-      }
+      if (tool === 'freehand') setCurrentPath([pos]);
     };
 
-    const handleMouseMove = (e) => {
+    const handleMove = (e) => {
       if (dragging) {
+        e.preventDefault();
         const pos = getPos(e);
-        const updated = annots.map(a => a.id === dragging ? { ...a, x: Math.max(0, Math.min(100 - a.width, pos.x - a.width/2)), y: Math.max(0, Math.min(100 - a.height, pos.y - a.height/2)) } : a);
+        const updated = annots.map(a => a.id === dragging ? { ...a, x: Math.max(0, Math.min(100 - (a.width || 5), pos.x - (a.width || 5)/2)), y: Math.max(0, Math.min(100 - (a.height || 5), pos.y - (a.height || 5)/2)) } : a);
         setAnnots(updated);
         return;
       }
       if (resizing) {
+        e.preventDefault();
         const pos = getPos(e);
         const annot = annots.find(a => a.id === resizing);
         if (annot) {
@@ -1045,33 +1067,33 @@ export default function MainApp() {
         return;
       }
       if (!isDrawing || !drawStart) return;
-      if (tool === 'freehand') {
-        setCurrentPath(prev => [...prev, getPos(e)]);
-      }
+      e.preventDefault();
+      const pos = getPos(e);
+      setCurrentEnd(pos);
+      if (tool === 'freehand') setCurrentPath(prev => [...prev, pos]);
     };
 
-    const handleMouseUp = (e) => {
-      if (dragging) { onChange(annots); setDragging(null); return; }
-      if (resizing) { onChange(annots); setResizing(null); return; }
+    const handleEnd = (e) => {
+      if (dragging) { setDragging(null); onChange(annots); return; }
+      if (resizing) { setResizing(null); onChange(annots); return; }
       if (!isDrawing || !drawStart) return;
       
-      const pos = getPos(e);
+      const pos = currentEnd || drawStart;
       const width = Math.abs(pos.x - drawStart.x);
       const height = Math.abs(pos.y - drawStart.y);
       const x = Math.min(pos.x, drawStart.x);
       const y = Math.min(pos.y, drawStart.y);
 
       let newAnnot = null;
+      const author = typeof userProfile !== 'undefined' ? userProfile?.name : 'You';
 
       if (tool === 'freehand' && currentPath.length > 2) {
-        newAnnot = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author: userProfile?.name || 'You' };
-      } else if (tool === 'text') {
-        if (newText.trim()) {
-          newAnnot = { id: generateId(), type: 'text', x: drawStart.x, y: drawStart.y, text: newText, color, createdAt: new Date().toISOString(), author: userProfile?.name || 'You' };
-          setNewText('');
-        }
-      } else if (width > 2 && height > 2) {
-        newAnnot = { id: generateId(), type: tool, x, y, width, height, color, text: newText || '', createdAt: new Date().toISOString(), author: userProfile?.name || 'You' };
+        newAnnot = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author };
+      } else if (tool === 'text' && newText.trim()) {
+        newAnnot = { id: generateId(), type: 'text', x: drawStart.x, y: drawStart.y, text: newText, color, createdAt: new Date().toISOString(), author };
+        setNewText('');
+      } else if (width > 2 || height > 2) {
+        newAnnot = { id: generateId(), type: tool, x, y, width: Math.max(width, 5), height: Math.max(height, 5), color, text: newText || '', createdAt: new Date().toISOString(), author };
         setNewText('');
       }
 
@@ -1083,10 +1105,12 @@ export default function MainApp() {
 
       setIsDrawing(false);
       setDrawStart(null);
+      setCurrentEnd(null);
       setCurrentPath([]);
     };
 
-    const deleteAnnot = (id) => { 
+    const deleteAnnot = (id, e) => { 
+      if (e) e.stopPropagation();
       const updated = annots.filter(a => a.id !== id); 
       setAnnots(updated); 
       onChange(updated); 
@@ -1095,40 +1119,39 @@ export default function MainApp() {
 
     const renderAnnotation = (a) => {
       const isSelected = selectedAnnot === a.id;
-      const baseStyle = { position: 'absolute', cursor: 'move' };
       
       if (a.type === 'freehand' && a.path) {
-        const minX = Math.min(...a.path.map(p => p.x));
-        const minY = Math.min(...a.path.map(p => p.y));
-        const maxX = Math.max(...a.path.map(p => p.x));
-        const maxY = Math.max(...a.path.map(p => p.y));
-        const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x}% ${p.y}%`).join(' ');
         return (
-          <svg key={a.id} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            <path d={pathD} stroke={a.color} strokeWidth="2" fill="none" style={{ pointerEvents: 'stroke' }} />
+          <svg key={a.id} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
+            <path d={pathD} stroke={a.color} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         );
       }
 
       if (a.type === 'text') {
         return (
-          <div key={a.id} style={{ ...baseStyle, left: `${a.x}%`, top: `${a.y}%`, color: a.color, fontSize: '14px', fontWeight: '600', textShadow: '0 1px 2px rgba(0,0,0,0.8)', border: isSelected ? `1px dashed ${a.color}` : 'none', padding: '2px 4px' }}
+          <div key={a.id} 
+            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, color: a.color, fontSize: '16px', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.9)', border: isSelected ? `2px dashed ${a.color}` : 'none', padding: '4px 8px', cursor: 'move', background: isSelected ? 'rgba(0,0,0,0.3)' : 'transparent', borderRadius: '4px' }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
-            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}>
+            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
+            onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
             {a.text}
-            {isSelected && <button onClick={(e) => { e.stopPropagation(); deleteAnnot(a.id); }} style={{ position: 'absolute', top: '-12px', right: '-12px', width: '18px', height: '18px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>×</button>}
+            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '12px', cursor: 'pointer', lineHeight: '18px' }}>×</button>}
           </div>
         );
       }
 
       if (a.type === 'circle') {
         return (
-          <div key={a.id} style={{ ...baseStyle, left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2px solid ${a.color}`, borderRadius: '50%', background: `${a.color}20` }}
+          <div key={a.id} 
+            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `3px solid ${a.color}`, borderRadius: '50%', background: `${a.color}20`, cursor: 'move', boxSizing: 'border-box' }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
-            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-            {a.text && <div style={{ position: 'absolute', top: '-24px', left: '0', background: a.color, padding: '2px 8px', borderRadius: '4px', fontSize: '10px', whiteSpace: 'nowrap' }}>{a.text}</div>}
-            {isSelected && <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '10px', height: '10px', background: a.color, borderRadius: '2px', cursor: 'se-resize' }} />}
-            {isSelected && <button onClick={(e) => { e.stopPropagation(); deleteAnnot(a.id); }} style={{ position: 'absolute', top: '-8px', right: '-8px', width: '18px', height: '18px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>×</button>}
+            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
+            onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
+            {a.text && <div style={{ position: 'absolute', top: '-28px', left: '0', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '11px', whiteSpace: 'nowrap', fontWeight: '600' }}>{a.text}</div>}
+            {isSelected && <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '14px', height: '14px', background: a.color, borderRadius: '3px', cursor: 'se-resize' }} />}
+            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>×</button>}
           </div>
         );
       }
@@ -1138,30 +1161,45 @@ export default function MainApp() {
           <svg key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, overflow: 'visible', cursor: 'move' }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
             onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-            <defs><marker id={`arrow-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs>
-            <line x1="0" y1="50%" x2="100%" y2="50%" stroke={a.color} strokeWidth="2" markerEnd={`url(#arrow-${a.id})`} />
-            {isSelected && <circle cx="100%" cy="50%" r="6" fill={a.color} style={{ cursor: 'se-resize' }} onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} />}
+            <defs><marker id={`arr-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs>
+            <line x1="0" y1="50%" x2="100%" y2="50%" stroke={a.color} strokeWidth="3" markerEnd={`url(#arr-${a.id})`} />
           </svg>
         );
       }
 
-      // Default: rectangle
+      // Rectangle
       return (
-        <div key={a.id} style={{ ...baseStyle, left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2px solid ${a.color}`, borderRadius: '4px', background: `${a.color}20` }}
+        <div key={a.id} 
+          style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `3px solid ${a.color}`, borderRadius: '4px', background: `${a.color}20`, cursor: 'move', boxSizing: 'border-box' }}
           onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
-          onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-          {a.text && <div style={{ position: 'absolute', top: '-24px', left: '0', background: a.color, padding: '2px 8px', borderRadius: '4px', fontSize: '10px', whiteSpace: 'nowrap' }}>{a.text}</div>}
-          {isSelected && <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '10px', height: '10px', background: a.color, borderRadius: '2px', cursor: 'se-resize' }} />}
-          {isSelected && <button onClick={(e) => { e.stopPropagation(); deleteAnnot(a.id); }} style={{ position: 'absolute', top: '-8px', right: '-8px', width: '18px', height: '18px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>×</button>}
+          onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
+          onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
+          {a.text && <div style={{ position: 'absolute', top: '-28px', left: '0', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '11px', whiteSpace: 'nowrap', fontWeight: '600' }}>{a.text}</div>}
+          {isSelected && <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '14px', height: '14px', background: a.color, borderRadius: '3px', cursor: 'se-resize' }} />}
+          {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>×</button>}
         </div>
       );
     };
 
+    // Draw preview shape
+    const renderPreview = () => {
+      if (!isDrawing || !drawStart || !currentEnd || tool === 'text') return null;
+      if (tool === 'freehand' && currentPath.length > 1) {
+        const pathD = currentPath.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x}% ${p.y}%`).join(' ');
+        return <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}><path d={pathD} stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.7" /></svg>;
+      }
+      const x = Math.min(drawStart.x, currentEnd.x);
+      const y = Math.min(drawStart.y, currentEnd.y);
+      const w = Math.abs(currentEnd.x - drawStart.x);
+      const h = Math.abs(currentEnd.y - drawStart.y);
+      if (w < 1 && h < 1) return null;
+      return <div style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, border: `2px dashed ${color}`, borderRadius: tool === 'circle' ? '50%' : '4px', pointerEvents: 'none', opacity: 0.7, background: `${color}10` }} />;
+    };
+
     return (
-      <div>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Toolbar */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Tools */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
             {TOOLS.map(t => (
               <button key={t.id} onClick={() => setTool(t.id)} title={t.label}
@@ -1170,53 +1208,36 @@ export default function MainApp() {
               </button>
             ))}
           </div>
-          
-          {/* Colors */}
           <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
             {COLORS.map(c => (
-              <button key={c} onClick={() => setColor(c)}
-                style={{ width: '24px', height: '24px', background: c, border: color === c ? '2px solid #fff' : '2px solid transparent', borderRadius: '4px', cursor: 'pointer' }} />
+              <button key={c} onClick={() => setColor(c)} style={{ width: '24px', height: '24px', background: c, border: color === c ? '2px solid #fff' : '2px solid transparent', borderRadius: '4px', cursor: 'pointer' }} />
             ))}
           </div>
-
-          {/* Text input for text/shape labels */}
           {(tool === 'text' || tool === 'rect' || tool === 'circle') && (
-            <Input value={newText} onChange={setNewText} placeholder={tool === 'text' ? 'Text...' : 'Label (optional)...'} style={{ width: '150px', padding: '6px 10px', fontSize: '12px' }} />
+            <Input value={newText} onChange={setNewText} placeholder={tool === 'text' ? 'Text...' : 'Label...'} style={{ width: '120px', padding: '6px 10px', fontSize: '12px' }} />
           )}
-        </div>
-
-        {/* Canvas */}
-        <div ref={containerRef} 
-          onMouseDown={handleMouseDown} 
-          onMouseMove={handleMouseMove} 
-          onMouseUp={handleMouseUp}
-          onMouseLeave={() => { if (isDrawing) handleMouseUp({ clientX: 0, clientY: 0 }); }}
-          onClick={() => setSelectedAnnot(null)}
-          style={{ position: 'relative', background: '#0d0d14', borderRadius: '8px', overflow: 'hidden', cursor: tool === 'freehand' ? 'crosshair' : 'crosshair', userSelect: 'none' }}>
-          <img src={imageUrl} alt="" loading="lazy" style={{ width: '100%', display: 'block', pointerEvents: 'none' }} />
-          
-          {/* Render existing annotations */}
-          {annots.map(renderAnnotation)}
-
-          {/* Preview while drawing */}
-          {isDrawing && drawStart && tool !== 'freehand' && tool !== 'text' && (
-            <div style={{ position: 'absolute', left: `${Math.min(drawStart.x, drawStart.x)}%`, top: `${drawStart.y}%`, border: `2px dashed ${color}`, borderRadius: tool === 'circle' ? '50%' : '4px', pointerEvents: 'none', opacity: 0.6 }} />
-          )}
-
-          {/* Freehand preview */}
-          {isDrawing && tool === 'freehand' && currentPath.length > 1 && (
-            <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-              <path d={currentPath.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')} stroke={color} strokeWidth="2" fill="none" />
-            </svg>
-          )}
-        </div>
-
-        {/* Annotation List */}
-        {annots.length > 0 && (
-          <div style={{ marginTop: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
-            {annots.length} annotation{annots.length !== 1 ? 's' : ''} • Click to select, drag to move
+          {/* Zoom controls */}
+          <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px', marginLeft: 'auto' }}>
+            <button onClick={() => setZoom(z => Math.max(50, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>−</button>
+            <span style={{ padding: '4px 8px', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>{zoom}%</span>
+            <button onClick={() => setZoom(z => Math.min(200, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>+</button>
           </div>
-        )}
+        </div>
+
+        {/* Canvas with zoom */}
+        <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: zoom <= 100 ? 'center' : 'flex-start' }}>
+          <div ref={containerRef}
+            onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleEnd} onMouseLeave={handleEnd}
+            onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd}
+            onClick={() => setSelectedAnnot(null)}
+            style={{ position: 'relative', background: '#0d0d14', borderRadius: '8px', overflow: 'hidden', cursor: 'crosshair', userSelect: 'none', touchAction: 'none', width: `${zoom}%`, maxWidth: zoom > 100 ? 'none' : '100%' }}>
+            <img ref={imageRef} src={imageUrl} alt="" loading="lazy" style={{ width: '100%', display: 'block', pointerEvents: 'none' }} />
+            {annots.map(renderAnnotation)}
+            {renderPreview()}
+          </div>
+        </div>
+        
+        {annots.length > 0 && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '8px', flexShrink: 0 }}>{annots.length} annotation{annots.length !== 1 ? 's' : ''} • Click to select, drag to move</div>}
       </div>
     );
   };
