@@ -81,13 +81,14 @@ const LazyImage = ({ src, thumbnail, alt = '', style = {}, onClick }) => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect(); } },
-      { rootMargin: '100px' }
+      { rootMargin: '200px' } // Increased margin for earlier loading
     );
     if (imgRef.current) observer.observe(imgRef.current);
     return () => observer.disconnect();
   }, []);
   
-  const thumbSrc = thumbnail || src;
+  // Use thumbnail for grid view, full src for modal
+  const displaySrc = thumbnail || src;
   
   return (
     <div ref={imgRef} style={{ ...style, position: 'relative', overflow: 'hidden' }} onClick={onClick}>
@@ -99,10 +100,12 @@ const LazyImage = ({ src, thumbnail, alt = '', style = {}, onClick }) => {
       )}
       {inView && (
         <img 
-          src={thumbSrc}
+          src={displaySrc}
           alt={alt}
+          loading="eager"
+          decoding="async"
           onLoad={() => setLoaded(true)}
-          style={{ width: '100%', height: '100%', objectFit: style.objectFit || 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s' }}
+          style={{ width: '100%', height: '100%', objectFit: style.objectFit || 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 0.15s' }}
         />
       )}
     </div>
@@ -1326,7 +1329,30 @@ export default function MainApp() {
     );
   };
 
-  // Annotation Canvas Component with fixed drawing and pinch zoom
+  // Image preloader cache
+  const imageCache = useRef(new Map());
+  const preloadImage = (url) => {
+    if (!url || imageCache.current.has(url)) return;
+    const img = new Image();
+    img.src = url;
+    imageCache.current.set(url, img);
+  };
+  
+  // Preload adjacent images when viewing an asset
+  useEffect(() => {
+    if (selectedProject?.assets && selectedAsset) {
+      const assets = selectedProject.assets.filter(a => !a.deleted && a.type === 'image');
+      const currentIdx = assets.findIndex(a => a.id === selectedAsset.id);
+      // Preload next 3 and previous 1
+      [-1, 1, 2, 3].forEach(offset => {
+        const asset = assets[currentIdx + offset];
+        if (asset?.url) preloadImage(asset.url);
+        if (asset?.thumbnail) preloadImage(asset.thumbnail);
+      });
+    }
+  }, [selectedAsset?.id, selectedProject?.assets]);
+
+  // Annotation Canvas Component with proper fitting and pinch zoom
   const AnnotationCanvas = ({ imageUrl, annotations = [], onChange }) => {
     const [annots, setAnnots] = useState(annotations);
     const [tool, setTool] = useState('rect');
@@ -1340,8 +1366,11 @@ export default function MainApp() {
     const [resizing, setResizing] = useState(null);
     const [selectedAnnot, setSelectedAnnot] = useState(null);
     const [zoom, setZoom] = useState(100);
-    const [lastPinchDist, setLastPinchDist] = useState(0);
-    const wrapperRef = useRef(null);
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageDims, setImageDims] = useState({ width: 0, height: 0 });
+    const [isPinching, setIsPinching] = useState(false);
+    const lastPinchDistRef = useRef(0);
+    const containerRef = useRef(null);
     const imageContainerRef = useRef(null);
 
     const COLORS = ['#ef4444', '#f97316', '#fbbf24', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff'];
@@ -1352,6 +1381,12 @@ export default function MainApp() {
       { id: 'freehand', icon: '✎', label: 'Draw' },
       { id: 'text', icon: 'T', label: 'Text' },
     ];
+
+    // Handle image load
+    const handleImageLoad = (e) => {
+      setImageLoaded(true);
+      setImageDims({ width: e.target.naturalWidth, height: e.target.naturalHeight });
+    };
 
     // Get position relative to image container
     const getPos = (e) => {
@@ -1374,21 +1409,54 @@ export default function MainApp() {
       };
     };
 
-    // Pinch to zoom handler
-    const getPinchDist = (e) => {
-      if (!e.touches || e.touches.length < 2) return 0;
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
+    // Pinch zoom handlers
+    const getTouchDist = (touches) => {
+      if (touches.length < 2) return 0;
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
       return Math.sqrt(dx * dx + dy * dy);
     };
 
-    const handleStart = (e) => {
-      // Pinch zoom detection
-      if (e.touches && e.touches.length === 2) {
-        setLastPinchDist(getPinchDist(e));
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        setIsPinching(true);
+        lastPinchDistRef.current = getTouchDist(e.touches);
         return;
       }
-      if (dragging || resizing) return;
+      if (e.touches.length === 1 && !isPinching) {
+        handleStart(e);
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches.length === 2 && isPinching) {
+        e.preventDefault();
+        const dist = getTouchDist(e.touches);
+        if (lastPinchDistRef.current > 0) {
+          const scale = dist / lastPinchDistRef.current;
+          setZoom(z => Math.max(50, Math.min(300, z * scale)));
+        }
+        lastPinchDistRef.current = dist;
+        return;
+      }
+      if (e.touches.length === 1 && !isPinching) {
+        handleMove(e);
+      }
+    };
+
+    const handleTouchEnd = (e) => {
+      if (e.touches.length < 2) {
+        setIsPinching(false);
+        lastPinchDistRef.current = 0;
+      }
+      if (e.touches.length === 0 && !isPinching) {
+        handleEnd(e);
+      }
+    };
+
+    const handleStart = (e) => {
+      if (dragging || resizing || isPinching) return;
       e.preventDefault();
       e.stopPropagation();
       const pos = getPos(e);
@@ -1399,18 +1467,8 @@ export default function MainApp() {
     };
 
     const handleMove = (e) => {
-      // Handle pinch zoom
-      if (e.touches && e.touches.length === 2) {
-        e.preventDefault();
-        const dist = getPinchDist(e);
-        if (lastPinchDist > 0) {
-          const delta = dist - lastPinchDist;
-          setZoom(z => Math.max(50, Math.min(200, z + delta * 0.5)));
-        }
-        setLastPinchDist(dist);
-        return;
-      }
-
+      if (isPinching) return;
+      
       if (dragging) {
         e.preventDefault();
         const pos = getPos(e);
@@ -1438,7 +1496,6 @@ export default function MainApp() {
     };
 
     const handleEnd = (e) => {
-      setLastPinchDist(0);
       if (dragging) { setDragging(null); onChange(annots); return; }
       if (resizing) { setResizing(null); onChange(annots); return; }
       if (!isDrawing || !drawStart) return;
@@ -1561,10 +1618,13 @@ export default function MainApp() {
       return <div style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, border: `2px dashed ${color}`, borderRadius: tool === 'circle' ? '50%' : '4px', pointerEvents: 'none', opacity: 0.7, background: `${color}10` }} />;
     };
 
+    // Fit to container - reset zoom
+    const handleFitToContainer = () => setZoom(100);
+
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         {/* Toolbar */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0, padding: '0 4px' }}>
           <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
             {TOOLS.map(t => (
               <button key={t.id} onClick={() => setTool(t.id)} title={t.label}
@@ -1579,48 +1639,82 @@ export default function MainApp() {
             ))}
           </div>
           {(tool === 'text' || tool === 'rect' || tool === 'circle') && (
-            <Input value={newText} onChange={setNewText} placeholder={tool === 'text' ? 'Text...' : 'Label...'} style={{ width: '120px', padding: '6px 10px', fontSize: '12px' }} />
+            <Input value={newText} onChange={setNewText} placeholder={tool === 'text' ? 'Text...' : 'Label...'} style={{ width: '100px', padding: '6px 10px', fontSize: '11px' }} />
           )}
           {/* Zoom controls */}
           <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px', marginLeft: 'auto' }}>
-            <button onClick={() => setZoom(z => Math.max(50, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>−</button>
-            <span style={{ padding: '4px 8px', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>{zoom}%</span>
-            <button onClick={() => setZoom(z => Math.min(200, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>+</button>
+            <button onClick={() => setZoom(z => Math.max(25, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>−</button>
+            <button onClick={handleFitToContainer} style={{ padding: '4px 8px', fontSize: '11px', color: 'rgba(255,255,255,0.7)', background: 'transparent', border: 'none', cursor: 'pointer' }}>{zoom}%</button>
+            <button onClick={() => setZoom(z => Math.min(300, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>+</button>
           </div>
         </div>
 
-        {/* Canvas area with scroll */}
-        <div ref={wrapperRef} style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: zoom <= 100 ? 'center' : 'flex-start', padding: '10px' }}>
-          {/* Image container - all events and annotations happen here */}
+        {/* Image container - fits within available space */}
+        <div 
+          ref={containerRef}
+          style={{ 
+            flex: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            overflow: zoom > 100 ? 'auto' : 'hidden',
+            background: '#0a0a0f',
+            borderRadius: '8px',
+            position: 'relative'
+          }}>
+          
+          {/* Loading spinner */}
+          {!imageLoaded && (
+            <div style={{ position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)' }}>
+              Loading...
+            </div>
+          )}
+          
+          {/* Image with annotations */}
           <div 
             ref={imageContainerRef}
             onMouseDown={handleStart} 
             onMouseMove={handleMove} 
             onMouseUp={handleEnd} 
             onMouseLeave={handleEnd}
-            onTouchStart={handleStart} 
-            onTouchMove={handleMove} 
-            onTouchEnd={handleEnd}
+            onTouchStart={handleTouchStart} 
+            onTouchMove={handleTouchMove} 
+            onTouchEnd={handleTouchEnd}
             onClick={() => setSelectedAnnot(null)}
             style={{ 
-              position: 'relative', 
-              background: '#0d0d14', 
-              borderRadius: '8px', 
-              overflow: 'visible',
+              position: 'relative',
               cursor: 'crosshair', 
               userSelect: 'none', 
               touchAction: 'none',
               transform: `scale(${zoom / 100})`,
               transformOrigin: 'center center',
-              maxWidth: '100%'
+              maxWidth: zoom <= 100 ? '100%' : 'none',
+              maxHeight: zoom <= 100 ? '100%' : 'none',
+              transition: 'transform 0.1s ease-out'
             }}>
-            <img src={imageUrl} alt="" loading="lazy" draggable={false} style={{ display: 'block', maxWidth: '100%', pointerEvents: 'none' }} />
-            {annots.map(renderAnnotation)}
-            {renderPreview()}
+            <img 
+              src={imageUrl} 
+              alt="" 
+              draggable={false}
+              onLoad={handleImageLoad}
+              style={{ 
+                display: 'block',
+                maxWidth: zoom <= 100 ? '100%' : `${imageDims.width}px`,
+                maxHeight: zoom <= 100 ? 'calc(100vh - 350px)' : `${imageDims.height}px`,
+                width: 'auto',
+                height: 'auto',
+                objectFit: 'contain',
+                pointerEvents: 'none',
+                opacity: imageLoaded ? 1 : 0,
+                transition: 'opacity 0.2s'
+              }} 
+            />
+            {imageLoaded && annots.map(renderAnnotation)}
+            {imageLoaded && renderPreview()}
           </div>
         </div>
         
-        {annots.length > 0 && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '8px', flexShrink: 0 }}>{annots.length} annotation{annots.length !== 1 ? 's' : ''} • Click to select, drag to move</div>}
+        {annots.length > 0 && <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '6px', flexShrink: 0, textAlign: 'center' }}>{annots.length} annotation{annots.length !== 1 ? 's'  : ''} • Pinch to zoom</div>}
       </div>
     );
   };
