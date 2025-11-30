@@ -194,16 +194,16 @@ const PREDEFINED_TAGS = [
 ];
 
 // Email notification via Resend API
-const sendEmailNotification = async (to, subject, body, type = 'default') => {
+const sendEmailNotification = async (to, subject, body, type = 'default', data = {}) => {
   try {
     const response = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, body, type })
+      body: JSON.stringify({ to, subject, body, type, data })
     });
-    const data = await response.json();
-    if (data.success) console.log('📧 Email sent:', subject);
-    return data.success;
+    const result = await response.json();
+    if (result.success) console.log('📧 Email sent:', subject);
+    return result.success;
   } catch (error) {
     console.error('Email error:', error);
     return false;
@@ -306,6 +306,8 @@ export default function MainApp() {
   const [loading, setLoading] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [appearance, setAppearance] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('anandi-appearance');
@@ -323,17 +325,340 @@ export default function MainApp() {
     }
   }, [appearance]);
 
+  // Load notifications from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && userProfile?.id) {
+      const saved = localStorage.getItem(`anandi-notifs-${userProfile.id}`);
+      if (saved) setNotifications(JSON.parse(saved));
+    }
+  }, [userProfile?.id]);
+
+  // Save notifications to localStorage
+  const saveNotifications = (notifs) => {
+    setNotifications(notifs);
+    if (typeof window !== 'undefined' && userProfile?.id) {
+      localStorage.setItem(`anandi-notifs-${userProfile.id}`, JSON.stringify(notifs));
+    }
+  };
+
+  // Add notification helper
+  const addNotification = (notif) => {
+    const newNotif = {
+      id: generateId(),
+      ...notif,
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    const updated = [newNotif, ...notifications].slice(0, 50); // Keep max 50
+    saveNotifications(updated);
+    return newNotif;
+  };
+
+  // Mark notification as read
+  const markAsRead = (notifId) => {
+    const updated = notifications.map(n => n.id === notifId ? { ...n, read: true } : n);
+    saveNotifications(updated);
+  };
+
+  // Mark all as read
+  const markAllAsRead = () => {
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    saveNotifications(updated);
+  };
+
+  // Clear all notifications
+  const clearNotifications = () => {
+    saveNotifications([]);
+  };
+
+  // Check deadlines and create notifications
+  const checkDeadlines = (projectsList) => {
+    if (!userProfile || !isProducer) return;
+    
+    const now = new Date();
+    const newNotifs = [];
+    
+    projectsList.forEach(project => {
+      (project.assets || []).forEach(asset => {
+        if (!asset.dueDate || asset.deleted || asset.status === 'delivered' || asset.status === 'approved') return;
+        
+        const dueDate = new Date(asset.dueDate);
+        const daysUntil = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+        const notifKey = `deadline-${asset.id}-${daysUntil}`;
+        
+        // Check if we already notified about this
+        const alreadyNotified = notifications.some(n => n.key === notifKey);
+        if (alreadyNotified) return;
+        
+        if (daysUntil < 0) {
+          // Overdue
+          newNotifs.push({
+            key: notifKey,
+            type: 'deadline_overdue',
+            icon: '🚨',
+            title: 'Deadline Overdue',
+            message: `"${asset.name}" is ${Math.abs(daysUntil)} day(s) overdue`,
+            projectId: project.id,
+            assetId: asset.id,
+            priority: 'high'
+          });
+        } else if (daysUntil === 0) {
+          // Due today
+          newNotifs.push({
+            key: notifKey,
+            type: 'deadline_today',
+            icon: '⚠️',
+            title: 'Due Today',
+            message: `"${asset.name}" is due today`,
+            projectId: project.id,
+            assetId: asset.id,
+            priority: 'high'
+          });
+        } else if (daysUntil === 1) {
+          // Due tomorrow
+          newNotifs.push({
+            key: notifKey,
+            type: 'deadline_reminder',
+            icon: '⏰',
+            title: 'Due Tomorrow',
+            message: `"${asset.name}" is due tomorrow`,
+            projectId: project.id,
+            assetId: asset.id,
+            priority: 'medium'
+          });
+        } else if (daysUntil === 3) {
+          // Due in 3 days
+          newNotifs.push({
+            key: notifKey,
+            type: 'deadline_reminder',
+            icon: '📅',
+            title: 'Deadline in 3 Days',
+            message: `"${asset.name}" is due in 3 days`,
+            projectId: project.id,
+            assetId: asset.id,
+            priority: 'low'
+          });
+        }
+      });
+      
+      // Check for missing assignments (Producer alerts)
+      if (isProducer && project.status === 'active') {
+        const unassigned = (project.assets || []).filter(a => !a.deleted && !a.assignedTo && a.status !== 'delivered' && a.status !== 'approved');
+        if (unassigned.length > 0) {
+          const notifKey = `unassigned-${project.id}-${unassigned.length}`;
+          const alreadyNotified = notifications.some(n => n.key === notifKey);
+          if (!alreadyNotified) {
+            newNotifs.push({
+              key: notifKey,
+              type: 'alert',
+              icon: '⚠️',
+              title: 'Unassigned Assets',
+              message: `${unassigned.length} asset(s) in "${project.name}" need assignment`,
+              projectId: project.id,
+              priority: 'medium'
+            });
+          }
+        }
+        
+        // Check for stale projects (no activity in 7 days)
+        const lastActivity = project.activityLog?.[project.activityLog.length - 1]?.timestamp;
+        if (lastActivity) {
+          const daysSinceActivity = Math.floor((now - new Date(lastActivity)) / (1000 * 60 * 60 * 24));
+          if (daysSinceActivity >= 7) {
+            const notifKey = `stale-${project.id}`;
+            const alreadyNotified = notifications.some(n => n.key === notifKey);
+            if (!alreadyNotified) {
+              newNotifs.push({
+                key: notifKey,
+                type: 'alert',
+                icon: '💤',
+                title: 'Stale Project',
+                message: `"${project.name}" has no activity for ${daysSinceActivity} days`,
+                projectId: project.id,
+                priority: 'low'
+              });
+            }
+          }
+        }
+      }
+    });
+    
+    // Add new notifications
+    if (newNotifs.length > 0) {
+      const updated = [...newNotifs.map(n => ({ ...n, id: generateId(), timestamp: new Date().toISOString(), read: false })), ...notifications].slice(0, 50);
+      saveNotifications(updated);
+    }
+  };
+
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   useEffect(() => { loadData(); }, []);
-  const loadData = async () => { setLoading(true); try { const [p, u, f, c, ct] = await Promise.all([getProjectsForUser(userProfile.id, userProfile.role), getUsers(), getFreelancers(), getClients(), getCoreTeam()]); setProjects(p); setUsers(u); setFreelancers(f); setClients(c); setCoreTeam(ct); } catch (e) { console.error(e); } setLoading(false); };
+  const loadData = async () => { 
+    setLoading(true); 
+    try { 
+      const [p, u, f, c, ct] = await Promise.all([getProjectsForUser(userProfile.id, userProfile.role), getUsers(), getFreelancers(), getClients(), getCoreTeam()]); 
+      setProjects(p); 
+      setUsers(u); 
+      setFreelancers(f); 
+      setClients(c); 
+      setCoreTeam(ct);
+      // Check deadlines after loading
+      setTimeout(() => checkDeadlines(p), 1000);
+    } catch (e) { console.error(e); } 
+    setLoading(false); 
+  };
   const showToast = (msg, type = 'info') => setToast({ message: msg, type });
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   const refreshProject = async () => { const all = await getProjects(); setProjects(all); };
 
+  // Notification Panel Component
+  const NotificationPanel = () => {
+    const unreadCount = notifications.filter(n => !n.read).length;
+    
+    return (
+      <div style={{ position: 'relative' }}>
+        {/* Bell Icon */}
+        <button 
+          onClick={() => setShowNotifications(!showNotifications)}
+          style={{ 
+            position: 'relative', 
+            background: 'transparent', 
+            border: 'none', 
+            cursor: 'pointer', 
+            padding: '8px',
+            borderRadius: '8px',
+            transition: 'background 0.2s'
+          }}
+        >
+          <span style={{ fontSize: '18px' }}>🔔</span>
+          {unreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '2px',
+              right: '2px',
+              background: '#ef4444',
+              color: '#fff',
+              fontSize: '10px',
+              fontWeight: '700',
+              padding: '2px 5px',
+              borderRadius: '10px',
+              minWidth: '16px',
+              textAlign: 'center'
+            }}>
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+        
+        {/* Dropdown Panel */}
+        {showNotifications && (
+          <>
+            <div onClick={() => setShowNotifications(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              width: '360px',
+              maxHeight: '480px',
+              background: '#1a1a2e',
+              border: '1px solid #2a2a3e',
+              borderRadius: '12px',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              zIndex: 200,
+              overflow: 'hidden'
+            }}>
+              {/* Header */}
+              <div style={{ 
+                padding: '14px 16px', 
+                borderBottom: '1px solid #2a2a3e', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center' 
+              }}>
+                <span style={{ fontWeight: '600', fontSize: '14px' }}>Notifications</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {unreadCount > 0 && (
+                    <button onClick={markAllAsRead} style={{ background: 'transparent', border: 'none', color: '#6366f1', fontSize: '11px', cursor: 'pointer' }}>
+                      Mark all read
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button onClick={clearNotifications} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '11px', cursor: 'pointer' }}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Notifications List */}
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {notifications.length === 0 ? (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>
+                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔕</div>
+                    <div style={{ fontSize: '13px' }}>No notifications</div>
+                  </div>
+                ) : (
+                  notifications.map(notif => (
+                    <div 
+                      key={notif.id}
+                      onClick={() => {
+                        markAsRead(notif.id);
+                        if (notif.projectId) {
+                          setSelectedProjectId(notif.projectId);
+                          setView('projects');
+                        }
+                        setShowNotifications(false);
+                      }}
+                      style={{
+                        padding: '12px 16px',
+                        borderBottom: '1px solid #2a2a3e',
+                        cursor: 'pointer',
+                        background: notif.read ? 'transparent' : 'rgba(99,102,241,0.08)',
+                        transition: 'background 0.2s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: '20px' }}>{notif.icon}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ 
+                            fontSize: '13px', 
+                            fontWeight: notif.read ? '400' : '600',
+                            marginBottom: '4px'
+                          }}>
+                            {notif.title}
+                          </div>
+                          <div style={{ 
+                            fontSize: '12px', 
+                            color: 'rgba(255,255,255,0.5)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {notif.message}
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
+                            {formatTimeAgo(notif.timestamp)}
+                          </div>
+                        </div>
+                        {!notif.read && (
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1', flexShrink: 0, marginTop: '6px' }} />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const Sidebar = () => (
     <div style={{ width: isMobile ? '100%' : '200px', background: '#12121a', borderRight: isMobile ? 'none' : '1px solid #1e1e2e', borderBottom: isMobile ? '1px solid #1e1e2e' : 'none', height: isMobile ? 'auto' : '100vh', position: isMobile ? 'relative' : 'fixed', left: 0, top: 0, display: 'flex', flexDirection: isMobile ? 'row' : 'column', zIndex: 100 }}>
-      {!isMobile && <div style={{ padding: '18px' }}><div style={{ fontSize: '18px', fontWeight: '800', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ANANDI</div><div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Production Hub</div></div>}
-      <nav style={{ flex: 1, padding: isMobile ? '10px' : '0 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '6px' : '0' }}>
+      {!isMobile && <div style={{ padding: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}><div><div style={{ fontSize: '18px', fontWeight: '800', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ANANDI</div><div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Production Hub</div></div><NotificationPanel /></div>}
+      <nav style={{ flex: 1, padding: isMobile ? '10px' : '0 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '6px' : '0', alignItems: isMobile ? 'center' : 'stretch' }}>
+        {isMobile && <NotificationPanel />}
         {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'projects', icon: '📁', label: 'Projects' }, ...(isProducer ? [{ id: 'team', icon: '👥', label: 'Team' }] : [])].map(item => (
           <div key={item.id} onClick={() => { setView(item.id); setSelectedProjectId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '10px 14px' : '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: view === item.id ? 'rgba(99,102,241,0.15)' : 'transparent', color: view === item.id ? '#fff' : 'rgba(255,255,255,0.6)', marginBottom: isMobile ? '0' : '2px' }}><span style={{ fontSize: '14px' }}>{item.icon}</span>{!isMobile && item.label}</div>
         ))}
