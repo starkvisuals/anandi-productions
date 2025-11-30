@@ -5,6 +5,58 @@ import { getProjects, getProjectsForUser, createProject, updateProject, getUsers
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import dynamic from 'next/dynamic';
+
+// Dynamic import MuxPlayer to avoid SSR issues
+const MuxPlayer = dynamic(() => import('./MuxPlayer'), { ssr: false });
+
+// Mux Helper Functions
+const uploadToMux = async (file, projectId, assetId) => {
+  try {
+    // Get direct upload URL from our API
+    const response = await fetch('/api/mux/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId, assetId, filename: file.name })
+    });
+    
+    if (!response.ok) throw new Error('Failed to get upload URL');
+    
+    const { uploadUrl, uploadId } = await response.json();
+    
+    // Upload file directly to Mux
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type }
+    });
+    
+    if (!uploadResponse.ok) throw new Error('Failed to upload to Mux');
+    
+    return { uploadId, success: true };
+  } catch (error) {
+    console.error('Mux upload error:', error);
+    return { error: error.message, success: false };
+  }
+};
+
+const checkMuxUploadStatus = async (uploadId) => {
+  try {
+    const response = await fetch(`/api/mux/upload?uploadId=${uploadId}`);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Mux status check error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get Mux thumbnail URL
+const getMuxThumbnail = (playbackId, options = {}) => {
+  if (!playbackId) return null;
+  const { time = 0, width = 640 } = options;
+  return `https://image.mux.com/${playbackId}/thumbnail.jpg?time=${time}&width=${width}`;
+};
 
 // Theme Context
 const ThemeContext = createContext();
@@ -2629,7 +2681,6 @@ export default function MainApp() {
         // Auto-detect best category based on file type
         let cat = selectedCat;
         if (!cat) {
-          // Map file types to categories
           if (fileType === 'video') {
             cat = cats.find(c => c.id === 'videos')?.id || cats.find(c => c.id === 'animation')?.id || cats[0]?.id;
           } else if (fileType === 'image') {
@@ -2643,41 +2694,158 @@ export default function MainApp() {
         
         if (!cat) { showToast('No category available', 'error'); return; }
         
-        setUploadProgress(p => ({ ...p, [uid]: { name: file.name, progress: 0 } }));
+        setUploadProgress(p => ({ ...p, [uid]: { name: file.name, progress: 0, status: 'uploading' } }));
+        
         try {
-          const path = `projects/${selectedProject.id}/${cat}/${Date.now()}-${file.name}`;
-          const sRef = ref(storage, path);
-          const task = uploadBytesResumable(sRef, file);
-          task.on('state_changed', snap => setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: Math.round((snap.bytesTransferred / snap.totalBytes) * 100) } })), () => { showToast(`Failed: ${file.name}`, 'error'); setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; }); },
-            async () => {
-              const url = await getDownloadURL(task.snapshot.ref);
-              const type = getFileType(file);
-              
-              // Generate and upload thumbnail for images and videos
-              let thumbnailUrl = null;
-              try {
-                let thumbBlob = null;
-                if (type === 'image') thumbBlob = await generateThumbnail(file);
-                else if (type === 'video') thumbBlob = await generateVideoThumbnail(file);
-                
-                if (thumbBlob) {
-                  const thumbPath = `projects/${selectedProject.id}/${cat}/thumbs/${Date.now()}-thumb.jpg`;
-                  const thumbRef = ref(storage, thumbPath);
-                  await uploadBytesResumable(thumbRef, thumbBlob);
-                  thumbnailUrl = await getDownloadURL(thumbRef);
-                }
-              } catch (e) { console.log('Thumb generation failed:', e); }
-              
-              const newAsset = { id: generateId(), name: file.name, type, category: cat, url, path, thumbnail: thumbnailUrl || (type === 'image' ? url : null), fileSize: file.size, mimeType: file.type, status: 'pending', rating: 0, isSelected: false, assignedTo: null, uploadedBy: userProfile.id, uploadedByName: userProfile.name, uploadedAt: new Date().toISOString(), versions: [{ version: 1, url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }], currentVersion: 1, feedback: [], annotations: [], gdriveLink: '' };
-              const updatedAssets = [...(selectedProject.assets || []), newAsset];
-              const catName = cats.find(c => c.id === cat)?.name || cat;
-              const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
-              await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(selectedProject.activityLog || []), activity] });
-              await refreshProject();
+          const assetId = generateId();
+          
+          // For videos, use Mux for HLS streaming
+          if (fileType === 'video') {
+            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 10, status: 'Uploading to Mux...' } }));
+            
+            const muxResult = await uploadToMux(file, selectedProject.id, assetId);
+            
+            if (!muxResult.success) {
+              showToast(`Mux upload failed: ${muxResult.error}`, 'error');
               setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
+              continue;
             }
-          );
-        } catch (e) { showToast(`Failed: ${file.name}`, 'error'); }
+            
+            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 50, status: 'Processing video...' } }));
+            
+            // Also upload to Firebase for backup/download
+            const path = `projects/${selectedProject.id}/${cat}/${Date.now()}-${file.name}`;
+            const sRef = ref(storage, path);
+            await uploadBytesResumable(sRef, file);
+            const url = await getDownloadURL(sRef);
+            
+            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 70, status: 'Waiting for Mux...' } }));
+            
+            // Poll for Mux processing (max 60 seconds)
+            let muxAsset = null;
+            let attempts = 0;
+            while (attempts < 30) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              const status = await checkMuxUploadStatus(muxResult.uploadId);
+              
+              if (status.asset?.playbackId) {
+                muxAsset = status.asset;
+                break;
+              }
+              
+              if (status.status === 'errored') {
+                console.error('Mux processing failed');
+                break;
+              }
+              
+              attempts++;
+              setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 70 + attempts, status: `Processing... ${attempts * 2}s` } }));
+            }
+            
+            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 95, status: 'Saving...' } }));
+            
+            // Create asset with Mux info
+            const newAsset = {
+              id: assetId,
+              name: file.name,
+              type: 'video',
+              category: cat,
+              url, // Firebase URL for download
+              path,
+              thumbnail: muxAsset?.thumbnailUrl || null,
+              muxPlaybackId: muxAsset?.playbackId || null,
+              muxAssetId: muxAsset?.id || null,
+              muxUploadId: muxResult.uploadId,
+              duration: muxAsset?.duration || null,
+              aspectRatio: muxAsset?.aspectRatio || null,
+              fileSize: file.size,
+              mimeType: file.type,
+              status: 'pending',
+              rating: 0,
+              isSelected: false,
+              assignedTo: null,
+              uploadedBy: userProfile.id,
+              uploadedByName: userProfile.name,
+              uploadedAt: new Date().toISOString(),
+              versions: [{ version: 1, url, muxPlaybackId: muxAsset?.playbackId, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }],
+              currentVersion: 1,
+              feedback: [],
+              annotations: [],
+              gdriveLink: ''
+            };
+            
+            const updatedAssets = [...(selectedProject.assets || []), newAsset];
+            const catName = cats.find(c => c.id === cat)?.name || cat;
+            const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
+            await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(selectedProject.activityLog || []), activity] });
+            await refreshProject();
+            setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
+            showToast(`Video uploaded with HLS streaming!`, 'success');
+            
+          } else {
+            // For images and audio, use Firebase Storage
+            const path = `projects/${selectedProject.id}/${cat}/${Date.now()}-${file.name}`;
+            const sRef = ref(storage, path);
+            const task = uploadBytesResumable(sRef, file);
+            
+            task.on('state_changed', 
+              snap => setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: Math.round((snap.bytesTransferred / snap.totalBytes) * 100) } })), 
+              () => { showToast(`Failed: ${file.name}`, 'error'); setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; }); },
+              async () => {
+                const url = await getDownloadURL(task.snapshot.ref);
+                
+                // Generate thumbnail for images
+                let thumbnailUrl = null;
+                try {
+                  if (fileType === 'image') {
+                    const thumbBlob = await generateThumbnail(file);
+                    if (thumbBlob) {
+                      const thumbPath = `projects/${selectedProject.id}/${cat}/thumbs/${Date.now()}-thumb.jpg`;
+                      const thumbRef = ref(storage, thumbPath);
+                      await uploadBytesResumable(thumbRef, thumbBlob);
+                      thumbnailUrl = await getDownloadURL(thumbRef);
+                    }
+                  }
+                } catch (e) { console.log('Thumb generation failed:', e); }
+                
+                const newAsset = { 
+                  id: assetId, 
+                  name: file.name, 
+                  type: fileType, 
+                  category: cat, 
+                  url, 
+                  path, 
+                  thumbnail: thumbnailUrl || (fileType === 'image' ? url : null), 
+                  fileSize: file.size, 
+                  mimeType: file.type, 
+                  status: 'pending', 
+                  rating: 0, 
+                  isSelected: false, 
+                  assignedTo: null, 
+                  uploadedBy: userProfile.id, 
+                  uploadedByName: userProfile.name, 
+                  uploadedAt: new Date().toISOString(), 
+                  versions: [{ version: 1, url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }], 
+                  currentVersion: 1, 
+                  feedback: [], 
+                  annotations: [], 
+                  gdriveLink: '' 
+                };
+                
+                const updatedAssets = [...(selectedProject.assets || []), newAsset];
+                const catName = cats.find(c => c.id === cat)?.name || cat;
+                const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
+                await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(selectedProject.activityLog || []), activity] });
+                await refreshProject();
+                setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
+              }
+            );
+          }
+        } catch (e) { 
+          console.error('Upload error:', e);
+          showToast(`Failed: ${file.name}`, 'error'); 
+          setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
+        }
       }
       setUploadFiles([]);
     };
@@ -2911,7 +3079,22 @@ export default function MainApp() {
           {/* Upload Progress */}
           {Object.keys(uploadProgress).length > 0 && (
             <div style={{ padding: '12px 16px', background: '#1e1e2e' }}>
-              {Object.entries(uploadProgress).map(([id, item]) => <div key={id} style={{ marginBottom: '6px' }}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}><span>{item.name}</span><span>{item.progress}%</span></div><div style={{ background: '#0d0d14', borderRadius: '3px', height: '4px' }}><div style={{ width: `${item.progress}%`, height: '100%', background: '#6366f1', borderRadius: '3px' }} /></div></div>)}
+              {Object.entries(uploadProgress).map(([id, item]) => (
+                <div key={id} style={{ marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {item.name}
+                      {item.status && typeof item.status === 'string' && item.status !== 'uploading' && (
+                        <span style={{ fontSize: '9px', color: '#6366f1', background: 'rgba(99,102,241,0.2)', padding: '1px 6px', borderRadius: '4px' }}>{item.status}</span>
+                      )}
+                    </span>
+                    <span>{item.progress}%</span>
+                  </div>
+                  <div style={{ background: '#0d0d14', borderRadius: '3px', height: '4px' }}>
+                    <div style={{ width: `${item.progress}%`, height: '100%', background: item.status?.includes('Mux') || item.status?.includes('Processing') ? '#22c55e' : '#6366f1', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -3283,17 +3466,41 @@ export default function MainApp() {
                   <div style={{ flex: isMobile ? 'none' : 1, minHeight: isMobile ? '300px' : 'auto', padding: isMobile ? '12px' : '20px', overflow: 'auto' }}>
                     {selectedAsset.type === 'video' ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
-                        <video 
-                          ref={videoRef} 
-                          src={selectedAsset.url} 
-                          controls 
-                          playsInline 
-                          onTimeUpdate={(e) => setVideoTime(e.target.currentTime)}
-                          onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
-                          style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '55vh', objectFit: 'contain' }} 
-                        />
-                        <div style={{ marginTop: '10px', padding: '6px 14px', background: '#1e1e2e', borderRadius: '8px', fontSize: '14px', fontFamily: 'monospace', fontWeight: '600' }}>
-                          {Math.floor(videoTime / 60).toString().padStart(2, '0')}:{Math.floor(videoTime % 60).toString().padStart(2, '0')}:{Math.floor((videoTime % 1) * 30).toString().padStart(2, '0')} / {Math.floor(videoDuration / 60).toString().padStart(2, '0')}:{Math.floor(videoDuration % 60).toString().padStart(2, '0')}
+                        {selectedAsset.muxPlaybackId ? (
+                          /* Mux HLS Player for smooth streaming */
+                          <MuxPlayer
+                            ref={videoRef}
+                            playbackId={selectedAsset.muxPlaybackId}
+                            poster={selectedAsset.thumbnail}
+                            onTimeUpdate={(time) => setVideoTime(time)}
+                            onDurationChange={(dur) => setVideoDuration(dur)}
+                            controls={true}
+                            showTimecode={false}
+                            style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '55vh' }}
+                          />
+                        ) : (
+                          /* Fallback to regular video for non-Mux assets */
+                          <video 
+                            ref={videoRef} 
+                            src={selectedAsset.url} 
+                            controls 
+                            playsInline 
+                            onTimeUpdate={(e) => setVideoTime(e.target.currentTime)}
+                            onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
+                            style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '55vh', objectFit: 'contain' }} 
+                          />
+                        )}
+                        <div style={{ marginTop: '10px', padding: '6px 14px', background: '#1e1e2e', borderRadius: '8px', fontSize: '14px', fontFamily: 'monospace', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ color: '#22c55e' }}>
+                            {Math.floor(videoTime / 3600).toString().padStart(2, '0')}:{Math.floor((videoTime % 3600) / 60).toString().padStart(2, '0')}:{Math.floor(videoTime % 60).toString().padStart(2, '0')}:{Math.floor((videoTime % 1) * 24).toString().padStart(2, '0')}
+                          </span>
+                          <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span>
+                          <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                            {Math.floor(videoDuration / 3600).toString().padStart(2, '0')}:{Math.floor((videoDuration % 3600) / 60).toString().padStart(2, '0')}:{Math.floor(videoDuration % 60).toString().padStart(2, '0')}:00
+                          </span>
+                          {selectedAsset.muxPlaybackId && (
+                            <span style={{ fontSize: '9px', color: '#6366f1', background: 'rgba(99,102,241,0.2)', padding: '2px 8px', borderRadius: '4px', marginLeft: '8px' }}>HLS</span>
+                          )}
                         </div>
                       </div>
                     ) : selectedAsset.type === 'audio' ? (
