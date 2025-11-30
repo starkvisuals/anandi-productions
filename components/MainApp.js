@@ -1,10 +1,46 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { getProjects, getProjectsForUser, createProject, updateProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+
+// Theme Context
+const ThemeContext = createContext();
+const useTheme = () => useContext(ThemeContext);
+
+// Theme definitions
+const THEMES = {
+  dark: {
+    bg: '#0a0a0f',
+    bgSecondary: '#12121a',
+    bgTertiary: '#16161f',
+    bgCard: '#1e1e2e',
+    border: '#2a2a3e',
+    text: '#ffffff',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    textMuted: 'rgba(255,255,255,0.4)',
+    primary: '#6366f1',
+    success: '#22c55e',
+    warning: '#f59e0b',
+    danger: '#ef4444',
+  },
+  light: {
+    bg: '#f8fafc',
+    bgSecondary: '#ffffff',
+    bgTertiary: '#f1f5f9',
+    bgCard: '#ffffff',
+    border: '#e2e8f0',
+    text: '#0f172a',
+    textSecondary: '#475569',
+    textMuted: '#94a3b8',
+    primary: '#6366f1',
+    success: '#22c55e',
+    warning: '#f59e0b',
+    danger: '#ef4444',
+  }
+};
 
 const DEFAULT_CATEGORIES = [
   { id: 'cgi', name: 'CGI', icon: '🌐', color: '#3b82f6' },
@@ -15,6 +51,17 @@ const DEFAULT_CATEGORIES = [
   { id: 'audio', name: 'Audio', icon: '🔊', color: '#06b6d4' },
 ];
 
+// Project Templates
+const PROJECT_TEMPLATES = [
+  { id: 'photoshoot-basic', name: '📸 Basic Photoshoot', type: 'photoshoot', categories: ['statics'], description: 'Simple photoshoot with statics only' },
+  { id: 'photoshoot-full', name: '📸 Full Photoshoot', type: 'photoshoot', categories: ['statics', 'videos'], description: 'Photoshoot with BTS videos' },
+  { id: 'ad-film', name: '🎬 Ad Film', type: 'ad-film', categories: ['videos', 'vfx', 'audio', 'cgi'], description: 'Full ad film production' },
+  { id: 'product-video', name: '📦 Product Video', type: 'product-video', categories: ['videos', 'cgi'], description: 'Product showcase video' },
+  { id: 'social-media', name: '📱 Social Media Pack', type: 'social-media', categories: ['statics', 'videos'], description: 'Social media content package' },
+  { id: 'toolkit', name: '🧰 Brand Toolkit', type: 'toolkit', categories: ['statics', 'videos', 'cgi', 'animation'], description: 'Complete brand toolkit' },
+  { id: 'reels', name: '🎞️ Reels/Shorts', type: 'reels', categories: ['videos'], description: 'Short-form vertical content' },
+];
+
 const ASPECT_RATIOS = { landscape: 16/10, square: 1, portrait: 10/16 };
 const CARD_SIZES = { S: 160, M: 220, L: 300 };
 
@@ -22,6 +69,15 @@ const formatDate = d => d ? new Date(d).toLocaleDateString('en-IN', { month: 'sh
 const formatTimeAgo = d => { if (!d) return ''; const s = Math.floor((Date.now() - new Date(d)) / 1000); if (s < 60) return 'Just now'; if (s < 3600) return `${Math.floor(s/60)}m ago`; if (s < 86400) return `${Math.floor(s/3600)}h ago`; return `${Math.floor(s/86400)}d ago`; };
 const formatFileSize = b => { if (!b) return '0 B'; if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1) + ' KB'; return (b/1048576).toFixed(1) + ' MB'; };
 const formatDuration = s => { if (!s) return ''; const m = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${m}:${sec.toString().padStart(2, '0')}`; };
+// Professional timecode format (HH:MM:SS:FF at 24fps)
+const formatTimecode = (seconds, fps = 24) => {
+  if (!seconds && seconds !== 0) return '00:00:00:00';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const f = Math.floor((seconds % 1) * fps);
+  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}:${f.toString().padStart(2,'0')}`;
+};
 const getFileType = f => { if (f.type?.startsWith('video/')) return 'video'; if (f.type?.startsWith('image/')) return 'image'; if (f.type?.startsWith('audio/')) return 'audio'; return 'other'; };
 const isNewVersion = (uploadedAt) => { if (!uploadedAt) return false; const hours = (Date.now() - new Date(uploadedAt).getTime()) / (1000 * 60 * 60); return hours < 24; };
 const isRecent = (timestamp, hours = 24) => { if (!timestamp) return false; return (Date.now() - new Date(timestamp).getTime()) / (1000 * 60 * 60) < hours; };
@@ -348,6 +404,31 @@ export default function MainApp() {
   const [toast, setToast] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  
+  // Theme State
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('anandi-theme');
+      if (saved) return saved;
+      // Check system preference
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
+      }
+    }
+    return 'dark';
+  });
+  const t = THEMES[theme]; // Current theme colors
+  
+  // Global Search State
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  
+  // View Mode State (grid, kanban, calendar)
+  const [viewMode, setViewMode] = useState('grid');
+  
+  // Client Portal Mode
+  const isClientView = userProfile?.role === 'client' || userProfile?.isClient;
+  
   const [appearance, setAppearance] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('anandi-appearance');
@@ -357,6 +438,29 @@ export default function MainApp() {
   });
   const [isMobile, setIsMobile] = useState(false);
   const isProducer = ['producer', 'admin', 'team-lead'].includes(userProfile?.role);
+
+  // Save theme to localStorage and apply to document
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('anandi-theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  }, [theme]);
+  
+  // Listen for system theme changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+      const handleChange = (e) => {
+        const savedTheme = localStorage.getItem('anandi-theme');
+        if (!savedTheme || savedTheme === 'system') {
+          setTheme(e.matches ? 'light' : 'dark');
+        }
+      };
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, []);
 
   // Save appearance to localStorage when it changes
   useEffect(() => {
@@ -532,6 +636,59 @@ export default function MainApp() {
 
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   useEffect(() => { loadData(); }, []);
+  
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyboard = (e) => {
+      // Cmd/Ctrl + K = Open Global Search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowGlobalSearch(true);
+        return;
+      }
+      
+      // Escape = Close search
+      if (e.key === 'Escape' && showGlobalSearch) {
+        setShowGlobalSearch(false);
+        setGlobalSearchQuery('');
+        return;
+      }
+      
+      // Don't trigger if typing in input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      // Quick navigation with numbers
+      if (e.key === '1' && !e.metaKey && !e.ctrlKey) { setView('dashboard'); }
+      if (e.key === '2' && !e.metaKey && !e.ctrlKey) { setView('tasks'); }
+      if (e.key === '3' && !e.metaKey && !e.ctrlKey) { setView('projects'); }
+      if (e.key === '4' && !e.metaKey && !e.ctrlKey) { setView('team'); }
+      if (e.key === '5' && !e.metaKey && !e.ctrlKey) { setView('calendar'); }
+      
+      // N = New project (if producer and on projects view)
+      if (e.key === 'n' && view === 'projects' && isProducer) {
+        // Handled in ProjectsList
+      }
+      
+      // T = Toggle theme
+      if (e.key === 't' && !e.metaKey && !e.ctrlKey) {
+        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+      }
+      
+      // / = Open search
+      if (e.key === '/') {
+        e.preventDefault();
+        setShowGlobalSearch(true);
+      }
+      
+      // ? = Show keyboard shortcuts help
+      if (e.key === '?' && e.shiftKey) {
+        showToast('Keys: 1-4 Nav, / Search, T Theme, Esc Close', 'info');
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyboard);
+    return () => window.removeEventListener('keydown', handleKeyboard);
+  }, [view, isProducer, showGlobalSearch]);
   const loadData = async () => { 
     setLoading(true); 
     try { 
@@ -695,19 +852,575 @@ export default function MainApp() {
     );
   };
 
+  // Global Search Component
+  const GlobalSearch = () => {
+    const searchInputRef = useRef(null);
+    const allAssets = projects.flatMap(p => (p.assets || []).filter(a => !a.deleted).map(a => ({ ...a, projectName: p.name, projectId: p.id })));
+    
+    useEffect(() => {
+      if (showGlobalSearch && searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    }, [showGlobalSearch]);
+    
+    const searchResults = globalSearchQuery.trim() ? (() => {
+      const q = globalSearchQuery.toLowerCase();
+      const matchedProjects = projects.filter(p => 
+        p.name?.toLowerCase().includes(q) || 
+        p.client?.toLowerCase().includes(q)
+      ).slice(0, 5);
+      const matchedAssets = allAssets.filter(a => 
+        a.name?.toLowerCase().includes(q) ||
+        (a.tags || []).some(tag => tag.toLowerCase().includes(q))
+      ).slice(0, 10);
+      const matchedTeam = [...coreTeam, ...freelancers].filter(m =>
+        m.name?.toLowerCase().includes(q) ||
+        m.email?.toLowerCase().includes(q)
+      ).slice(0, 5);
+      return { projects: matchedProjects, assets: matchedAssets, team: matchedTeam };
+    })() : { projects: [], assets: [], team: [] };
+    
+    if (!showGlobalSearch) return null;
+    
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1100, display: 'flex', justifyContent: 'center', paddingTop: '100px' }} onClick={() => { setShowGlobalSearch(false); setGlobalSearchQuery(''); }}>
+        <div style={{ width: '600px', maxWidth: '90vw', background: t.bgTertiary, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          {/* Search Input */}
+          <div style={{ padding: '16px', borderBottom: `1px solid ${t.border}`, display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <span style={{ fontSize: '20px' }}>🔍</span>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={globalSearchQuery}
+              onChange={e => setGlobalSearchQuery(e.target.value)}
+              placeholder="Search projects, assets, team..."
+              style={{ 
+                flex: 1, 
+                background: 'transparent', 
+                border: 'none', 
+                outline: 'none', 
+                fontSize: '16px', 
+                color: t.text 
+              }}
+            />
+            <span style={{ fontSize: '11px', color: t.textMuted, background: t.bgCard, padding: '4px 8px', borderRadius: '4px' }}>ESC</span>
+          </div>
+          
+          {/* Results */}
+          <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+            {!globalSearchQuery.trim() ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: t.textMuted }}>
+                <div style={{ fontSize: '14px' }}>Type to search across all projects and assets</div>
+                <div style={{ fontSize: '11px', marginTop: '8px' }}>Tip: Press / to open search anytime</div>
+              </div>
+            ) : (
+              <>
+                {/* Projects */}
+                {searchResults.projects.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '600', color: t.textMuted, padding: '8px 12px', textTransform: 'uppercase' }}>Projects</div>
+                    {searchResults.projects.map(p => (
+                      <div 
+                        key={p.id} 
+                        onClick={() => { setSelectedProjectId(p.id); setView('projects'); setShowGlobalSearch(false); setGlobalSearchQuery(''); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', background: 'transparent' }}
+                        onMouseEnter={e => e.currentTarget.style.background = t.bgCard}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <span style={{ fontSize: '20px' }}>📁</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '500', color: t.text }}>{p.name}</div>
+                          <div style={{ fontSize: '11px', color: t.textMuted }}>{p.client}</div>
+                        </div>
+                        <Badge status={p.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Assets */}
+                {searchResults.assets.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '600', color: t.textMuted, padding: '8px 12px', textTransform: 'uppercase' }}>Assets</div>
+                    {searchResults.assets.map(a => (
+                      <div 
+                        key={a.id} 
+                        onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); setShowGlobalSearch(false); setGlobalSearchQuery(''); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', background: 'transparent' }}
+                        onMouseEnter={e => e.currentTarget.style.background = t.bgCard}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        {a.thumbnail ? (
+                          <img src={a.thumbnail} alt="" style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: '20px' }}>{a.type === 'video' ? '🎬' : a.type === 'image' ? '🖼️' : '📄'}</span>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '500', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
+                          <div style={{ fontSize: '11px', color: t.textMuted }}>{a.projectName}</div>
+                        </div>
+                        <span style={{ fontSize: '10px', padding: '2px 6px', background: t.bgCard, borderRadius: '4px', color: t.textSecondary }}>{a.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Team */}
+                {searchResults.team.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: '600', color: t.textMuted, padding: '8px 12px', textTransform: 'uppercase' }}>Team</div>
+                    {searchResults.team.map(m => (
+                      <div 
+                        key={m.id} 
+                        onClick={() => { setView('team'); setShowGlobalSearch(false); setGlobalSearchQuery(''); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', background: 'transparent' }}
+                        onMouseEnter={e => e.currentTarget.style.background = t.bgCard}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <Avatar user={m} size={36} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '500', color: t.text }}>{m.name}</div>
+                          <div style={{ fontSize: '11px', color: t.textMuted }}>{m.email}</div>
+                        </div>
+                        <RoleBadge role={m.role} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* No Results */}
+                {searchResults.projects.length === 0 && searchResults.assets.length === 0 && searchResults.team.length === 0 && (
+                  <div style={{ padding: '40px', textAlign: 'center', color: t.textMuted }}>
+                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔍</div>
+                    <div style={{ fontSize: '14px' }}>No results for "{globalSearchQuery}"</div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Calendar View Component
+  const CalendarView = () => {
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [draggedAsset, setDraggedAsset] = useState(null);
+    
+    const allAssets = projects.flatMap(p => (p.assets || []).filter(a => !a.deleted && a.dueDate).map(a => ({ ...a, projectName: p.name, projectId: p.id })));
+    
+    // Generate calendar days
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startPad = firstDay.getDay();
+    const totalDays = lastDay.getDate();
+    
+    const days = [];
+    for (let i = 0; i < startPad; i++) days.push(null);
+    for (let i = 1; i <= totalDays; i++) days.push(i);
+    
+    const getAssetsForDay = (day) => {
+      if (!day) return [];
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return allAssets.filter(a => a.dueDate?.startsWith(dateStr));
+    };
+    
+    const handleDrop = async (day) => {
+      if (!draggedAsset || !day) return;
+      const newDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const project = projects.find(p => p.id === draggedAsset.projectId);
+      if (!project) return;
+      
+      const updatedAssets = (project.assets || []).map(a => 
+        a.id === draggedAsset.id ? { ...a, dueDate: newDate } : a
+      );
+      await updateProject(project.id, { assets: updatedAssets });
+      await refreshProject();
+      showToast('Deadline updated!', 'success');
+      setDraggedAsset(null);
+    };
+    
+    const today = new Date();
+    const isToday = (day) => day && year === today.getFullYear() && month === today.getMonth() && day === today.getDate();
+    
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: t.text }}>📅 Calendar</h1>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} style={{ padding: '8px 14px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, cursor: 'pointer' }}>←</button>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: t.text, minWidth: '140px', textAlign: 'center' }}>
+              {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </span>
+            <button onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} style={{ padding: '8px 14px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, cursor: 'pointer' }}>→</button>
+            <button onClick={() => setCurrentMonth(new Date())} style={{ padding: '8px 14px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '12px' }}>Today</button>
+          </div>
+        </div>
+        
+        {/* Day headers */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', marginBottom: '8px' }}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+            <div key={d} style={{ padding: '8px', textAlign: 'center', fontSize: '11px', fontWeight: '600', color: t.textMuted }}>{d}</div>
+          ))}
+        </div>
+        
+        {/* Calendar grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', background: t.border, border: `1px solid ${t.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+          {days.map((day, idx) => {
+            const dayAssets = getAssetsForDay(day);
+            const isPast = day && new Date(year, month, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            
+            return (
+              <div 
+                key={idx}
+                onDragOver={e => { if (day) e.preventDefault(); }}
+                onDrop={() => handleDrop(day)}
+                style={{ 
+                  minHeight: '100px', 
+                  padding: '8px', 
+                  background: isToday(day) ? 'rgba(99,102,241,0.1)' : t.bgTertiary,
+                  opacity: day ? 1 : 0.3
+                }}
+              >
+                {day && (
+                  <>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      fontWeight: isToday(day) ? '700' : '500',
+                      color: isToday(day) ? '#6366f1' : isPast ? t.textMuted : t.text,
+                      marginBottom: '6px'
+                    }}>
+                      {day}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {dayAssets.slice(0, 3).map(a => (
+                        <div 
+                          key={a.id}
+                          draggable
+                          onDragStart={() => setDraggedAsset(a)}
+                          onDragEnd={() => setDraggedAsset(null)}
+                          onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }}
+                          style={{ 
+                            padding: '4px 6px', 
+                            background: a.status === 'approved' ? 'rgba(34,197,94,0.2)' : isPast ? 'rgba(239,68,68,0.2)' : 'rgba(99,102,241,0.2)',
+                            borderRadius: '4px', 
+                            fontSize: '10px', 
+                            cursor: 'grab',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            color: t.text
+                          }}
+                        >
+                          {a.name}
+                        </div>
+                      ))}
+                      {dayAssets.length > 3 && (
+                        <div style={{ fontSize: '10px', color: t.textMuted }}>+{dayAssets.length - 3} more</div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Kanban View Component (for assets)
+  const KanbanView = ({ assets, onUpdateStatus, projectId }) => {
+    const [draggedAsset, setDraggedAsset] = useState(null);
+    
+    const columns = [
+      { id: 'pending', title: 'Pending', icon: '⏳', color: '#fbbf24' },
+      { id: 'assigned', title: 'Assigned', icon: '📋', color: '#3b82f6' },
+      { id: 'in-progress', title: 'In Progress', icon: '⚡', color: '#8b5cf6' },
+      { id: 'review-ready', title: 'Review Ready', icon: '👁️', color: '#a855f7' },
+      { id: 'revision', title: 'Revision', icon: '🔄', color: '#f97316' },
+      { id: 'approved', title: 'Approved', icon: '✓', color: '#22c55e' },
+    ];
+    
+    const handleDrop = async (status) => {
+      if (!draggedAsset || draggedAsset.status === status) return;
+      await onUpdateStatus(draggedAsset.id, status);
+      setDraggedAsset(null);
+    };
+    
+    return (
+      <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '16px' }}>
+        {columns.map(col => {
+          const colAssets = assets.filter(a => a.status === col.id);
+          
+          return (
+            <div 
+              key={col.id}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => handleDrop(col.id)}
+              style={{ 
+                minWidth: '250px', 
+                background: t.bgTertiary, 
+                borderRadius: '12px', 
+                border: `1px solid ${t.border}`,
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              {/* Column Header */}
+              <div style={{ 
+                padding: '12px 14px', 
+                borderBottom: `1px solid ${t.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '16px' }}>{col.icon}</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: t.text }}>{col.title}</span>
+                <span style={{ 
+                  marginLeft: 'auto', 
+                  fontSize: '11px', 
+                  padding: '2px 8px', 
+                  background: `${col.color}20`,
+                  color: col.color,
+                  borderRadius: '10px',
+                  fontWeight: '600'
+                }}>
+                  {colAssets.length}
+                </span>
+              </div>
+              
+              {/* Column Content */}
+              <div style={{ flex: 1, padding: '8px', minHeight: '200px' }}>
+                {colAssets.map(a => (
+                  <div
+                    key={a.id}
+                    draggable
+                    onDragStart={() => setDraggedAsset(a)}
+                    onDragEnd={() => setDraggedAsset(null)}
+                    style={{
+                      padding: '10px',
+                      background: t.bgCard,
+                      borderRadius: '8px',
+                      marginBottom: '8px',
+                      cursor: 'grab',
+                      border: `1px solid ${t.border}`,
+                      transition: 'transform 0.1s'
+                    }}
+                  >
+                    {a.thumbnail && (
+                      <img 
+                        src={a.thumbnail} 
+                        alt="" 
+                        style={{ 
+                          width: '100%', 
+                          height: '80px', 
+                          objectFit: 'cover', 
+                          borderRadius: '6px',
+                          marginBottom: '8px'
+                        }} 
+                      />
+                    )}
+                    <div style={{ fontSize: '12px', fontWeight: '500', color: t.text, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {a.name}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {a.dueDate && (
+                        <span style={{ 
+                          fontSize: '10px', 
+                          padding: '2px 6px', 
+                          background: new Date(a.dueDate) < new Date() ? 'rgba(239,68,68,0.2)' : t.bgTertiary,
+                          color: new Date(a.dueDate) < new Date() ? '#ef4444' : t.textSecondary,
+                          borderRadius: '4px'
+                        }}>
+                          📅 {formatDate(a.dueDate)}
+                        </span>
+                      )}
+                      {a.assignedToName && (
+                        <span style={{ fontSize: '10px', color: t.textMuted }}>
+                          👤 {a.assignedToName.split(' ')[0]}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {colAssets.length === 0 && (
+                  <div style={{ 
+                    padding: '20px', 
+                    textAlign: 'center', 
+                    color: t.textMuted, 
+                    fontSize: '11px',
+                    border: `2px dashed ${t.border}`,
+                    borderRadius: '8px'
+                  }}>
+                    Drop here
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // File Comparison Component
+  const FileComparison = ({ version1, version2, onClose }) => {
+    const [sliderPosition, setSliderPosition] = useState(50);
+    const containerRef = useRef(null);
+    
+    const handleMouseMove = (e) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      setSliderPosition(percent);
+    };
+    
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 1200, display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #2a2a3e' }}>
+          <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+            <span style={{ fontSize: '14px', color: '#ef4444' }}>◀ v{version1.version}</span>
+            <span style={{ fontSize: '14px', color: '#fff' }}>Compare</span>
+            <span style={{ fontSize: '14px', color: '#22c55e' }}>v{version2.version} ▶</span>
+          </div>
+          <button onClick={onClose} style={{ background: '#1e1e2e', border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '8px', fontSize: '18px', cursor: 'pointer' }}>×</button>
+        </div>
+        
+        {/* Comparison Area */}
+        <div 
+          ref={containerRef}
+          onMouseMove={handleMouseMove}
+          style={{ flex: 1, position: 'relative', cursor: 'col-resize', overflow: 'hidden' }}
+        >
+          {/* Before (v1) */}
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <img src={version1.url} alt="Before" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          </div>
+          
+          {/* After (v2) - clipped */}
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}>
+            <img src={version2.url} alt="After" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          </div>
+          
+          {/* Slider */}
+          <div style={{ 
+            position: 'absolute', 
+            top: 0, 
+            bottom: 0, 
+            left: `${sliderPosition}%`, 
+            width: '4px', 
+            background: '#fff',
+            transform: 'translateX(-50%)',
+            cursor: 'col-resize'
+          }}>
+            <div style={{ 
+              position: 'absolute', 
+              top: '50%', 
+              left: '50%', 
+              transform: 'translate(-50%, -50%)', 
+              width: '40px', 
+              height: '40px', 
+              background: '#fff', 
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+            }}>
+              ⟷
+            </div>
+          </div>
+          
+          {/* Labels */}
+          <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(239,68,68,0.9)', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>
+            Before (v{version1.version})
+          </div>
+          <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'rgba(34,197,94,0.9)', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>
+            After (v{version2.version})
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const Sidebar = () => (
-    <div style={{ width: isMobile ? '100%' : '200px', background: '#12121a', borderRight: isMobile ? 'none' : '1px solid #1e1e2e', borderBottom: isMobile ? '1px solid #1e1e2e' : 'none', height: isMobile ? 'auto' : '100vh', position: isMobile ? 'relative' : 'fixed', left: 0, top: 0, display: 'flex', flexDirection: isMobile ? 'row' : 'column', zIndex: 100 }}>
-      {!isMobile && <div style={{ padding: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}><div><div style={{ fontSize: '18px', fontWeight: '800', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ANANDI</div><div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Production Hub</div></div><NotificationPanel /></div>}
+    <div style={{ width: isMobile ? '100%' : '200px', background: t.bgSecondary, borderRight: isMobile ? 'none' : `1px solid ${t.border}`, borderBottom: isMobile ? `1px solid ${t.border}` : 'none', height: isMobile ? 'auto' : '100vh', position: isMobile ? 'relative' : 'fixed', left: 0, top: 0, display: 'flex', flexDirection: isMobile ? 'row' : 'column', zIndex: 100 }}>
+      {!isMobile && <div style={{ padding: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}><div><div style={{ fontSize: '18px', fontWeight: '800', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ANANDI</div><div style={{ fontSize: '8px', color: t.textMuted, marginTop: '2px' }}>Production Hub</div></div><NotificationPanel /></div>}
+      
+      {/* Search Button */}
+      {!isMobile && (
+        <div style={{ padding: '0 10px 10px' }}>
+          <button 
+            onClick={() => setShowGlobalSearch(true)}
+            style={{ 
+              width: '100%', 
+              padding: '10px 12px', 
+              background: t.bgCard, 
+              border: `1px solid ${t.border}`, 
+              borderRadius: '8px', 
+              color: t.textMuted, 
+              fontSize: '12px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              textAlign: 'left'
+            }}
+          >
+            <span>🔍</span>
+            <span style={{ flex: 1 }}>Search</span>
+            <span style={{ fontSize: '10px', background: t.bgTertiary, padding: '2px 6px', borderRadius: '4px' }}>/</span>
+          </button>
+        </div>
+      )}
+      
       <nav style={{ flex: 1, padding: isMobile ? '10px' : '0 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '6px' : '0', alignItems: isMobile ? 'center' : 'stretch' }}>
         {isMobile && <NotificationPanel />}
-        {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'tasks', icon: '✅', label: 'My Tasks' }, { id: 'projects', icon: '📁', label: 'Projects' }, ...(isProducer ? [{ id: 'team', icon: '👥', label: 'Team' }] : [])].map(item => (
-          <div key={item.id} onClick={() => { setView(item.id); setSelectedProjectId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '10px 14px' : '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: view === item.id ? 'rgba(99,102,241,0.15)' : 'transparent', color: view === item.id ? '#fff' : 'rgba(255,255,255,0.6)', marginBottom: isMobile ? '0' : '2px' }}><span style={{ fontSize: '14px' }}>{item.icon}</span>{!isMobile && item.label}</div>
+        {isMobile && <button onClick={() => setShowGlobalSearch(true)} style={{ padding: '10px', background: 'transparent', border: 'none', cursor: 'pointer' }}><span style={{ fontSize: '16px' }}>🔍</span></button>}
+        {[
+          { id: 'dashboard', icon: '📊', label: 'Dashboard' }, 
+          { id: 'tasks', icon: '✅', label: 'My Tasks' }, 
+          { id: 'projects', icon: '📁', label: 'Projects' },
+          { id: 'calendar', icon: '📅', label: 'Calendar' },
+          ...(isProducer ? [{ id: 'team', icon: '👥', label: 'Team' }] : [])
+        ].map(item => (
+          <div key={item.id} onClick={() => { setView(item.id); setSelectedProjectId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '10px 14px' : '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: view === item.id ? 'rgba(99,102,241,0.15)' : 'transparent', color: view === item.id ? t.text : t.textSecondary, marginBottom: isMobile ? '0' : '2px' }}><span style={{ fontSize: '14px' }}>{item.icon}</span>{!isMobile && item.label}</div>
         ))}
       </nav>
       {!isMobile && (
-        <div style={{ padding: '14px', borderTop: '1px solid #1e1e2e' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}><Avatar user={userProfile} size={32} /><div style={{ flex: 1, overflow: 'hidden' }}><div style={{ fontSize: '11px', fontWeight: '500' }}>{userProfile?.firstName}</div><div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>{CORE_ROLES[userProfile?.role]?.label || userProfile?.role}</div></div></div>
-          <button onClick={signOut} style={{ width: '100%', padding: '8px', background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: '8px', color: 'rgba(255,255,255,0.6)', fontSize: '11px', cursor: 'pointer' }}>Sign Out</button>
+        <div style={{ padding: '14px', borderTop: `1px solid ${t.border}` }}>
+          {/* Theme Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <button 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              style={{ 
+                flex: 1,
+                padding: '8px', 
+                background: t.bgCard, 
+                border: `1px solid ${t.border}`, 
+                borderRadius: '8px', 
+                color: t.textSecondary, 
+                fontSize: '11px', 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'} {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}><Avatar user={userProfile} size={32} /><div style={{ flex: 1, overflow: 'hidden' }}><div style={{ fontSize: '11px', fontWeight: '500', color: t.text }}>{userProfile?.firstName}</div><div style={{ fontSize: '9px', color: t.textMuted }}>{CORE_ROLES[userProfile?.role]?.label || userProfile?.role}</div></div></div>
+          <button onClick={signOut} style={{ width: '100%', padding: '8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>Sign Out</button>
         </div>
       )}
     </div>
@@ -2106,6 +2819,53 @@ export default function MainApp() {
             </div>
           </div>
 
+          {/* Quick Stats Bar */}
+          {!isMobile && (() => {
+            const projectAssets = (selectedProject.assets || []).filter(a => !a.deleted);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const pending = projectAssets.filter(a => a.status === 'pending').length;
+            const inProgress = projectAssets.filter(a => a.status === 'in-progress' || a.status === 'assigned').length;
+            const review = projectAssets.filter(a => a.status === 'review-ready').length;
+            const approved = projectAssets.filter(a => a.status === 'approved' || a.status === 'delivered').length;
+            const overdue = projectAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered' && a.status !== 'approved').length;
+            const progress = projectAssets.length ? Math.round((approved / projectAssets.length) * 100) : 0;
+            
+            return (
+              <div style={{ padding: '10px 16px', background: '#0d0d14', borderBottom: '1px solid #1e1e2e', display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>⏳ Pending</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#fbbf24' }}>{pending}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>⚡ In Progress</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#3b82f6' }}>{inProgress}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>👁️ Review</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#a855f7' }}>{review}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>✓ Done</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#22c55e' }}>{approved}</span>
+                  </div>
+                  {overdue > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'rgba(239,68,68,0.15)', borderRadius: '6px' }}>
+                      <span style={{ fontSize: '10px', color: '#ef4444' }}>🚨 Overdue</span>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#ef4444' }}>{overdue}</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '120px', height: '6px', background: '#1e1e2e', borderRadius: '3px' }}>
+                    <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#22c55e' : '#6366f1', borderRadius: '3px', transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: progress === 100 ? '#22c55e' : '#6366f1' }}>{progress}%</span>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -2138,6 +2898,14 @@ export default function MainApp() {
               </div>
             )}
             {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && isProducer && !isMobile && <Btn onClick={handleConfirmSelection} small color="#f59e0b">🎯 Confirm ({selectedCount})</Btn>}
+            
+            {/* View Mode Toggle */}
+            {tab === 'assets' && assets.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
+                <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>📊 Grid</button>
+                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>📋 Kanban</button>
+              </div>
+            )}
           </div>
 
           {/* Upload Progress */}
@@ -2157,6 +2925,12 @@ export default function MainApp() {
                     <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginBottom: '16px' }}>No assets</p>
                     {isProducer && <Btn onClick={() => setShowUpload(true)}>⬆️ Upload</Btn>}
                   </div>
+                ) : viewMode === 'kanban' ? (
+                  <KanbanView 
+                    assets={assets} 
+                    onUpdateStatus={handleUpdateStatus} 
+                    projectId={selectedProject.id} 
+                  />
                 ) : (
                   <div>
                     {/* Photoshoot Selection Phase Filter */}
@@ -2232,9 +3006,167 @@ export default function MainApp() {
             )}
 
             {tab === 'team' && (
-              <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e' }}>
-                <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><h3 style={{ margin: 0, fontSize: '14px' }}>👥 Team ({team.length})</h3>{isProducer && availableTeam.length > 0 && <Btn onClick={() => setShowAddTeam(true)} small>+ Add</Btn>}</div>
-                <div style={{ padding: '14px' }}>{team.length === 0 ? <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No team</div> : team.map(m => <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#0d0d14', borderRadius: '10px', marginBottom: '8px' }}><Avatar user={m} size={38} /><div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '12px' }}>{m.name} {m.isOwner && <span style={{ fontSize: '10px', color: '#f97316' }}>👑</span>}</div><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{m.email}</div></div><RoleBadge role={m.role} /></div>)}</div>
+              <div>
+                {/* Smart Alerts for Producer */}
+                {isProducer && (() => {
+                  const projectAssets = (selectedProject.assets || []).filter(a => !a.deleted);
+                  const unassigned = projectAssets.filter(a => !a.assignedTo && a.status !== 'delivered' && a.status !== 'approved');
+                  const today = new Date(); today.setHours(0,0,0,0);
+                  const overdue = projectAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered' && a.status !== 'approved');
+                  const pendingReview = projectAssets.filter(a => a.status === 'review-ready');
+                  const noEditor = cats.some(c => c.id === 'videos') && !team.some(m => ['video-editor', 'motion-designer'].includes(m.role));
+                  const noCGI = cats.some(c => c.id === 'cgi') && !team.some(m => ['cgi-artist', '3d-artist'].includes(m.role));
+                  const hasAlerts = unassigned.length > 0 || overdue.length > 0 || pendingReview.length > 0 || noEditor || noCGI;
+                  
+                  if (!hasAlerts) return null;
+                  
+                  return (
+                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+                      <h3 style={{ margin: '0 0 12px', fontSize: '14px', color: '#ef4444' }}>⚠️ Alerts</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {unassigned.length > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' }}>
+                            <span>📋</span>
+                            <span style={{ fontSize: '12px', flex: 1 }}><strong>{unassigned.length}</strong> assets need assignment</span>
+                            <button onClick={() => setTab('assets')} style={{ padding: '4px 10px', background: '#ef4444', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Assign</button>
+                          </div>
+                        )}
+                        {overdue.length > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' }}>
+                            <span>🚨</span>
+                            <span style={{ fontSize: '12px', flex: 1 }}><strong>{overdue.length}</strong> assets overdue</span>
+                          </div>
+                        )}
+                        {pendingReview.length > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(168,85,247,0.1)', borderRadius: '8px' }}>
+                            <span>👁️</span>
+                            <span style={{ fontSize: '12px', flex: 1 }}><strong>{pendingReview.length}</strong> assets pending your review</span>
+                            <button onClick={() => setTab('assets')} style={{ padding: '4px 10px', background: '#a855f7', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Review</button>
+                          </div>
+                        )}
+                        {noEditor && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(249,115,22,0.1)', borderRadius: '8px' }}>
+                            <span>🎬</span>
+                            <span style={{ fontSize: '12px', flex: 1 }}>No Video Editor assigned to this project</span>
+                            <button onClick={() => setShowAddTeam(true)} style={{ padding: '4px 10px', background: '#f97316', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Add</button>
+                          </div>
+                        )}
+                        {noCGI && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(59,130,246,0.1)', borderRadius: '8px' }}>
+                            <span>🌐</span>
+                            <span style={{ fontSize: '12px', flex: 1 }}>No CGI Artist assigned to this project</span>
+                            <button onClick={() => setShowAddTeam(true)} style={{ padding: '4px 10px', background: '#3b82f6', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Add</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+                
+                {/* Team Members */}
+                <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e' }}>
+                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '14px' }}>👥 Team ({team.length})</h3>
+                    {isProducer && <Btn onClick={() => setShowAddTeam(true)} small>+ Add Member</Btn>}
+                  </div>
+                  <div style={{ padding: '14px' }}>
+                    {team.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)' }}>
+                        <div style={{ fontSize: '40px', marginBottom: '10px' }}>👥</div>
+                        <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members yet</div>
+                        {isProducer && <Btn onClick={() => setShowAddTeam(true)} small>+ Add Team Member</Btn>}
+                      </div>
+                    ) : (
+                      team.map(m => {
+                        const memberAssets = (selectedProject.assets || []).filter(a => !a.deleted && (a.assignedTo === m.id || a.assignedTo === m.email));
+                        const activeAssets = memberAssets.filter(a => a.status !== 'delivered' && a.status !== 'approved');
+                        const overdueAssets = activeAssets.filter(a => {
+                          if (!a.dueDate) return false;
+                          const today = new Date(); today.setHours(0,0,0,0);
+                          return new Date(a.dueDate) < today;
+                        });
+                        
+                        return (
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', background: '#0d0d14', borderRadius: '10px', marginBottom: '10px' }}>
+                            <Avatar user={m} size={42} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {m.name} 
+                                {m.isOwner && <span style={{ fontSize: '10px', color: '#f97316' }}>👑</span>}
+                              </div>
+                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>{m.email}</div>
+                              <div style={{ marginTop: '6px' }}><RoleBadge role={m.role} /></div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              {activeAssets.length > 0 && (
+                                <>
+                                  <div style={{ fontSize: '18px', fontWeight: '700', color: overdueAssets.length > 0 ? '#ef4444' : '#6366f1' }}>
+                                    {activeAssets.length}
+                                  </div>
+                                  <div style={{ fontSize: '9px', color: overdueAssets.length > 0 ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>
+                                    {overdueAssets.length > 0 ? `${overdueAssets.length} overdue` : 'active'}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+                
+                {/* Suggested Roles Based on Categories */}
+                {isProducer && availableTeam.length > 0 && (() => {
+                  const suggestedRoles = [];
+                  if (cats.some(c => c.id === 'videos') && !team.some(m => ['video-editor', 'motion-designer'].includes(m.role))) {
+                    suggestedRoles.push({ role: 'video-editor', reason: 'Videos category needs editor' });
+                  }
+                  if (cats.some(c => c.id === 'cgi') && !team.some(m => ['cgi-artist', '3d-artist'].includes(m.role))) {
+                    suggestedRoles.push({ role: 'cgi-artist', reason: 'CGI category needs artist' });
+                  }
+                  if (cats.some(c => c.id === 'animation') && !team.some(m => ['motion-designer', 'animator'].includes(m.role))) {
+                    suggestedRoles.push({ role: 'motion-designer', reason: 'Animation category needs designer' });
+                  }
+                  if (cats.some(c => c.id === 'vfx') && !team.some(m => ['vfx-artist'].includes(m.role))) {
+                    suggestedRoles.push({ role: 'vfx-artist', reason: 'VFX category needs artist' });
+                  }
+                  if (cats.some(c => c.id === 'audio') && !team.some(m => ['sound-engineer', 'audio-editor'].includes(m.role))) {
+                    suggestedRoles.push({ role: 'sound-engineer', reason: 'Audio category needs engineer' });
+                  }
+                  
+                  const suggestedMembers = suggestedRoles.map(sr => {
+                    const member = availableTeam.find(t => t.role === sr.role);
+                    return member ? { ...member, reason: sr.reason } : null;
+                  }).filter(Boolean);
+                  
+                  if (suggestedMembers.length === 0) return null;
+                  
+                  return (
+                    <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', marginTop: '16px' }}>
+                      <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e2e' }}>
+                        <h3 style={{ margin: 0, fontSize: '14px' }}>💡 Suggested Team Members</h3>
+                      </div>
+                      <div style={{ padding: '14px' }}>
+                        {suggestedMembers.map(m => (
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#0d0d14', borderRadius: '10px', marginBottom: '8px' }}>
+                            <Avatar user={m} size={36} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: '500', fontSize: '12px' }}>{m.name}</div>
+                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{m.reason}</div>
+                            </div>
+                            <Btn onClick={async () => {
+                              const updatedTeam = [...(selectedProject.assignedTeam || []), { odId: m.id, isOwner: false }];
+                              await updateProject(selectedProject.id, { assignedTeam: updatedTeam });
+                              await refreshProject();
+                              showToast(`${m.name} added to team`, 'success');
+                            }} small>+ Add</Btn>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -3038,12 +3970,14 @@ export default function MainApp() {
         .fade-in { animation: fadeIn 0.3s ease-out; }
       `}</style>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      <GlobalSearch />
       <Sidebar />
-      <div style={{ marginLeft: isMobile ? '0' : '200px', padding: isMobile ? '60px 16px 16px' : '24px' }}>
+      <div style={{ marginLeft: isMobile ? '0' : '200px', padding: isMobile ? '60px 16px 16px' : '24px', background: t.bg, minHeight: '100vh' }}>
         {view === 'dashboard' && <Dashboard />}
         {view === 'tasks' && <TasksView />}
         {view === 'projects' && !selectedProjectId && <ProjectsList />}
         {view === 'projects' && selectedProjectId && <ProjectDetail />}
+        {view === 'calendar' && <CalendarView />}
         {view === 'team' && <TeamManagement />}
       </div>
     </div>
