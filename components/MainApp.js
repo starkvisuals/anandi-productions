@@ -81,7 +81,7 @@ const LazyImage = ({ src, thumbnail, alt = '', style = {}, onClick }) => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect(); } },
-      { rootMargin: '200px' } // Increased margin for earlier loading
+      { rootMargin: '300px' } // Load even earlier
     );
     if (imgRef.current) observer.observe(imgRef.current);
     return () => observer.disconnect();
@@ -92,9 +92,18 @@ const LazyImage = ({ src, thumbnail, alt = '', style = {}, onClick }) => {
   
   return (
     <div ref={imgRef} style={{ ...style, position: 'relative', overflow: 'hidden' }} onClick={onClick}>
-      {/* Blur placeholder */}
+      {/* Shimmer Skeleton */}
       {!loaded && (
-        <div style={{ position: 'absolute', inset: 0, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          background: 'linear-gradient(90deg, #1a1a2e 25%, #252538 50%, #1a1a2e 75%)',
+          backgroundSize: '200% 100%',
+          animation: 'shimmer 1.5s infinite',
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}>
           <span style={{ fontSize: '24px', opacity: 0.3 }}>🖼️</span>
         </div>
       )}
@@ -105,12 +114,43 @@ const LazyImage = ({ src, thumbnail, alt = '', style = {}, onClick }) => {
           loading="eager"
           decoding="async"
           onLoad={() => setLoaded(true)}
-          style={{ width: '100%', height: '100%', objectFit: style.objectFit || 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 0.15s' }}
+          style={{ width: '100%', height: '100%', objectFit: style.objectFit || 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s ease-out' }}
         />
       )}
     </div>
   );
 };
+
+// Skeleton Loader Component
+const Skeleton = ({ width = '100%', height = 20, borderRadius = 4, style = {} }) => (
+  <div style={{ 
+    width, 
+    height, 
+    borderRadius,
+    background: 'linear-gradient(90deg, #1a1a2e 25%, #252538 50%, #1a1a2e 75%)',
+    backgroundSize: '200% 100%',
+    animation: 'shimmer 1.5s infinite',
+    ...style
+  }} />
+);
+
+// Card Skeleton for loading states
+const CardSkeleton = ({ aspectRatio = 1 }) => (
+  <div style={{ 
+    background: '#16161f', 
+    borderRadius: '12px', 
+    overflow: 'hidden',
+    border: '1px solid #1e1e2e'
+  }}>
+    <div style={{ paddingBottom: `${aspectRatio * 100}%`, position: 'relative' }}>
+      <Skeleton width="100%" height="100%" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
+    </div>
+    <div style={{ padding: '12px' }}>
+      <Skeleton width="70%" height={14} style={{ marginBottom: 8 }} />
+      <Skeleton width="40%" height={10} />
+    </div>
+  </div>
+);
 
 const Badge = ({ status }) => { const s = STATUS[status]; return s ? <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: s.bg, color: s.color }}>{s.label}</span> : null; };
 const RoleBadge = ({ role }) => { const r = TEAM_ROLES[role] || CORE_ROLES[role] || { label: role, color: '#6366f1' }; return <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: `${r.color}20`, color: r.color }}>{r.icon || '👤'} {r.label}</span>; };
@@ -1323,6 +1363,297 @@ export default function MainApp() {
     );
   };
 
+  // Project Tasks Tab Component - syncs with My Tasks
+  const ProjectTasksTab = ({ project, onUpdate }) => {
+    const [showAddTask, setShowAddTask] = useState(false);
+    const [newTask, setNewTask] = useState({ title: '', dueDate: '', dueTime: '', priority: 'medium', assignedTo: '' });
+    
+    // Get project tasks from localStorage (synced with My Tasks)
+    const getProjectTasks = () => {
+      if (typeof window === 'undefined') return [];
+      const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
+      const allTasks = saved ? JSON.parse(saved) : [];
+      return allTasks.filter(t => t.projectId === project.id);
+    };
+    
+    const [projectTasks, setProjectTasks] = useState(getProjectTasks());
+    
+    // Refresh tasks when project changes
+    useEffect(() => {
+      setProjectTasks(getProjectTasks());
+    }, [project.id]);
+    
+    const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
+    const allTeam = [...coreTeam, ...freelancers];
+    
+    // Add task to project
+    const addTask = () => {
+      if (!newTask.title.trim()) return;
+      const task = {
+        id: generateId(),
+        type: 'manual',
+        title: newTask.title,
+        dueDate: newTask.dueDate || null,
+        dueTime: newTask.dueTime || null,
+        priority: newTask.priority,
+        projectId: project.id,
+        projectName: project.name,
+        assignedTo: newTask.assignedTo || null,
+        assignedToName: newTask.assignedTo ? allTeam.find(u => u.id === newTask.assignedTo)?.name : null,
+        completed: false,
+        createdAt: new Date().toISOString(),
+        createdBy: userProfile?.id
+      };
+      
+      // Save to localStorage (global task store)
+      const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
+      const allTasks = saved ? JSON.parse(saved) : [];
+      const updated = [task, ...allTasks];
+      localStorage.setItem(`anandi-tasks-${userProfile.id}`, JSON.stringify(updated));
+      
+      setProjectTasks([task, ...projectTasks]);
+      setNewTask({ title: '', dueDate: '', dueTime: '', priority: 'medium', assignedTo: '' });
+      setShowAddTask(false);
+      showToast('Task added', 'success');
+    };
+    
+    // Toggle task completion
+    const toggleTask = (taskId) => {
+      const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
+      const allTasks = saved ? JSON.parse(saved) : [];
+      const updated = allTasks.map(t => 
+        t.id === taskId ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : null } : t
+      );
+      localStorage.setItem(`anandi-tasks-${userProfile.id}`, JSON.stringify(updated));
+      setProjectTasks(updated.filter(t => t.projectId === project.id));
+    };
+    
+    // Delete task
+    const deleteTask = (taskId) => {
+      const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
+      const allTasks = saved ? JSON.parse(saved) : [];
+      const updated = allTasks.filter(t => t.id !== taskId);
+      localStorage.setItem(`anandi-tasks-${userProfile.id}`, JSON.stringify(updated));
+      setProjectTasks(updated.filter(t => t.projectId === project.id));
+      showToast('Task deleted', 'success');
+    };
+    
+    const activeTasks = projectTasks.filter(t => !t.completed);
+    const completedTasks = projectTasks.filter(t => t.completed);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdueTasks = activeTasks.filter(t => t.dueDate && new Date(t.dueDate) < today);
+    
+    return (
+      <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '14px' }}>✓ Project Tasks ({activeTasks.length})</h3>
+            {overdueTasks.length > 0 && (
+              <span style={{ fontSize: '11px', color: '#ef4444' }}>{overdueTasks.length} overdue</span>
+            )}
+          </div>
+          <Btn onClick={() => setShowAddTask(true)} small>+ Add Task</Btn>
+        </div>
+        
+        <div style={{ padding: '14px' }}>
+          {activeTasks.length === 0 && completedTasks.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)' }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>📋</div>
+              <div style={{ fontSize: '13px' }}>No tasks yet</div>
+              <div style={{ fontSize: '11px', marginTop: '4px' }}>Add tasks to track project work</div>
+            </div>
+          ) : (
+            <>
+              {/* Active Tasks */}
+              {activeTasks.map(task => (
+                <div 
+                  key={task.id}
+                  style={{ 
+                    display: 'flex', 
+                    gap: '12px', 
+                    padding: '12px 14px', 
+                    background: '#0d0d14', 
+                    borderRadius: '10px', 
+                    marginBottom: '8px',
+                    borderLeft: `3px solid ${priorityColors[task.priority]}`
+                  }}
+                >
+                  <div 
+                    onClick={() => toggleTask(task.id)}
+                    style={{ 
+                      width: '20px', 
+                      height: '20px', 
+                      borderRadius: '4px', 
+                      border: '2px solid #3a3a4a', 
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '4px' }}>{task.title}</div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {task.assignedToName && (
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>👤 {task.assignedToName}</span>
+                      )}
+                      {task.dueDate && (
+                        <span style={{ 
+                          fontSize: '11px', 
+                          color: new Date(task.dueDate) < today ? '#ef4444' : 'rgba(255,255,255,0.5)'
+                        }}>
+                          📅 {new Date(task.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                          {task.dueTime && ` ${task.dueTime}`}
+                        </span>
+                      )}
+                      <span style={{ 
+                        fontSize: '9px', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px', 
+                        background: `${priorityColors[task.priority]}20`, 
+                        color: priorityColors[task.priority],
+                        textTransform: 'uppercase'
+                      }}>
+                        {task.priority}
+                      </span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => deleteTask(task.id)}
+                    style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '16px' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              
+              {/* Completed Tasks */}
+              {completedTasks.length > 0 && (
+                <div style={{ marginTop: '16px' }}>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
+                    ✓ Completed ({completedTasks.length})
+                  </div>
+                  {completedTasks.slice(0, 5).map(task => (
+                    <div 
+                      key={task.id}
+                      style={{ 
+                        display: 'flex', 
+                        gap: '12px', 
+                        padding: '10px 14px', 
+                        background: '#0d0d14', 
+                        borderRadius: '8px', 
+                        marginBottom: '6px',
+                        opacity: 0.5
+                      }}
+                    >
+                      <div 
+                        onClick={() => toggleTask(task.id)}
+                        style={{ 
+                          width: '18px', 
+                          height: '18px', 
+                          borderRadius: '4px', 
+                          background: '#22c55e',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          flexShrink: 0
+                        }}
+                      >
+                        <span style={{ color: '#fff', fontSize: '10px' }}>✓</span>
+                      </div>
+                      <span style={{ fontSize: '12px', textDecoration: 'line-through' }}>{task.title}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        
+        {/* Add Task Modal */}
+        {showAddTask && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+            <div style={{ background: '#16161f', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '420px', border: '1px solid #2a2a3e' }}>
+              <h2 style={{ margin: '0 0 20px', fontSize: '18px' }}>Add Task to {project.name}</h2>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Task Title *</label>
+                <Input 
+                  value={newTask.title} 
+                  onChange={(v) => setNewTask({ ...newTask, title: v })} 
+                  placeholder="What needs to be done?"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Due Date</label>
+                  <Input 
+                    type="date" 
+                    value={newTask.dueDate} 
+                    onChange={(v) => setNewTask({ ...newTask, dueDate: v })} 
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Due Time</label>
+                  <Input 
+                    type="time" 
+                    value={newTask.dueTime} 
+                    onChange={(v) => setNewTask({ ...newTask, dueTime: v })} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Priority</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {['low', 'medium', 'high'].map(p => (
+                    <button 
+                      key={p}
+                      onClick={() => setNewTask({ ...newTask, priority: p })}
+                      style={{ 
+                        flex: 1,
+                        padding: '8px', 
+                        borderRadius: '8px', 
+                        border: newTask.priority === p ? `2px solid ${priorityColors[p]}` : '1px solid #2a2a3e',
+                        background: newTask.priority === p ? `${priorityColors[p]}20` : 'transparent',
+                        color: priorityColors[p],
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        textTransform: 'capitalize'
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Assign To (optional)</label>
+                <Select value={newTask.assignedTo} onChange={(v) => setNewTask({ ...newTask, assignedTo: v })}>
+                  <option value="">Unassigned</option>
+                  {allTeam.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({TEAM_ROLES[u.role]?.label || u.role})</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <Btn onClick={() => setShowAddTask(false)} outline style={{ flex: 1 }}>Cancel</Btn>
+                <Btn onClick={addTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Add Task</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const ProjectDetail = () => {
     const [tab, setTab] = useState('assets');
     const [selectedCat, setSelectedCat] = useState(null);
@@ -1573,7 +1904,7 @@ export default function MainApp() {
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {['assets', 'team', 'activity', 'links'].map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{isMobile ? t.charAt(0).toUpperCase() : t}</button>)}
+              {['assets', 'tasks', 'team', 'activity', 'links'].map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
               {/* Photoshoot Workflow Phase Indicator */}
               {selectedProject.type === 'photoshoot' && (
                 <div style={{ marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: '#0d0d14', padding: '6px 12px', borderRadius: '8px' }}>
@@ -1689,6 +2020,10 @@ export default function MainApp() {
                   </div>
                 )}
               </div>
+            )}
+
+            {tab === 'tasks' && (
+              <ProjectTasksTab project={selectedProject} onUpdate={refreshProject} />
             )}
 
             {tab === 'team' && (
@@ -2481,6 +2816,22 @@ export default function MainApp() {
   // Main Render
   return (
     <div style={{ minHeight: '100vh', background: '#0d0d14', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      {/* Global CSS for animations */}
+      <style>{`
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+      `}</style>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <Sidebar />
       <div style={{ marginLeft: isMobile ? '0' : '200px', padding: isMobile ? '60px 16px 16px' : '24px' }}>
