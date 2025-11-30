@@ -554,10 +554,11 @@ export default function MainApp() {
           <>
             <div onClick={() => setShowNotifications(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
             <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              width: '360px',
+              position: 'fixed',
+              top: isMobile ? '60px' : '50px',
+              left: isMobile ? '10px' : '210px',
+              right: isMobile ? '10px' : 'auto',
+              width: isMobile ? 'auto' : '360px',
               maxHeight: '480px',
               background: '#1a1a2e',
               border: '1px solid #2a2a3e',
@@ -659,7 +660,7 @@ export default function MainApp() {
       {!isMobile && <div style={{ padding: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}><div><div style={{ fontSize: '18px', fontWeight: '800', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ANANDI</div><div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Production Hub</div></div><NotificationPanel /></div>}
       <nav style={{ flex: 1, padding: isMobile ? '10px' : '0 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '6px' : '0', alignItems: isMobile ? 'center' : 'stretch' }}>
         {isMobile && <NotificationPanel />}
-        {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'projects', icon: '📁', label: 'Projects' }, ...(isProducer ? [{ id: 'team', icon: '👥', label: 'Team' }] : [])].map(item => (
+        {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'tasks', icon: '✅', label: 'My Tasks' }, { id: 'projects', icon: '📁', label: 'Projects' }, ...(isProducer ? [{ id: 'team', icon: '👥', label: 'Team' }] : [])].map(item => (
           <div key={item.id} onClick={() => { setView(item.id); setSelectedProjectId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '10px 14px' : '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: view === item.id ? 'rgba(99,102,241,0.15)' : 'transparent', color: view === item.id ? '#fff' : 'rgba(255,255,255,0.6)', marginBottom: isMobile ? '0' : '2px' }}><span style={{ fontSize: '14px' }}>{item.icon}</span>{!isMobile && item.label}</div>
         ))}
       </nav>
@@ -712,6 +713,434 @@ export default function MainApp() {
             {recentActivity.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No activity</div>}
           </div>
         </div>
+      </div>
+    );
+  };
+
+  // PHASE B: Task Management View
+  const TasksView = () => {
+    const [taskTab, setTaskTab] = useState('today'); // today, week, overdue, all
+    const [showAddTask, setShowAddTask] = useState(false);
+    const [newTask, setNewTask] = useState({ title: '', dueDate: '', dueTime: '', priority: 'medium', projectId: '' });
+    const [manualTasks, setManualTasks] = useState(() => {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
+        return saved ? JSON.parse(saved) : [];
+      }
+      return [];
+    });
+
+    // Save manual tasks
+    const saveTasks = (tasks) => {
+      setManualTasks(tasks);
+      if (typeof window !== 'undefined' && userProfile?.id) {
+        localStorage.setItem(`anandi-tasks-${userProfile.id}`, JSON.stringify(tasks));
+      }
+    };
+
+    // Get auto-generated tasks from assigned assets
+    const getAutoTasks = () => {
+      const tasks = [];
+      projects.forEach(project => {
+        (project.assets || []).forEach(asset => {
+          if (asset.deleted) return;
+          if (asset.assignedTo === userProfile?.id || asset.assignedTo === userProfile?.email) {
+            if (asset.status !== 'delivered' && asset.status !== 'approved') {
+              tasks.push({
+                id: `auto-${asset.id}`,
+                type: 'auto',
+                title: asset.name,
+                projectId: project.id,
+                projectName: project.name,
+                assetId: asset.id,
+                status: asset.status,
+                dueDate: asset.dueDate,
+                priority: asset.dueDate && new Date(asset.dueDate) < new Date() ? 'high' : 'medium',
+                category: asset.category
+              });
+            }
+          }
+        });
+      });
+      return tasks;
+    };
+
+    // Combine auto and manual tasks
+    const allTasks = [...getAutoTasks(), ...manualTasks.filter(t => !t.completed)];
+    const completedTasks = manualTasks.filter(t => t.completed);
+
+    // Filter tasks by tab
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    const filterTasks = (tasks) => {
+      switch (taskTab) {
+        case 'today':
+          return tasks.filter(t => {
+            if (!t.dueDate) return false;
+            const due = new Date(t.dueDate);
+            return due >= today && due < new Date(today.getTime() + 24 * 60 * 60 * 1000);
+          });
+        case 'week':
+          return tasks.filter(t => {
+            if (!t.dueDate) return false;
+            const due = new Date(t.dueDate);
+            return due >= today && due <= weekEnd;
+          });
+        case 'overdue':
+          return tasks.filter(t => {
+            if (!t.dueDate) return false;
+            return new Date(t.dueDate) < today;
+          });
+        default:
+          return tasks;
+      }
+    };
+
+    const filteredTasks = filterTasks(allTasks);
+    const overdueTasks = allTasks.filter(t => t.dueDate && new Date(t.dueDate) < today);
+    const todayTasks = allTasks.filter(t => {
+      if (!t.dueDate) return false;
+      const due = new Date(t.dueDate);
+      return due >= today && due < new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    });
+
+    // Add manual task
+    const addTask = () => {
+      if (!newTask.title.trim()) return;
+      const task = {
+        id: generateId(),
+        type: 'manual',
+        title: newTask.title,
+        dueDate: newTask.dueDate || null,
+        dueTime: newTask.dueTime || null,
+        priority: newTask.priority,
+        projectId: newTask.projectId || null,
+        projectName: newTask.projectId ? projects.find(p => p.id === newTask.projectId)?.name : null,
+        completed: false,
+        createdAt: new Date().toISOString()
+      };
+      saveTasks([task, ...manualTasks]);
+      setNewTask({ title: '', dueDate: '', dueTime: '', priority: 'medium', projectId: '' });
+      setShowAddTask(false);
+    };
+
+    // Toggle task completion
+    const toggleTask = (taskId) => {
+      const updated = manualTasks.map(t => 
+        t.id === taskId ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : null } : t
+      );
+      saveTasks(updated);
+    };
+
+    // Delete task
+    const deleteTask = (taskId) => {
+      saveTasks(manualTasks.filter(t => t.id !== taskId));
+    };
+
+    const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
+    const statusLabels = { pending: 'Pending', 'in-progress': 'In Progress', 'review-ready': 'Review Ready', revision: 'Revision' };
+
+    const TaskCard = ({ task }) => (
+      <div 
+        onClick={() => {
+          if (task.type === 'auto' && task.projectId) {
+            setSelectedProjectId(task.projectId);
+            setView('projects');
+          }
+        }}
+        style={{ 
+          display: 'flex', 
+          gap: '12px', 
+          padding: '14px 16px', 
+          background: '#16161f', 
+          borderRadius: '10px', 
+          marginBottom: '8px',
+          border: '1px solid #1e1e2e',
+          cursor: task.type === 'auto' ? 'pointer' : 'default',
+          borderLeft: `3px solid ${priorityColors[task.priority]}`
+        }}
+      >
+        {task.type === 'manual' && (
+          <div 
+            onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }}
+            style={{ 
+              width: '20px', 
+              height: '20px', 
+              borderRadius: '4px', 
+              border: '2px solid #3a3a4a', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            {task.completed && <span style={{ color: '#22c55e' }}>✓</span>}
+          </div>
+        )}
+        {task.type === 'auto' && (
+          <div style={{ 
+            width: '20px', 
+            height: '20px', 
+            borderRadius: '4px', 
+            background: 'rgba(99,102,241,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '10px',
+            flexShrink: 0
+          }}>
+            📁
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '4px' }}>{task.title}</div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {task.projectName && (
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>📁 {task.projectName}</span>
+            )}
+            {task.status && (
+              <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(99,102,241,0.2)', color: '#818cf8' }}>
+                {statusLabels[task.status] || task.status}
+              </span>
+            )}
+            {task.dueDate && (
+              <span style={{ 
+                fontSize: '11px', 
+                color: new Date(task.dueDate) < today ? '#ef4444' : 'rgba(255,255,255,0.5)'
+              }}>
+                📅 {new Date(task.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                {task.dueTime && ` at ${task.dueTime}`}
+              </span>
+            )}
+          </div>
+        </div>
+        {task.type === 'manual' && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '14px' }}
+          >
+            ×
+          </button>
+        )}
+      </div>
+    );
+
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>My Tasks</h1>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+              {allTasks.length} task{allTasks.length !== 1 ? 's' : ''} • {overdueTasks.length} overdue
+            </p>
+          </div>
+          <Btn onClick={() => setShowAddTask(true)} small>+ Add Task</Btn>
+        </div>
+
+        {/* Quick Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+          <div style={{ background: overdueTasks.length > 0 ? 'rgba(239,68,68,0.1)' : '#16161f', borderRadius: '10px', padding: '14px', border: overdueTasks.length > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid #1e1e2e' }}>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: overdueTasks.length > 0 ? '#ef4444' : '#fff' }}>{overdueTasks.length}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Overdue</div>
+          </div>
+          <div style={{ background: '#16161f', borderRadius: '10px', padding: '14px', border: '1px solid #1e1e2e' }}>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#f59e0b' }}>{todayTasks.length}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Due Today</div>
+          </div>
+          <div style={{ background: '#16161f', borderRadius: '10px', padding: '14px', border: '1px solid #1e1e2e' }}>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#6366f1' }}>{allTasks.length}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Tasks</div>
+          </div>
+          <div style={{ background: '#16161f', borderRadius: '10px', padding: '14px', border: '1px solid #1e1e2e' }}>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#22c55e' }}>{completedTasks.length}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Completed</div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {[
+            { id: 'today', label: 'Today', count: todayTasks.length },
+            { id: 'week', label: 'This Week' },
+            { id: 'overdue', label: 'Overdue', count: overdueTasks.length },
+            { id: 'all', label: 'All Tasks' }
+          ].map(tab => (
+            <button 
+              key={tab.id}
+              onClick={() => setTaskTab(tab.id)}
+              style={{ 
+                padding: '8px 14px', 
+                borderRadius: '8px', 
+                border: 'none',
+                background: taskTab === tab.id ? '#6366f1' : '#1e1e2e',
+                color: taskTab === tab.id ? '#fff' : 'rgba(255,255,255,0.6)',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span style={{ 
+                  background: tab.id === 'overdue' ? '#ef4444' : 'rgba(255,255,255,0.2)', 
+                  padding: '2px 6px', 
+                  borderRadius: '10px', 
+                  fontSize: '10px' 
+                }}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Task List */}
+        <div>
+          {filteredTasks.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)' }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>
+                {taskTab === 'overdue' ? '🎉' : '📋'}
+              </div>
+              <div style={{ fontSize: '14px' }}>
+                {taskTab === 'overdue' ? 'No overdue tasks!' : 'No tasks in this view'}
+              </div>
+            </div>
+          ) : (
+            filteredTasks.sort((a, b) => {
+              // Sort by due date, then priority
+              if (!a.dueDate && !b.dueDate) return 0;
+              if (!a.dueDate) return 1;
+              if (!b.dueDate) return -1;
+              return new Date(a.dueDate) - new Date(b.dueDate);
+            }).map(task => <TaskCard key={task.id} task={task} />)
+          )}
+        </div>
+
+        {/* Completed Tasks */}
+        {completedTasks.length > 0 && taskTab === 'all' && (
+          <div style={{ marginTop: '24px' }}>
+            <h3 style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '12px' }}>
+              ✓ Completed ({completedTasks.length})
+            </h3>
+            {completedTasks.slice(0, 5).map(task => (
+              <div 
+                key={task.id}
+                style={{ 
+                  display: 'flex', 
+                  gap: '12px', 
+                  padding: '12px 16px', 
+                  background: '#16161f', 
+                  borderRadius: '8px', 
+                  marginBottom: '6px',
+                  opacity: 0.6
+                }}
+              >
+                <div 
+                  onClick={() => toggleTask(task.id)}
+                  style={{ 
+                    width: '18px', 
+                    height: '18px', 
+                    borderRadius: '4px', 
+                    background: '#22c55e',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                >
+                  <span style={{ color: '#fff', fontSize: '10px' }}>✓</span>
+                </div>
+                <span style={{ fontSize: '13px', textDecoration: 'line-through' }}>{task.title}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add Task Modal */}
+        {showAddTask && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+            <div style={{ background: '#16161f', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '420px', border: '1px solid #2a2a3e' }}>
+              <h2 style={{ margin: '0 0 20px', fontSize: '18px' }}>Add Task</h2>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Task Title *</label>
+                <Input 
+                  value={newTask.title} 
+                  onChange={(v) => setNewTask({ ...newTask, title: v })} 
+                  placeholder="What needs to be done?"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Due Date</label>
+                  <Input 
+                    type="date" 
+                    value={newTask.dueDate} 
+                    onChange={(v) => setNewTask({ ...newTask, dueDate: v })} 
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Due Time</label>
+                  <Input 
+                    type="time" 
+                    value={newTask.dueTime} 
+                    onChange={(v) => setNewTask({ ...newTask, dueTime: v })} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Priority</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {['low', 'medium', 'high'].map(p => (
+                    <button 
+                      key={p}
+                      onClick={() => setNewTask({ ...newTask, priority: p })}
+                      style={{ 
+                        flex: 1,
+                        padding: '8px', 
+                        borderRadius: '8px', 
+                        border: newTask.priority === p ? `2px solid ${priorityColors[p]}` : '1px solid #2a2a3e',
+                        background: newTask.priority === p ? `${priorityColors[p]}20` : 'transparent',
+                        color: priorityColors[p],
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        textTransform: 'capitalize'
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Link to Project (optional)</label>
+                <Select value={newTask.projectId} onChange={(v) => setNewTask({ ...newTask, projectId: v })}>
+                  <option value="">No project</option>
+                  {projects.filter(p => p.status === 'active').map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <Btn onClick={() => setShowAddTask(false)} outline style={{ flex: 1 }}>Cancel</Btn>
+                <Btn onClick={addTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Add Task</Btn>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -2056,6 +2485,7 @@ export default function MainApp() {
       <Sidebar />
       <div style={{ marginLeft: isMobile ? '0' : '200px', padding: isMobile ? '60px 16px 16px' : '24px' }}>
         {view === 'dashboard' && <Dashboard />}
+        {view === 'tasks' && <TasksView />}
         {view === 'projects' && !selectedProjectId && <ProjectsList />}
         {view === 'projects' && selectedProjectId && <ProjectDetail />}
         {view === 'team' && <TeamManagement />}
