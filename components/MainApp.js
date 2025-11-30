@@ -20,9 +20,17 @@ const uploadToMux = async (file, projectId, assetId) => {
       body: JSON.stringify({ projectId, assetId, filename: file.name })
     });
     
-    if (!response.ok) throw new Error('Failed to get upload URL');
+    const data = await response.json();
     
-    const { uploadUrl, uploadId } = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Failed to get upload URL');
+    }
+    
+    const { uploadUrl, uploadId } = data;
+    
+    if (!uploadUrl) {
+      throw new Error('No upload URL returned from Mux');
+    }
     
     // Upload file directly to Mux
     const uploadResponse = await fetch(uploadUrl, {
@@ -2699,65 +2707,102 @@ export default function MainApp() {
         try {
           const assetId = generateId();
           
-          // For videos, use Mux for HLS streaming
+          // For videos, upload directly to Mux CDN (fast, like Frame.io)
           if (fileType === 'video') {
-            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 10, status: 'Uploading to Mux...' } }));
-            
-            const muxResult = await uploadToMux(file, selectedProject.id, assetId);
-            
-            if (!muxResult.success) {
-              showToast(`Mux upload failed: ${muxResult.error}`, 'error');
-              setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
-              continue;
-            }
-            
-            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 50, status: 'Processing video...' } }));
-            
-            // Also upload to Firebase for backup/download
             const path = `projects/${selectedProject.id}/${cat}/${Date.now()}-${file.name}`;
-            const sRef = ref(storage, path);
-            await uploadBytesResumable(sRef, file);
-            const url = await getDownloadURL(sRef);
             
-            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 70, status: 'Waiting for Mux...' } }));
+            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 2, status: 'Getting CDN URL...' } }));
             
-            // Poll for Mux processing (max 60 seconds)
-            let muxAsset = null;
-            let attempts = 0;
-            while (attempts < 30) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              const status = await checkMuxUploadStatus(muxResult.uploadId);
+            // Get Mux direct upload URL
+            let muxUploadId = null;
+            let muxUploadUrl = null;
+            let useMux = false;
+            
+            try {
+              const muxResponse = await fetch('/api/mux/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: selectedProject.id, assetId, filename: file.name })
+              });
+              const muxData = await muxResponse.json();
               
-              if (status.asset?.playbackId) {
-                muxAsset = status.asset;
-                break;
+              if (muxData.success && muxData.uploadUrl) {
+                muxUploadId = muxData.uploadId;
+                muxUploadUrl = muxData.uploadUrl;
+                useMux = true;
               }
-              
-              if (status.status === 'errored') {
-                console.error('Mux processing failed');
-                break;
-              }
-              
-              attempts++;
-              setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 70 + attempts, status: `Processing... ${attempts * 2}s` } }));
+            } catch (e) {
+              console.log('Mux not available, using Firebase');
             }
             
-            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 95, status: 'Saving...' } }));
+            let url = null;
             
-            // Create asset with Mux info
+            if (useMux) {
+              // Upload directly to Mux CDN (fast - no double upload!)
+              setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 5, status: 'Uploading to CDN...' } }));
+              
+              await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('PUT', muxUploadUrl);
+                
+                xhr.upload.onprogress = (e) => {
+                  if (e.lengthComputable) {
+                    const progress = 5 + Math.round((e.loaded / e.total) * 85);
+                    setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress, status: 'Uploading...' } }));
+                  }
+                };
+                
+                xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Upload failed'));
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.send(file);
+              });
+              
+            } else {
+              // Fallback to Firebase
+              setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 5, status: 'Uploading...' } }));
+              const sRef = ref(storage, path);
+              const uploadTask = uploadBytesResumable(sRef, file);
+              
+              await new Promise((resolve, reject) => {
+                uploadTask.on('state_changed',
+                  (snap) => {
+                    const progress = 5 + Math.round((snap.bytesTransferred / snap.totalBytes) * 85);
+                    setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress, status: 'Uploading...' } }));
+                  },
+                  reject,
+                  resolve
+                );
+              });
+              url = await getDownloadURL(uploadTask.snapshot.ref);
+            }
+            
+            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 92, status: 'Creating thumbnail...' } }));
+            
+            // Generate thumbnail
+            let thumbnailUrl = null;
+            try {
+              const thumbBlob = await generateVideoThumbnail(file);
+              if (thumbBlob) {
+                const thumbPath = `projects/${selectedProject.id}/${cat}/thumbs/${Date.now()}-thumb.jpg`;
+                const thumbRef = ref(storage, thumbPath);
+                await uploadBytesResumable(thumbRef, thumbBlob);
+                thumbnailUrl = await getDownloadURL(thumbRef);
+              }
+            } catch (e) { console.log('Thumb failed:', e); }
+            
+            setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: 98, status: 'Saving...' } }));
+            
+            // Save asset immediately - don't wait for Mux processing!
             const newAsset = {
               id: assetId,
               name: file.name,
               type: 'video',
               category: cat,
-              url, // Firebase URL for download
+              url, // Firebase URL or null for Mux-only
               path,
-              thumbnail: muxAsset?.thumbnailUrl || null,
-              muxPlaybackId: muxAsset?.playbackId || null,
-              muxAssetId: muxAsset?.id || null,
-              muxUploadId: muxResult.uploadId,
-              duration: muxAsset?.duration || null,
-              aspectRatio: muxAsset?.aspectRatio || null,
+              thumbnail: thumbnailUrl,
+              muxUploadId, // Used to fetch playbackId when viewing
+              muxPlaybackId: null, // Will be fetched on-demand
               fileSize: file.size,
               mimeType: file.type,
               status: 'pending',
@@ -2767,7 +2812,7 @@ export default function MainApp() {
               uploadedBy: userProfile.id,
               uploadedByName: userProfile.name,
               uploadedAt: new Date().toISOString(),
-              versions: [{ version: 1, url, muxPlaybackId: muxAsset?.playbackId, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }],
+              versions: [{ version: 1, url, muxUploadId, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }],
               currentVersion: 1,
               feedback: [],
               annotations: [],
@@ -2780,7 +2825,7 @@ export default function MainApp() {
             await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(selectedProject.activityLog || []), activity] });
             await refreshProject();
             setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
-            showToast(`Video uploaded with HLS streaming!`, 'success');
+            showToast(useMux ? `Video uploaded! HLS ready in ~30s` : `Video uploaded!`, 'success');
             
           } else {
             // For images and audio, use Firebase Storage
@@ -3478,8 +3523,38 @@ export default function MainApp() {
                             showTimecode={false}
                             style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '55vh' }}
                           />
+                        ) : selectedAsset.muxUploadId && !selectedAsset.url ? (
+                          /* Video is processing on Mux - show status */
+                          <div style={{ textAlign: 'center', padding: '40px' }}>
+                            <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                            <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video for HLS streaming...</div>
+                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>Usually takes 30-60 seconds</div>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`);
+                                  const data = await res.json();
+                                  if (data.asset?.playbackId) {
+                                    // Update asset with playbackId
+                                    const updatedAssets = selectedProject.assets.map(a => 
+                                      a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a
+                                    );
+                                    await updateProject(selectedProject.id, { assets: updatedAssets });
+                                    await refreshProject();
+                                    showToast('HLS ready!', 'success');
+                                  } else {
+                                    showToast('Still processing...', 'info');
+                                  }
+                                } catch (e) { showToast('Check failed', 'error'); }
+                              }}
+                              style={{ marginTop: '16px', padding: '8px 16px', background: '#6366f1', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontSize: '13px' }}
+                            >
+                              Check Status
+                            </button>
+                            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                          </div>
                         ) : (
-                          /* Fallback to regular video for non-Mux assets */
+                          /* Fallback to regular video for Firebase-only assets */
                           <video 
                             ref={videoRef} 
                             src={selectedAsset.url} 
