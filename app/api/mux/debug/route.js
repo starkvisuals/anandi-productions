@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import Mux from '@mux/mux-node';
 
-// Debug endpoint - test Mux connection
+// Debug endpoint - test Mux connection (GET)
 export async function GET() {
   const tokenId = process.env.MUX_TOKEN_ID;
   const tokenSecret = process.env.MUX_TOKEN_SECRET;
@@ -16,13 +16,11 @@ export async function GET() {
   }
 
   try {
-    // Try creating a Mux client and making a test call
     const mux = new Mux({
       tokenId: tokenId,
       tokenSecret: tokenSecret,
     });
 
-    // Try to create a direct upload URL as a test
     const upload = await mux.video.uploads.create({
       cors_origin: '*',
       new_asset_settings: {
@@ -43,5 +41,49 @@ export async function GET() {
       errorType: error.constructor.name,
       stack: error.stack?.split('\n').slice(0, 5),
     });
+  }
+}
+
+// Debug endpoint - test POST (same as upload route)
+export async function POST(request) {
+  const tokenId = process.env.MUX_TOKEN_ID;
+  const tokenSecret = process.env.MUX_TOKEN_SECRET;
+  
+  if (!tokenId || !tokenSecret) {
+    return NextResponse.json({
+      success: false,
+      error: 'Missing Mux credentials',
+    }, { status: 500 });
+  }
+
+  try {
+    const body = await request.json();
+    const { projectId, assetId, filename } = body;
+
+    const mux = new Mux({
+      tokenId: tokenId,
+      tokenSecret: tokenSecret,
+    });
+
+    const upload = await mux.video.uploads.create({
+      cors_origin: '*',
+      new_asset_settings: {
+        playback_policy: ['public'],
+        passthrough: JSON.stringify({ projectId, assetId, filename }),
+        mp4_support: 'standard',
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      uploadUrl: upload.url,
+      uploadId: upload.id,
+    });
+  } catch (error) {
+    return NextResponse.json({
+      success: false,
+      error: error.message,
+      stack: error.stack?.split('\n').slice(0, 3),
+    }, { status: 500 });
   }
 }
