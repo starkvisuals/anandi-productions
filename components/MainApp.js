@@ -1196,11 +1196,11 @@ export default function MainApp() {
   const KanbanView = ({ assets, onUpdateStatus, projectId }) => {
     const [draggedAsset, setDraggedAsset] = useState(null);
     
+    // Reduced to 5 columns to fit better
     const columns = [
       { id: 'pending', title: 'Pending', icon: '⏳', color: '#fbbf24' },
-      { id: 'assigned', title: 'Assigned', icon: '📋', color: '#3b82f6' },
       { id: 'in-progress', title: 'In Progress', icon: '⚡', color: '#8b5cf6' },
-      { id: 'review-ready', title: 'Review Ready', icon: '👁️', color: '#a855f7' },
+      { id: 'review-ready', title: 'Review', icon: '👁️', color: '#a855f7' },
       { id: 'revision', title: 'Revision', icon: '🔄', color: '#f97316' },
       { id: 'approved', title: 'Approved', icon: '✓', color: '#22c55e' },
     ];
@@ -1212,7 +1212,12 @@ export default function MainApp() {
     };
     
     return (
-      <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '16px' }}>
+      <div style={{ 
+        display: 'grid',
+        gridTemplateColumns: 'repeat(5, 1fr)',
+        gap: '8px',
+        width: '100%'
+      }}>
         {columns.map(col => {
           const colAssets = assets.filter(a => a.status === col.id);
           
@@ -1222,53 +1227,67 @@ export default function MainApp() {
               onDragOver={e => e.preventDefault()}
               onDrop={() => handleDrop(col.id)}
               style={{ 
-                minWidth: '250px', 
                 background: t.bgTertiary, 
-                borderRadius: '12px', 
+                borderRadius: '8px', 
                 border: `1px solid ${t.border}`,
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                minWidth: 0
               }}
             >
               {/* Column Header */}
               <div style={{ 
-                padding: '12px 14px', 
+                padding: '8px 10px', 
                 borderBottom: `1px solid ${t.border}`,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '4px'
               }}>
-                <span style={{ fontSize: '16px' }}>{col.icon}</span>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: t.text }}>{col.title}</span>
+                <span style={{ fontSize: '12px' }}>{col.icon}</span>
+                <span style={{ fontSize: '10px', fontWeight: '600', color: t.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{col.title}</span>
                 <span style={{ 
                   marginLeft: 'auto', 
-                  fontSize: '11px', 
-                  padding: '2px 8px', 
+                  fontSize: '9px', 
+                  padding: '2px 5px', 
                   background: `${col.color}20`,
                   color: col.color,
-                  borderRadius: '10px',
-                  fontWeight: '600'
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  flexShrink: 0
                 }}>
                   {colAssets.length}
                 </span>
               </div>
               
               {/* Column Content */}
-              <div style={{ flex: 1, padding: '8px', minHeight: '200px' }}>
-                {colAssets.map(a => (
+              <div style={{ flex: 1, padding: '6px', minHeight: '120px', maxHeight: '350px', overflowY: 'auto' }}>
+                {colAssets.length === 0 ? (
+                  <div style={{ 
+                    padding: '16px 8px', 
+                    textAlign: 'center', 
+                    color: 'rgba(255,255,255,0.3)', 
+                    fontSize: '9px',
+                    border: '1px dashed rgba(255,255,255,0.1)',
+                    borderRadius: '6px'
+                  }}>
+                    Drop here
+                  </div>
+                ) : colAssets.map(a => (
                   <div
                     key={a.id}
                     draggable
                     onDragStart={() => setDraggedAsset(a)}
                     onDragEnd={() => setDraggedAsset(null)}
+                    onClick={() => setSelectedAsset(a)}
                     style={{
-                      padding: '10px',
+                      padding: '6px',
                       background: t.bgCard,
-                      borderRadius: '8px',
-                      marginBottom: '8px',
+                      borderRadius: '6px',
+                      marginBottom: '6px',
                       cursor: 'grab',
-                      border: `1px solid ${t.border}`,
-                      transition: 'transform 0.1s'
+                      border: `1px solid ${draggedAsset?.id === a.id ? col.color : t.border}`,
+                      transition: 'all 0.15s',
+                      opacity: draggedAsset?.id === a.id ? 0.5 : 1
                     }}
                   >
                     {a.thumbnail && (
@@ -1277,49 +1296,18 @@ export default function MainApp() {
                         alt="" 
                         style={{ 
                           width: '100%', 
-                          height: '80px', 
+                          height: '45px', 
                           objectFit: 'cover', 
-                          borderRadius: '6px',
-                          marginBottom: '8px'
+                          borderRadius: '4px',
+                          marginBottom: '4px'
                         }} 
                       />
                     )}
-                    <div style={{ fontSize: '12px', fontWeight: '500', color: t.text, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {a.name}
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {a.dueDate && (
-                        <span style={{ 
-                          fontSize: '10px', 
-                          padding: '2px 6px', 
-                          background: new Date(a.dueDate) < new Date() ? 'rgba(239,68,68,0.2)' : t.bgTertiary,
-                          color: new Date(a.dueDate) < new Date() ? '#ef4444' : t.textSecondary,
-                          borderRadius: '4px'
-                        }}>
-                          📅 {formatDate(a.dueDate)}
-                        </span>
-                      )}
-                      {a.assignedToName && (
-                        <span style={{ fontSize: '10px', color: t.textMuted }}>
-                          👤 {a.assignedToName.split(' ')[0]}
-                        </span>
-                      )}
+                    <div style={{ fontSize: '10px', fontWeight: '500', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {a.name?.replace(/\.[^/.]+$/, '').substring(0, 20)}
                     </div>
                   </div>
                 ))}
-                
-                {colAssets.length === 0 && (
-                  <div style={{ 
-                    padding: '20px', 
-                    textAlign: 'center', 
-                    color: t.textMuted, 
-                    fontSize: '11px',
-                    border: `2px dashed ${t.border}`,
-                    borderRadius: '8px'
-                  }}>
-                    Drop here
-                  </div>
-                )}
               </div>
             </div>
           );
@@ -2639,6 +2627,75 @@ export default function MainApp() {
     const feedbackInputRef = useRef(null);
     const [videoTime, setVideoTime] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
+    const hlsRef = useRef(null);
+
+    // HLS.js initialization for Mux videos (Chrome/Firefox)
+    useEffect(() => {
+      if (!selectedAsset?.muxPlaybackId || !videoRef.current) return;
+      
+      const video = videoRef.current;
+      const hlsUrl = `https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`;
+      
+      // Check if HLS is natively supported (Safari)
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = hlsUrl;
+        return;
+      }
+      
+      // For Chrome/Firefox, use HLS.js
+      const loadHls = async () => {
+        try {
+          // Dynamically import HLS.js
+          const Hls = (await import('hls.js')).default;
+          
+          if (Hls.isSupported()) {
+            // Cleanup previous instance
+            if (hlsRef.current) {
+              hlsRef.current.destroy();
+            }
+            
+            const hls = new Hls({
+              enableWorker: true,
+              lowLatencyMode: false,
+              backBufferLength: 90,
+              maxBufferLength: 30,
+              maxMaxBufferLength: 60,
+            });
+            
+            hlsRef.current = hls;
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(video);
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              // Video is ready to play
+            });
+            
+            hls.on(Hls.Events.ERROR, (event, data) => {
+              if (data.fatal) {
+                console.error('HLS fatal error:', data);
+                // Fallback to direct URL if available
+                if (selectedAsset.url) {
+                  video.src = selectedAsset.url;
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.error('HLS.js load error:', e);
+          // Fallback to direct source
+          video.src = hlsUrl;
+        }
+      };
+      
+      loadHls();
+      
+      return () => {
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+      };
+    }, [selectedAsset?.muxPlaybackId, selectedAsset?.id]);
 
     // Keyboard shortcuts for navigation (must be before conditional return)
     useEffect(() => {
@@ -3146,7 +3203,7 @@ export default function MainApp() {
           {/* Tab Content */}
           <div style={{ padding: '16px' }}>
             {tab === 'assets' && (
-              <div>
+              <div style={{ width: '100%' }}>
                 {assets.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '60px 20px', background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e' }}>
                     <div style={{ fontSize: '50px', marginBottom: '14px' }}>📂</div>
@@ -3504,57 +3561,58 @@ export default function MainApp() {
 
             {/* Preview Tab */}
             {assetTab === 'preview' && (
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: isMobile ? 'auto' : 'hidden' }}>
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: 'hidden' }}>
                 {/* LEFT: Preview Area */}
-                <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0, overflow: 'auto' }}>
+                <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0, overflow: 'hidden' }}>
                   {/* Content Area */}
-                  <div style={{ flex: isMobile ? 'none' : 1, minHeight: isMobile ? '300px' : 'auto', padding: isMobile ? '12px' : '20px', overflow: 'auto' }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', overflow: 'hidden' }}>
                     {selectedAsset.type === 'video' ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', maxHeight: isMobile ? '300px' : 'calc(85vh - 200px)' }}>
                         {selectedAsset.muxPlaybackId ? (
-                          /* Mux HLS Player for smooth streaming */
-                          <MuxPlayer
+                          /* Mux HLS Video - uses native controls for scrubbing */
+                          <video 
                             ref={videoRef}
-                            playbackId={selectedAsset.muxPlaybackId}
-                            poster={selectedAsset.thumbnail}
-                            onTimeUpdate={(time) => setVideoTime(time)}
-                            onDurationChange={(dur) => setVideoDuration(dur)}
-                            controls={true}
-                            showTimecode={false}
-                            style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '55vh' }}
-                          />
+                            controls 
+                            playsInline
+                            poster={selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`}
+                            onTimeUpdate={(e) => setVideoTime(e.target.currentTime)}
+                            onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', background: '#000', borderRadius: '8px' }}
+                          >
+                            {/* HLS source for Safari */}
+                            <source src={`https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`} type="application/x-mpegURL" />
+                          </video>
                         ) : selectedAsset.muxUploadId && !selectedAsset.url ? (
-                          /* Video is processing on Mux - show status */
+                          /* Video is processing on Mux */
                           <div style={{ textAlign: 'center', padding: '40px' }}>
                             <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-                            <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video for HLS streaming...</div>
-                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>Usually takes 30-60 seconds</div>
+                            <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video for streaming...</div>
+                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '16px' }}>Usually takes 30-60 seconds</div>
                             <button
                               onClick={async () => {
                                 try {
                                   const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`);
                                   const data = await res.json();
                                   if (data.asset?.playbackId) {
-                                    // Update asset with playbackId
                                     const updatedAssets = selectedProject.assets.map(a => 
                                       a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a
                                     );
                                     await updateProject(selectedProject.id, { assets: updatedAssets });
                                     await refreshProject();
-                                    showToast('HLS ready!', 'success');
+                                    showToast('Ready to play!', 'success');
                                   } else {
                                     showToast('Still processing...', 'info');
                                   }
                                 } catch (e) { showToast('Check failed', 'error'); }
                               }}
-                              style={{ marginTop: '16px', padding: '8px 16px', background: '#6366f1', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontSize: '13px' }}
+                              style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}
                             >
-                              Check Status
+                              🔄 Check Status
                             </button>
                             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                           </div>
                         ) : (
-                          /* Fallback to regular video for Firebase-only assets */
+                          /* Fallback to regular video */
                           <video 
                             ref={videoRef} 
                             src={selectedAsset.url} 
@@ -3562,19 +3620,20 @@ export default function MainApp() {
                             playsInline 
                             onTimeUpdate={(e) => setVideoTime(e.target.currentTime)}
                             onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
-                            style={{ maxWidth: '100%', maxHeight: isMobile ? '280px' : '55vh', objectFit: 'contain' }} 
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', background: '#000', borderRadius: '8px' }} 
                           />
                         )}
-                        <div style={{ marginTop: '10px', padding: '6px 14px', background: '#1e1e2e', borderRadius: '8px', fontSize: '14px', fontFamily: 'monospace', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {/* Timecode Display */}
+                        <div style={{ marginTop: '12px', padding: '8px 16px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px', fontSize: '13px', fontFamily: 'monospace', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <span style={{ color: '#22c55e' }}>
-                            {Math.floor(videoTime / 3600).toString().padStart(2, '0')}:{Math.floor((videoTime % 3600) / 60).toString().padStart(2, '0')}:{Math.floor(videoTime % 60).toString().padStart(2, '0')}:{Math.floor((videoTime % 1) * 24).toString().padStart(2, '0')}
+                            {Math.floor(videoTime / 60).toString().padStart(2, '0')}:{Math.floor(videoTime % 60).toString().padStart(2, '0')}
                           </span>
                           <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span>
                           <span style={{ color: 'rgba(255,255,255,0.6)' }}>
-                            {Math.floor(videoDuration / 3600).toString().padStart(2, '0')}:{Math.floor((videoDuration % 3600) / 60).toString().padStart(2, '0')}:{Math.floor(videoDuration % 60).toString().padStart(2, '0')}:00
+                            {Math.floor(videoDuration / 60).toString().padStart(2, '0')}:{Math.floor(videoDuration % 60).toString().padStart(2, '0')}
                           </span>
                           {selectedAsset.muxPlaybackId && (
-                            <span style={{ fontSize: '9px', color: '#6366f1', background: 'rgba(99,102,241,0.2)', padding: '2px 8px', borderRadius: '4px', marginLeft: '8px' }}>HLS</span>
+                            <span style={{ fontSize: '9px', color: '#22c55e', background: 'rgba(34,197,94,0.2)', padding: '3px 8px', borderRadius: '4px' }}>HLS</span>
                           )}
                         </div>
                       </div>
