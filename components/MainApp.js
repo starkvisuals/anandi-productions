@@ -714,45 +714,154 @@ export default function MainApp() {
   );
 
   const Dashboard = () => {
-    const allAssets = projects.flatMap(p => p.assets || []);
+    const activeProjects = projects.filter(p => p.status === 'active');
+    const completedProjects = projects.filter(p => p.status === 'completed');
+    const allAssets = projects.flatMap(p => (p.assets || []).filter(a => !a.deleted));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    
+    // Calculate stats
+    const overdueAssets = allAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered' && a.status !== 'approved');
+    const dueThisWeek = allAssets.filter(a => {
+      if (!a.dueDate) return false;
+      const due = new Date(a.dueDate);
+      return due >= today && due <= weekEnd && a.status !== 'delivered' && a.status !== 'approved';
+    });
+    const pendingReview = allAssets.filter(a => a.status === 'review-ready');
+    const inProgress = allAssets.filter(a => a.status === 'in-progress');
+    
     const stats = [
-      { label: 'Active', value: projects.filter(p => p.status === 'active').length, icon: '📁', color: '#6366f1' },
-      { label: 'Assets', value: allAssets.length, icon: '🎬', color: '#f97316' },
-      { label: 'Pending', value: allAssets.filter(a => a.status === 'pending').length, icon: '⏳', color: '#fbbf24' },
-      { label: 'Review', value: allAssets.filter(a => a.status === 'review-ready').length, icon: '👁️', color: '#a855f7' },
+      { label: 'Active Projects', value: activeProjects.length, icon: '📁', color: '#6366f1' },
+      { label: 'Due This Week', value: dueThisWeek.length, icon: '📅', color: '#f59e0b' },
+      { label: 'Overdue', value: overdueAssets.length, icon: '🚨', color: '#ef4444', alert: overdueAssets.length > 0 },
+      { label: 'Pending Review', value: pendingReview.length, icon: '👁️', color: '#a855f7' },
+      { label: 'In Progress', value: inProgress.length, icon: '⚡', color: '#22c55e' },
+      { label: 'Completed', value: completedProjects.length, icon: '✓', color: '#64748b' },
     ];
-    const recentActivity = projects.flatMap(p => (p.activityLog || []).map(a => ({ ...a, projectName: p.name }))).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 6);
+    
+    const recentActivity = projects.flatMap(p => (p.activityLog || []).map(a => ({ ...a, projectName: p.name, projectId: p.id }))).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 8);
+    
+    // Team workload
+    const teamWorkload = [...coreTeam, ...freelancers].map(member => {
+      const assignedAssets = allAssets.filter(a => a.assignedTo === member.id || a.assignedTo === member.email);
+      const activeAssigned = assignedAssets.filter(a => a.status !== 'delivered' && a.status !== 'approved');
+      return { ...member, totalAssigned: activeAssigned.length, overdue: activeAssigned.filter(a => a.dueDate && new Date(a.dueDate) < today).length };
+    }).filter(m => m.totalAssigned > 0).sort((a, b) => b.totalAssigned - a.totalAssigned);
+    
     return (
       <div>
-        <div style={{ marginBottom: '20px' }}><h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Welcome, {userProfile?.firstName}</h1><p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}</p></div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-          {stats.map(s => <div key={s.label} style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}><div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${s.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>{s.icon}</div><div><div style={{ fontSize: '24px', fontWeight: '700', color: s.color }}>{s.value}</div><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{s.label}</div></div></div></div>)}
+        <div style={{ marginBottom: '24px' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700' }}>Welcome, {userProfile?.firstName}</h1>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+        
+        {/* Stats Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: '12px', marginBottom: '24px' }}>
+          {stats.map(s => (
+            <div key={s.label} style={{ background: s.alert ? 'rgba(239,68,68,0.1)' : '#16161f', borderRadius: '12px', border: s.alert ? '1px solid rgba(239,68,68,0.3)' : '1px solid #1e1e2e', padding: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `${s.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{s.icon}</div>
+                <div>
+                  <div style={{ fontSize: '22px', fontWeight: '700', color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{s.label}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Alerts Section */}
+        {(overdueAssets.length > 0 || pendingReview.length > 0) && (
+          <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '14px', color: '#ef4444' }}>⚠️ Needs Attention</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {overdueAssets.slice(0, 5).map(a => (
+                <span key={a.id} style={{ padding: '6px 12px', background: 'rgba(239,68,68,0.15)', borderRadius: '6px', fontSize: '11px', color: '#fca5a5' }}>
+                  🚨 {a.name} overdue
+                </span>
+              ))}
+              {pendingReview.slice(0, 3).map(a => (
+                <span key={a.id} style={{ padding: '6px 12px', background: 'rgba(168,85,247,0.15)', borderRadius: '6px', fontSize: '11px', color: '#c4b5fd' }}>
+                  👁️ {a.name} needs review
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
+          {/* Active Projects */}
           <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>📁 Recent Projects</h3>
-            {projects.slice(0, 4).map(p => {
-              const notifs = getProjectNotifs(p);
-              const hasNotifs = notifs.pendingReview > 0 || notifs.newFeedback > 0 || notifs.changesRequested > 0;
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '14px' }}>📁 Active Projects ({activeProjects.length})</h3>
+            </div>
+            {activeProjects.slice(0, 5).map(p => {
+              const pAssets = (p.assets || []).filter(a => !a.deleted);
+              const pOverdue = pAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered').length;
               return (
-                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#0d0d14', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', border: hasNotifs ? '1px solid rgba(251,191,36,0.3)' : 'none' }}>
-                  <div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '13px' }}>{p.name}</div><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{p.client}</div></div>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    {notifs.pendingReview > 0 && <span style={{ padding: '2px 6px', background: '#a855f7', borderRadius: '4px', fontSize: '9px' }}>👁️{notifs.pendingReview}</span>}
-                    {notifs.newFeedback > 0 && <span style={{ padding: '2px 6px', background: '#ef4444', borderRadius: '4px', fontSize: '9px' }}>💬{notifs.newFeedback}</span>}
-                    <Badge status={p.status} />
+                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px', cursor: 'pointer', border: pOverdue > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid transparent' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: '500', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{p.client} • {pAssets.length} assets</div>
                   </div>
+                  {pOverdue > 0 && <span style={{ padding: '2px 6px', background: '#ef4444', borderRadius: '4px', fontSize: '9px' }}>{pOverdue}⚠️</span>}
                 </div>
               );
             })}
-            {projects.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No projects</div>}
+            {activeProjects.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No active projects</div>}
           </div>
+          
+          {/* Team Workload */}
+          <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>👥 Team Workload</h3>
+            {teamWorkload.slice(0, 5).map(m => (
+              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px' }}>
+                <Avatar user={m} size={28} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '11px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{TEAM_ROLES[m.role]?.label || m.role}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: m.overdue > 0 ? '#ef4444' : '#6366f1' }}>{m.totalAssigned}</div>
+                  {m.overdue > 0 && <div style={{ fontSize: '9px', color: '#ef4444' }}>{m.overdue} overdue</div>}
+                </div>
+              </div>
+            ))}
+            {teamWorkload.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No assigned work</div>}
+          </div>
+          
+          {/* Recent Activity */}
           <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>🔔 Recent Activity</h3>
-            {recentActivity.map(a => <div key={a.id} style={{ display: 'flex', gap: '10px', padding: '10px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px' }}><div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', marginTop: '6px', flexShrink: 0 }} /><div><div style={{ fontSize: '12px' }}>{a.message}</div><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{a.projectName} • {formatTimeAgo(a.timestamp)}</div></div></div>)}
-            {recentActivity.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No activity</div>}
+            {recentActivity.map(a => (
+              <div key={a.id} onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }} style={{ display: 'flex', gap: '10px', padding: '8px 10px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px', cursor: 'pointer' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', marginTop: '6px', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.message}</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>{a.projectName} • {formatTimeAgo(a.timestamp)}</div>
+                </div>
+              </div>
+            ))}
+            {recentActivity.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No activity</div>}
           </div>
         </div>
+        
+        {/* Completed Projects Section */}
+        {completedProjects.length > 0 && (
+          <div style={{ marginTop: '24px' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>✓ Completed Projects ({completedProjects.length})</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '10px' }}>
+              {completedProjects.slice(0, 4).map(p => (
+                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ padding: '12px', background: '#16161f', borderRadius: '10px', border: '1px solid #1e1e2e', cursor: 'pointer', opacity: 0.7 }}>
+                  <div style={{ fontSize: '12px', fontWeight: '500', marginBottom: '4px' }}>{p.name}</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{p.client}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1293,7 +1402,7 @@ export default function MainApp() {
               <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Name *</label><Input value={newProj.name} onChange={v => setNewProj({ ...newProj, name: v })} placeholder="e.g., RasikaD Photoshoot" /></div>
               <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Client *</label><Input value={newProj.client} onChange={v => setNewProj({ ...newProj, client: v })} placeholder="e.g., Client Name" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Type</label><Select value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">Photoshoot</option><option value="ad-film">Ad Film</option><option value="toolkit">Toolkit</option></Select></div>
+                <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Type</label><Select value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">📸 Photoshoot</option><option value="ad-film">🎬 Ad Film</option><option value="toolkit">🧰 Toolkit</option><option value="product-video">📦 Product Video</option><option value="social-media">📱 Social Media</option><option value="corporate">🏢 Corporate Video</option><option value="music-video">🎵 Music Video</option><option value="brand-film">🎯 Brand Film</option><option value="reels">🎞️ Reels/Shorts</option><option value="ecommerce">🛒 E-Commerce</option><option value="event">🎪 Event Coverage</option><option value="documentary">📽️ Documentary</option></Select></div>
                 <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Deadline</label><Input type="date" value={newProj.deadline} onChange={v => setNewProj({ ...newProj, deadline: v })} /></div>
               </div>
               <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>Categories</label><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{DEFAULT_CATEGORIES.map(cat => <div key={cat.id} onClick={() => setNewProj(p => ({ ...p, selectedCats: p.selectedCats.includes(cat.id) ? p.selectedCats.filter(x => x !== cat.id) : [...p.selectedCats, cat.id] }))} style={{ padding: '8px 12px', background: newProj.selectedCats.includes(cat.id) ? `${cat.color}30` : '#0d0d14', border: `1px solid ${newProj.selectedCats.includes(cat.id) ? cat.color : '#1e1e2e'}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>{cat.icon} {cat.name}</div>)}</div></div>
@@ -1328,22 +1437,99 @@ export default function MainApp() {
       setCreating(false);
     };
 
-    const renderUser = u => (
-      <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: '#0d0d14', borderRadius: '10px', marginBottom: '8px' }}>
-        <Avatar user={u} size={40} />
-        <div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '13px' }}>{u.name}</div><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{u.email}</div></div>
-        <RoleBadge role={u.role} />
-      </div>
-    );
+    const renderUser = u => {
+      // Find projects where this user is assigned
+      const userProjects = projects.filter(p => {
+        const isTeamMember = (p.assignedTeam || []).some(t => t.odId === u.id);
+        const hasAssignedAssets = (p.assets || []).some(a => a.assignedTo === u.id || a.assignedTo === u.email);
+        return isTeamMember || hasAssignedAssets;
+      });
+      const assignedAssets = projects.flatMap(p => (p.assets || []).filter(a => !a.deleted && (a.assignedTo === u.id || a.assignedTo === u.email)));
+      const activeAssets = assignedAssets.filter(a => a.status !== 'delivered' && a.status !== 'approved');
+      const today = new Date(); today.setHours(0,0,0,0);
+      const overdueAssets = activeAssets.filter(a => a.dueDate && new Date(a.dueDate) < today);
+      
+      return (
+        <div key={u.id} style={{ background: '#0d0d14', borderRadius: '12px', marginBottom: '12px', overflow: 'hidden', border: '1px solid #1e1e2e' }}>
+          {/* User Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', borderBottom: userProjects.length > 0 ? '1px solid #1e1e2e' : 'none' }}>
+            <Avatar user={u} size={48} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '2px' }}>{u.name}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>{u.email}</div>
+              <RoleBadge role={u.role} />
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '20px', fontWeight: '700', color: overdueAssets.length > 0 ? '#ef4444' : activeAssets.length > 0 ? '#6366f1' : 'rgba(255,255,255,0.3)' }}>
+                {activeAssets.length}
+              </div>
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+                {overdueAssets.length > 0 ? `${overdueAssets.length} overdue` : 'active tasks'}
+              </div>
+            </div>
+          </div>
+          
+          {/* Projects */}
+          {userProjects.length > 0 && (
+            <div style={{ padding: '12px 16px', background: '#0a0a0f' }}>
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>ASSIGNED PROJECTS</div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {userProjects.map(p => {
+                  const pAssets = (p.assets || []).filter(a => !a.deleted && (a.assignedTo === u.id || a.assignedTo === u.email));
+                  const pActive = pAssets.filter(a => a.status !== 'delivered' && a.status !== 'approved');
+                  return (
+                    <div 
+                      key={p.id} 
+                      onClick={() => { setSelectedProjectId(p.id); setView('projects'); }}
+                      style={{ 
+                        padding: '8px 12px', 
+                        background: '#16161f', 
+                        borderRadius: '8px', 
+                        cursor: 'pointer',
+                        border: '1px solid #2a2a3e',
+                        fontSize: '11px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <span>{p.name}</span>
+                      {pActive.length > 0 && (
+                        <span style={{ 
+                          padding: '2px 6px', 
+                          background: '#6366f1', 
+                          borderRadius: '4px', 
+                          fontSize: '9px' 
+                        }}>
+                          {pActive.length}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
 
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}><h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Team</h1>{isProducer && <Btn onClick={() => setShowAdd(true)}>+ Add</Btn>}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Team</h1>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+              {coreTeam.length + freelancers.length} team members • {clients.length} clients
+            </p>
+          </div>
+          {isProducer && <Btn onClick={() => setShowAdd(true)}>+ Add</Btn>}
+        </div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>{[{ id: 'core', label: '👑 Core', data: coreTeam }, { id: 'freelancers', label: '🎨 Freelancers', data: freelancers }, { id: 'clients', label: '👔 Clients', data: clients }].map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '10px 16px', background: tab === t.id ? '#6366f1' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>{t.label} ({t.data.length})</button>)}</div>
-        <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}>
-          {tab === 'core' && (coreTeam.length ? coreTeam.map(renderUser) : <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No core team</div>)}
-          {tab === 'freelancers' && (freelancers.length ? freelancers.map(renderUser) : <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No freelancers</div>)}
-          {tab === 'clients' && (clients.length ? clients.map(renderUser) : <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No clients</div>)}
+        <div>
+          {tab === 'core' && (coreTeam.length ? coreTeam.map(renderUser) : <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No core team members</div>)}
+          {tab === 'freelancers' && (freelancers.length ? freelancers.map(renderUser) : <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No freelancers</div>)}
+          {tab === 'clients' && (clients.length ? clients.map(renderUser) : <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No clients</div>)}
         </div>
         {showAdd && (
           <Modal title="Add Team Member" onClose={() => { setShowAdd(false); setError(''); }}>
@@ -1721,11 +1907,29 @@ export default function MainApp() {
 
     const handleUpload = async () => {
       if (!uploadFiles.length) return;
-      const cat = selectedCat || cats[0]?.id;
-      if (!cat) { showToast('Select category', 'error'); return; }
       setShowUpload(false);
+      
       for (const file of uploadFiles) {
         const uid = generateId();
+        const fileType = getFileType(file);
+        
+        // Auto-detect best category based on file type
+        let cat = selectedCat;
+        if (!cat) {
+          // Map file types to categories
+          if (fileType === 'video') {
+            cat = cats.find(c => c.id === 'videos')?.id || cats.find(c => c.id === 'animation')?.id || cats[0]?.id;
+          } else if (fileType === 'image') {
+            cat = cats.find(c => c.id === 'statics')?.id || cats.find(c => c.id === 'cgi')?.id || cats[0]?.id;
+          } else if (fileType === 'audio') {
+            cat = cats.find(c => c.id === 'audio')?.id || cats[0]?.id;
+          } else {
+            cat = cats[0]?.id;
+          }
+        }
+        
+        if (!cat) { showToast('No category available', 'error'); return; }
+        
         setUploadProgress(p => ({ ...p, [uid]: { name: file.name, progress: 0 } }));
         try {
           const path = `projects/${selectedProject.id}/${cat}/${Date.now()}-${file.name}`;
@@ -1753,7 +1957,8 @@ export default function MainApp() {
               
               const newAsset = { id: generateId(), name: file.name, type, category: cat, url, path, thumbnail: thumbnailUrl || (type === 'image' ? url : null), fileSize: file.size, mimeType: file.type, status: 'pending', rating: 0, isSelected: false, assignedTo: null, uploadedBy: userProfile.id, uploadedByName: userProfile.name, uploadedAt: new Date().toISOString(), versions: [{ version: 1, url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }], currentVersion: 1, feedback: [], annotations: [], gdriveLink: '' };
               const updatedAssets = [...(selectedProject.assets || []), newAsset];
-              const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name}`, timestamp: new Date().toISOString() };
+              const catName = cats.find(c => c.id === cat)?.name || cat;
+              const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
               await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(selectedProject.activityLog || []), activity] });
               await refreshProject();
               setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
