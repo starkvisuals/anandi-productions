@@ -1329,29 +1329,6 @@ export default function MainApp() {
     );
   };
 
-  // Image preloader cache
-  const imageCache = useRef(new Map());
-  const preloadImage = (url) => {
-    if (!url || imageCache.current.has(url)) return;
-    const img = new Image();
-    img.src = url;
-    imageCache.current.set(url, img);
-  };
-  
-  // Preload adjacent images when viewing an asset
-  useEffect(() => {
-    if (selectedProject?.assets && selectedAsset) {
-      const assets = selectedProject.assets.filter(a => !a.deleted && a.type === 'image');
-      const currentIdx = assets.findIndex(a => a.id === selectedAsset.id);
-      // Preload next 3 and previous 1
-      [-1, 1, 2, 3].forEach(offset => {
-        const asset = assets[currentIdx + offset];
-        if (asset?.url) preloadImage(asset.url);
-        if (asset?.thumbnail) preloadImage(asset.thumbnail);
-      });
-    }
-  }, [selectedAsset?.id, selectedProject?.assets]);
-
   // Annotation Canvas Component with proper fitting and pinch zoom
   const AnnotationCanvas = ({ imageUrl, annotations = [], onChange }) => {
     const [annots, setAnnots] = useState(annotations);
