@@ -262,4 +262,4 @@ For issues or questions, contact the developer or create an issue on GitHub.
 
 ## License
 
-MIT License - feel free to use and modify for your production house!
+MIT License - feel free to use and modify for your production house! This for in-house team to Use
