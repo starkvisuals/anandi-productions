@@ -32,18 +32,15 @@ export async function POST(request) {
 
     // Create a direct upload URL
     const upload = await mux.video.uploads.create({
-      cors_origin: '*', // In production, set to your domain
+      cors_origin: '*',
       new_asset_settings: {
         playback_policy: ['public'],
-        // Store metadata for webhook
         passthrough: JSON.stringify({
           projectId,
           assetId,
           filename,
           uploadedAt: new Date().toISOString()
         }),
-        // Enable MP4 download
-        mp4_support: 'standard',
       },
     });
 
