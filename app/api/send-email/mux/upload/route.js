@@ -1,17 +1,34 @@
 import { NextResponse } from 'next/server';
 import Mux from '@mux/mux-node';
 
-// Initialize Mux client
-const mux = new Mux({
-  tokenId: process.env.MUX_TOKEN_ID,
-  tokenSecret: process.env.MUX_TOKEN_SECRET,
-});
-
 // POST - Create a direct upload URL
 export async function POST(request) {
   try {
+    // Check for environment variables
+    const tokenId = process.env.MUX_TOKEN_ID;
+    const tokenSecret = process.env.MUX_TOKEN_SECRET;
+    
+    if (!tokenId || !tokenSecret) {
+      console.error('Missing Mux credentials:', { 
+        hasTokenId: !!tokenId, 
+        hasTokenSecret: !!tokenSecret 
+      });
+      return NextResponse.json(
+        { success: false, error: 'Mux credentials not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Initialize Mux client
+    const mux = new Mux({
+      tokenId: tokenId,
+      tokenSecret: tokenSecret,
+    });
+
     const body = await request.json();
     const { projectId, assetId, filename } = body;
+
+    console.log('Creating Mux upload for:', { projectId, assetId, filename });
 
     // Create a direct upload URL
     const upload = await mux.video.uploads.create({
@@ -25,12 +42,12 @@ export async function POST(request) {
           filename,
           uploadedAt: new Date().toISOString()
         }),
-        // Generate thumbnails
-        master_access: 'temporary',
         // Enable MP4 download
         mp4_support: 'standard',
       },
     });
+
+    console.log('Mux upload created:', { uploadId: upload.id, url: upload.url ? 'exists' : 'missing' });
 
     return NextResponse.json({
       success: true,
@@ -38,9 +55,9 @@ export async function POST(request) {
       uploadId: upload.id,
     });
   } catch (error) {
-    console.error('Mux upload error:', error);
+    console.error('Mux upload error:', error.message, error.stack);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message || 'Unknown error' },
       { status: 500 }
     );
   }
@@ -49,6 +66,21 @@ export async function POST(request) {
 // GET - Get asset status
 export async function GET(request) {
   try {
+    const tokenId = process.env.MUX_TOKEN_ID;
+    const tokenSecret = process.env.MUX_TOKEN_SECRET;
+    
+    if (!tokenId || !tokenSecret) {
+      return NextResponse.json(
+        { success: false, error: 'Mux credentials not configured' },
+        { status: 500 }
+      );
+    }
+
+    const mux = new Mux({
+      tokenId: tokenId,
+      tokenSecret: tokenSecret,
+    });
+
     const { searchParams } = new URL(request.url);
     const assetId = searchParams.get('assetId');
     const uploadId = searchParams.get('uploadId');
@@ -107,7 +139,7 @@ export async function GET(request) {
       { status: 400 }
     );
   } catch (error) {
-    console.error('Mux get error:', error);
+    console.error('Mux get error:', error.message);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
