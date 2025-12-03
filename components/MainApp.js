@@ -74,41 +74,101 @@ const useTheme = () => useContext(ThemeContext);
 const THEMES = {
   dark: {
     bg: '#0a0a0f',
-    bgSecondary: '#12121a',
-    bgTertiary: '#16161f',
-    bgCard: '#1e1e2e',
-    border: '#2a2a3e',
+    bgSecondary: '#111118',
+    bgTertiary: '#18181f',
+    bgCard: '#1e1e28',
+    bgInput: '#0d0d12',
+    bgHover: '#252530',
+    border: '#2a2a3a',
+    borderLight: '#1e1e2e',
     text: '#ffffff',
-    textSecondary: 'rgba(255,255,255,0.6)',
+    textSecondary: 'rgba(255,255,255,0.7)',
     textMuted: 'rgba(255,255,255,0.4)',
     primary: '#6366f1',
+    primaryHover: '#5558dd',
     success: '#22c55e',
     warning: '#f59e0b',
     danger: '#ef4444',
+    accent: '#a855f7',
+    modalBg: '#14141c',
+    shadow: '0 8px 32px rgba(0,0,0,0.5)',
   },
   light: {
-    bg: '#f8fafc',
+    bg: '#f5f7fa',
     bgSecondary: '#ffffff',
-    bgTertiary: '#f1f5f9',
+    bgTertiary: '#f0f2f5',
     bgCard: '#ffffff',
-    border: '#e2e8f0',
-    text: '#0f172a',
-    textSecondary: '#475569',
-    textMuted: '#94a3b8',
+    bgInput: '#f8f9fb',
+    bgHover: '#e8eaed',
+    border: '#e0e3e8',
+    borderLight: '#ebedf0',
+    text: '#111827',
+    textSecondary: '#4b5563',
+    textMuted: '#9ca3af',
     primary: '#6366f1',
-    success: '#22c55e',
-    warning: '#f59e0b',
-    danger: '#ef4444',
+    primaryHover: '#5558dd',
+    success: '#16a34a',
+    warning: '#d97706',
+    danger: '#dc2626',
+    accent: '#9333ea',
+    modalBg: '#ffffff',
+    shadow: '0 8px 32px rgba(0,0,0,0.1)',
   }
 };
 
+// SVG Icons (Lucide-style)
+const Icons = {
+  dashboard: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+  tasks: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
+  folder: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
+  calendar: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  users: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
+  search: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  bell: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
+  sun: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
+  moon: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
+  logout: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  chevronLeft: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15,18 9,12 15,6"/></svg>,
+  chevronRight: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9,6 15,12 9,18"/></svg>,
+  menu: (color) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+  close: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  plus: (color) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  upload: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+  share: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
+  settings: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
+  edit: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  trash: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
+  grid: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
+  kanban: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="8" rx="1"/></svg>,
+  play: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21 5,3"/></svg>,
+  image: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>,
+  video: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><polygon points="10,9 15,12 10,15 10,9"/></svg>,
+  file: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>,
+  clock: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>,
+  check: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>,
+  alert: (color) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+  star: (color, filled) => <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? color : "none"} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26 12,2"/></svg>,
+  eye: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  download: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  link: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>,
+  message: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>,
+  refresh: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23,4 23,10 17,10"/><polyline points="1,20 1,14 7,14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>,
+  copy: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>,
+  filter: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46 22,3"/></svg>,
+  user: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  cgi: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>,
+  animation: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>,
+  vfx: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>,
+  audio: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>,
+};
+
 const DEFAULT_CATEGORIES = [
-  { id: 'cgi', name: 'CGI', icon: '🌐', color: '#3b82f6' },
-  { id: 'animation', name: 'Animation', icon: '🎭', color: '#a855f7' },
-  { id: 'statics', name: 'Statics', icon: '🖼️', color: '#ec4899' },
-  { id: 'videos', name: 'Videos', icon: '🎬', color: '#f97316' },
-  { id: 'vfx', name: 'VFX', icon: '✨', color: '#10b981' },
-  { id: 'audio', name: 'Audio', icon: '🔊', color: '#06b6d4' },
+  { id: 'cgi', name: 'CGI', icon: 'cgi', color: '#3b82f6' },
+  { id: 'animation', name: 'Animation', icon: 'animation', color: '#a855f7' },
+  { id: 'statics', name: 'Statics', icon: 'image', color: '#ec4899' },
+  { id: 'videos', name: 'Videos', icon: 'video', color: '#f97316' },
+  { id: 'vfx', name: 'VFX', icon: 'vfx', color: '#10b981' },
+  { id: 'audio', name: 'Audio', icon: 'audio', color: '#06b6d4' },
 ];
 
 // Project Templates
@@ -253,10 +313,10 @@ const Skeleton = ({ width = '100%', height = 20, borderRadius = 4, style = {} })
 // Card Skeleton for loading states
 const CardSkeleton = ({ aspectRatio = 1 }) => (
   <div style={{ 
-    background: '#16161f', 
+    background: t.bgTertiary, 
     borderRadius: '12px', 
     overflow: 'hidden',
-    border: '1px solid #1e1e2e'
+    border: `1px solid ${t.border}`
   }}>
     <div style={{ paddingBottom: `${aspectRatio * 100}%`, position: 'relative' }}>
       <Skeleton width="100%" height="100%" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
@@ -292,22 +352,23 @@ const getProjectNotifs = (project) => {
 
 // Full Screen Image/Video Modal
 const Modal = ({ title, onClose, children, wide }) => {
+  const { theme } = useTheme();
+  const t = THEMES[theme];
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
-  // ESC key to close
   useEffect(() => { 
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px' }} onClick={onClose}>
-      <div style={{ background: '#16161f', borderRadius: isMobile ? 0 : '16px', border: isMobile ? 'none' : '1px solid #1e1e2e', width: '100%', maxWidth: isMobile ? '100%' : (wide ? '1200px' : '550px'), height: isMobile ? '100%' : (wide ? '85vh' : 'auto'), maxHeight: isMobile ? '100%' : '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #1e1e2e', background: '#16161f', flexShrink: 0 }}>
-          <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px' }}>{title}</h3>
-          <button onClick={onClose} style={{ background: '#1e1e2e', border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', flexShrink: 0 }}>×</button>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div style={{ background: t.modalBg, borderRadius: isMobile ? 0 : '16px', border: isMobile ? 'none' : `1px solid ${t.border}`, width: '100%', maxWidth: isMobile ? '100%' : (wide ? '1200px' : '550px'), height: isMobile ? '100%' : (wide ? '85vh' : 'auto'), maxHeight: isMobile ? '100%' : '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: t.shadow }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: `1px solid ${t.border}`, background: t.bgTertiary, flexShrink: 0 }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px', color: t.text }}>{title}</h3>
+          <button onClick={onClose} style={{ background: t.bgCard, border: `1px solid ${t.border}`, color: t.textSecondary, width: '32px', height: '32px', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.close(t.textSecondary)}</button>
         </div>
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>{children}</div>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: t.bgSecondary }}>{children}</div>
       </div>
     </div>
   );
@@ -315,21 +376,23 @@ const Modal = ({ title, onClose, children, wide }) => {
 
 // Activity Timeline Component
 const ActivityTimeline = ({ activities = [], maxItems = 10 }) => {
+  const { theme } = useTheme();
+  const t = THEMES[theme];
   const sorted = [...activities].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, maxItems);
   const getIcon = (type) => {
-    const icons = { upload: '⬆️', feedback: '💬', status: '🔄', version: '📦', rating: '⭐', select: '✅', assign: '👤', delete: '🗑️', create: '➕' };
-    return icons[type] || '📌';
+    const iconMap = { upload: 'upload', feedback: 'message', status: 'refresh', version: 'file', rating: 'star', select: 'check', assign: 'user', delete: 'trash', create: 'plus' };
+    return iconMap[type] || 'file';
   };
-  if (sorted.length === 0) return <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>No activity yet</div>;
+  if (sorted.length === 0) return <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '13px' }}>No activity yet</div>;
   return (
     <div style={{ position: 'relative', paddingLeft: '24px' }}>
-      <div style={{ position: 'absolute', left: '8px', top: '8px', bottom: '8px', width: '2px', background: '#2a2a3e' }} />
+      <div style={{ position: 'absolute', left: '8px', top: '8px', bottom: '8px', width: '2px', background: t.border }} />
       {sorted.map((a, i) => (
         <div key={a.id || i} style={{ position: 'relative', paddingBottom: '16px' }}>
-          <div style={{ position: 'absolute', left: '-20px', width: '18px', height: '18px', background: '#1e1e2e', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', border: '2px solid #2a2a3e' }}>{getIcon(a.type)}</div>
-          <div style={{ background: '#0d0d14', borderRadius: '8px', padding: '10px 12px' }}>
-            <div style={{ fontSize: '12px', marginBottom: '4px' }}>{a.message}</div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{formatTimeAgo(a.timestamp)}</div>
+          <div style={{ position: 'absolute', left: '-20px', width: '18px', height: '18px', background: t.bgCard, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${t.border}` }}>{Icons[getIcon(a.type)] ? Icons[getIcon(a.type)](t.textMuted) : null}</div>
+          <div style={{ background: t.bgInput, borderRadius: '8px', padding: '10px 12px', border: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: '12px', marginBottom: '4px', color: t.text }}>{a.message}</div>
+            <div style={{ fontSize: '10px', color: t.textMuted }}>{formatTimeAgo(a.timestamp)}</div>
           </div>
         </div>
       ))}
@@ -367,9 +430,21 @@ const sendEmailNotification = async (to, subject, body, type = 'default', data =
 };
 
 const Toast = ({ message, type, onClose }) => { useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]); return <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', padding: '14px 24px', background: type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '500', zIndex: 2000, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>{message}</div>; };
-const Btn = ({ children, onClick, color = '#6366f1', disabled, small, outline }) => <button onClick={onClick} disabled={disabled} style={{ padding: small ? '8px 12px' : '10px 16px', background: outline ? 'transparent' : color, border: outline ? `1px solid ${color}` : 'none', borderRadius: '8px', color: outline ? color : '#fff', fontSize: small ? '11px' : '13px', fontWeight: '600', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1 }}>{children}</button>;
-const Input = ({ value, onChange, placeholder, type = 'text', style, ...props }) => <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type} style={{ width: '100%', padding: '10px 12px', background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: '8px', color: '#fff', fontSize: '13px', boxSizing: 'border-box', ...style }} {...props} />;
-const Select = ({ value, onChange, children, style }) => <select value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: '8px', color: '#fff', fontSize: '13px', ...style }}>{children}</select>;
+const Btn = ({ children, onClick, color = '#6366f1', disabled, small, outline }) => {
+  const { theme } = useTheme();
+  const t = THEMES[theme];
+  return <button onClick={onClick} disabled={disabled} style={{ padding: small ? '8px 14px' : '10px 18px', background: outline ? 'transparent' : color, border: outline ? `1px solid ${color}` : 'none', borderRadius: '8px', color: outline ? color : '#fff', fontSize: small ? '11px' : '13px', fontWeight: '500', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s' }}>{children}</button>;
+};
+const Input = ({ value, onChange, placeholder, type = 'text', style, ...props }) => {
+  const { theme } = useTheme();
+  const t = THEMES[theme];
+  return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type} style={{ width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.15s', ...style }} {...props} />;
+};
+const Select = ({ value, onChange, children, style }) => {
+  const { theme } = useTheme();
+  const t = THEMES[theme];
+  return <select value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', outline: 'none', ...style }}>{children}</select>;
+};
 
 const StarRating = ({ rating = 0, onChange, size = 18, readonly = false }) => {
   const [hover, setHover] = useState(0);
@@ -442,12 +517,12 @@ const VideoThumbnail = ({ src, thumbnail, duration, style }) => {
 };
 
 const AppearancePanel = ({ settings, onChange, onClose }) => (
-  <div style={{ position: 'absolute', top: '45px', right: '0', background: '#1e1e2e', borderRadius: '12px', border: '1px solid #2a2a3e', padding: '16px', width: '240px', zIndex: 100 }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}><span style={{ fontSize: '13px', fontWeight: '600' }}>Appearance</span><button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '16px' }}>×</button></div>
-    <div style={{ marginBottom: '14px' }}><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>Layout</div><div style={{ display: 'flex', gap: '8px' }}><button onClick={() => onChange({ ...settings, layout: 'grid' })} style={{ flex: 1, padding: '8px', background: settings.layout === 'grid' ? '#6366f1' : '#0d0d14', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>⊞ Grid</button><button onClick={() => onChange({ ...settings, layout: 'list' })} style={{ flex: 1, padding: '8px', background: settings.layout === 'list' ? '#6366f1' : '#0d0d14', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>☰ List</button></div></div>
-    <div style={{ marginBottom: '14px' }}><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>Card Size</div><div style={{ display: 'flex', gap: '8px' }}>{['S', 'M', 'L'].map(s => <button key={s} onClick={() => onChange({ ...settings, cardSize: s })} style={{ flex: 1, padding: '8px', background: settings.cardSize === s ? '#6366f1' : '#0d0d14', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>{s}</button>)}</div></div>
-    <div style={{ marginBottom: '14px' }}><div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>Aspect Ratio</div><div style={{ display: 'flex', gap: '8px' }}>{['landscape', 'square', 'portrait'].map(a => <button key={a} onClick={() => onChange({ ...settings, aspectRatio: a })} style={{ flex: 1, padding: '8px', background: settings.aspectRatio === a ? '#6366f1' : '#0d0d14', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>{a === 'landscape' ? '▬' : a === 'square' ? '◼' : '▮'}</button>)}</div></div>
-    <div><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Show Info</span><button onClick={() => onChange({ ...settings, showInfo: !settings.showInfo })} style={{ width: '44px', height: '24px', borderRadius: '12px', border: 'none', background: settings.showInfo ? '#6366f1' : '#0d0d14', cursor: 'pointer', position: 'relative' }}><div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: settings.showInfo ? '22px' : '2px', transition: 'left 0.2s' }} /></button></div></div>
+  <div style={{ position: 'absolute', top: '45px', right: '0', background: t.bgCard, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px', width: '240px', zIndex: 100 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}><span style={{ fontSize: '13px', fontWeight: '600' }}>Appearance</span><button onClick={onClose} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '16px' }}>×</button></div>
+    <div style={{ marginBottom: '14px' }}><div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Layout</div><div style={{ display: 'flex', gap: '8px' }}><button onClick={() => onChange({ ...settings, layout: 'grid' })} style={{ flex: 1, padding: '8px', background: settings.layout === 'grid' ? t.primary : t.bgInput, border: `1px solid ${settings.layout === 'grid' ? t.primary : t.border}`, borderRadius: '6px', color: settings.layout === 'grid' ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>⊞ Grid</button><button onClick={() => onChange({ ...settings, layout: 'list' })} style={{ flex: 1, padding: '8px', background: settings.layout === 'list' ? t.primary : t.bgInput, border: `1px solid ${settings.layout === 'list' ? t.primary : t.border}`, borderRadius: '6px', color: settings.layout === 'list' ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>☰ List</button></div></div>
+    <div style={{ marginBottom: '14px' }}><div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Card Size</div><div style={{ display: 'flex', gap: '8px' }}>{['S', 'M', 'L'].map(s => <button key={s} onClick={() => onChange({ ...settings, cardSize: s })} style={{ flex: 1, padding: '8px', background: settings.cardSize === s ? t.primary : t.bgInput, border: `1px solid ${settings.cardSize === s ? t.primary : t.border}`, borderRadius: '6px', color: settings.cardSize === s ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>{s}</button>)}</div></div>
+    <div style={{ marginBottom: '14px' }}><div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Aspect Ratio</div><div style={{ display: 'flex', gap: '8px' }}>{['landscape', 'square', 'portrait'].map(a => <button key={a} onClick={() => onChange({ ...settings, aspectRatio: a })} style={{ flex: 1, padding: '8px', background: settings.aspectRatio === a ? t.primary : t.bgInput, border: `1px solid ${settings.aspectRatio === a ? t.primary : t.border}`, borderRadius: '6px', color: settings.aspectRatio === a ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>{a === 'landscape' ? '▬' : a === 'square' ? '◼' : '▮'}</button>)}</div></div>
+    <div><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '11px', color: t.textMuted }}>Show Info</span><button onClick={() => onChange({ ...settings, showInfo: !settings.showInfo })} style={{ width: '44px', height: '24px', borderRadius: '12px', border: 'none', background: settings.showInfo ? t.primary : t.bgInput, cursor: 'pointer', position: 'relative' }}><div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: settings.showInfo ? '22px' : '2px', transition: 'left 0.2s' }} /></button></div></div>
   </div>
 );
 
@@ -464,6 +539,25 @@ export default function MainApp() {
   const [toast, setToast] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  
+  // Sidebar Collapsed State
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('anandi-sidebar-collapsed');
+      return saved === 'true';
+    }
+    return false;
+  });
+  
+  // Company Settings (logo, name)
+  const [companySettings, setCompanySettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('anandi-company-settings');
+      if (saved) return JSON.parse(saved);
+    }
+    return { name: 'ANANDI', logoDark: null, logoLight: null };
+  });
+  const [showCompanySettings, setShowCompanySettings] = useState(false);
   
   // Theme State
   const [theme, setTheme] = useState(() => {
@@ -528,6 +622,20 @@ export default function MainApp() {
       localStorage.setItem('anandi-appearance', JSON.stringify(appearance));
     }
   }, [appearance]);
+
+  // Save sidebar collapsed state
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('anandi-sidebar-collapsed', sidebarCollapsed.toString());
+    }
+  }, [sidebarCollapsed]);
+
+  // Save company settings
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('anandi-company-settings', JSON.stringify(companySettings));
+    }
+  }, [companySettings]);
 
   // Load notifications from localStorage
   useEffect(() => {
@@ -818,7 +926,7 @@ export default function MainApp() {
               width: isMobile ? 'auto' : '360px',
               maxHeight: '480px',
               background: '#1a1a2e',
-              border: '1px solid #2a2a3e',
+              border: `1px solid ${t.border}`,
               borderRadius: '12px',
               boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
               zIndex: 200,
@@ -840,7 +948,7 @@ export default function MainApp() {
                     </button>
                   )}
                   {notifications.length > 0 && (
-                    <button onClick={clearNotifications} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '11px', cursor: 'pointer' }}>
+                    <button onClick={clearNotifications} style={{ background: 'transparent', border: 'none', color: t.textMuted, fontSize: '11px', cursor: 'pointer' }}>
                       Clear
                     </button>
                   )}
@@ -850,7 +958,7 @@ export default function MainApp() {
               {/* Notifications List */}
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {notifications.length === 0 ? (
-                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: t.textMuted }}>
                     <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔕</div>
                     <div style={{ fontSize: '13px' }}>No notifications</div>
                   </div>
@@ -886,7 +994,7 @@ export default function MainApp() {
                           </div>
                           <div style={{ 
                             fontSize: '12px', 
-                            color: 'rgba(255,255,255,0.5)',
+                            color: t.textMuted,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap'
@@ -1338,7 +1446,7 @@ export default function MainApp() {
             <span style={{ fontSize: '14px', color: '#fff' }}>Compare</span>
             <span style={{ fontSize: '14px', color: '#22c55e' }}>v{version2.version} ▶</span>
           </div>
-          <button onClick={onClose} style={{ background: '#1e1e2e', border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '8px', fontSize: '18px', cursor: 'pointer' }}>×</button>
+          <button onClick={onClose} style={{ background: t.bgCard, border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '8px', fontSize: '18px', cursor: 'pointer' }}>×</button>
         </div>
         
         {/* Comparison Area */}
@@ -1399,59 +1507,159 @@ export default function MainApp() {
     );
   };
 
-  const Sidebar = () => (
-    <div style={{ width: isMobile ? '100%' : '200px', background: t.bgSecondary, borderRight: isMobile ? 'none' : `1px solid ${t.border}`, borderBottom: isMobile ? `1px solid ${t.border}` : 'none', height: isMobile ? 'auto' : '100vh', position: isMobile ? 'relative' : 'fixed', left: 0, top: 0, display: 'flex', flexDirection: isMobile ? 'row' : 'column', zIndex: 100 }}>
-      {!isMobile && <div style={{ padding: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}><div><div style={{ fontSize: '18px', fontWeight: '800', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ANANDI</div><div style={{ fontSize: '8px', color: t.textMuted, marginTop: '2px' }}>Production Hub</div></div><NotificationPanel /></div>}
-      
-      {/* Search Button */}
-      {!isMobile && (
-        <div style={{ padding: '0 10px 10px' }}>
-          <button 
-            onClick={() => setShowGlobalSearch(true)}
-            style={{ 
-              width: '100%', 
-              padding: '10px 12px', 
-              background: t.bgCard, 
-              border: `1px solid ${t.border}`, 
-              borderRadius: '8px', 
-              color: t.textMuted, 
-              fontSize: '12px', 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              textAlign: 'left'
-            }}
-          >
-            <span>🔍</span>
-            <span style={{ flex: 1 }}>Search</span>
-            <span style={{ fontSize: '10px', background: t.bgTertiary, padding: '2px 6px', borderRadius: '4px' }}>/</span>
-          </button>
-        </div>
-      )}
-      
-      <nav style={{ flex: 1, padding: isMobile ? '10px' : '0 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '6px' : '0', alignItems: isMobile ? 'center' : 'stretch' }}>
-        {isMobile && <NotificationPanel />}
-        {isMobile && <button onClick={() => setShowGlobalSearch(true)} style={{ padding: '10px', background: 'transparent', border: 'none', cursor: 'pointer' }}><span style={{ fontSize: '16px' }}>🔍</span></button>}
-        {[
-          { id: 'dashboard', icon: '📊', label: 'Dashboard' }, 
-          { id: 'tasks', icon: '✅', label: 'My Tasks' }, 
-          { id: 'projects', icon: '📁', label: 'Projects' },
-          { id: 'calendar', icon: '📅', label: 'Calendar' },
-          ...(isProducer ? [{ id: 'team', icon: '👥', label: 'Team' }] : [])
-        ].map(item => (
-          <div key={item.id} onClick={() => { setView(item.id); setSelectedProjectId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '10px 14px' : '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: view === item.id ? 'rgba(99,102,241,0.15)' : 'transparent', color: view === item.id ? t.text : t.textSecondary, marginBottom: isMobile ? '0' : '2px' }}><span style={{ fontSize: '14px' }}>{item.icon}</span>{!isMobile && item.label}</div>
-        ))}
-      </nav>
-      {!isMobile && (
-        <div style={{ padding: '14px', borderTop: `1px solid ${t.border}` }}>
-          {/* Theme Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+  const Sidebar = () => {
+    const sidebarWidth = sidebarCollapsed ? '60px' : '200px';
+    const navItems = [
+      { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' }, 
+      { id: 'tasks', icon: 'tasks', label: 'My Tasks' }, 
+      { id: 'projects', icon: 'folder', label: 'Projects' },
+      { id: 'calendar', icon: 'calendar', label: 'Calendar' },
+      ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team' }] : [])
+    ];
+    
+    return (
+      <div style={{ 
+        width: isMobile ? '100%' : sidebarWidth, 
+        background: t.bgSecondary, 
+        borderRight: isMobile ? 'none' : `1px solid ${t.border}`, 
+        borderBottom: isMobile ? `1px solid ${t.border}` : 'none', 
+        height: isMobile ? 'auto' : '100vh', 
+        position: isMobile ? 'relative' : 'fixed', 
+        left: 0, 
+        top: 0, 
+        display: 'flex', 
+        flexDirection: isMobile ? 'row' : 'column', 
+        zIndex: 100,
+        transition: 'width 0.2s ease'
+      }}>
+        {/* Logo Section */}
+        {!isMobile && (
+          <div style={{ padding: sidebarCollapsed ? '16px 10px' : '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${t.border}` }}>
+            {!sidebarCollapsed && (
+              <div style={{ flex: 1 }}>
+                {companySettings.logoDark && theme === 'dark' ? (
+                  <img src={companySettings.logoDark} alt={companySettings.name} style={{ height: '28px', objectFit: 'contain' }} />
+                ) : companySettings.logoLight && theme === 'light' ? (
+                  <img src={companySettings.logoLight} alt={companySettings.name} style={{ height: '28px', objectFit: 'contain' }} />
+                ) : (
+                  <div style={{ fontSize: '16px', fontWeight: '700', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{companySettings.name}</div>
+                )}
+                <div style={{ fontSize: '9px', color: t.textMuted, marginTop: '2px' }}>Production Hub</div>
+              </div>
+            )}
+            <button 
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              style={{ 
+                background: t.bgCard, 
+                border: `1px solid ${t.border}`, 
+                borderRadius: '6px', 
+                padding: '6px', 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {sidebarCollapsed ? Icons.chevronRight(t.textSecondary) : Icons.chevronLeft(t.textSecondary)}
+            </button>
+          </div>
+        )}
+        
+        {/* Search Button */}
+        {!isMobile && !sidebarCollapsed && (
+          <div style={{ padding: '12px 10px' }}>
+            <button 
+              onClick={() => setShowGlobalSearch(true)}
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px', 
+                background: t.bgInput, 
+                border: `1px solid ${t.border}`, 
+                borderRadius: '8px', 
+                color: t.textMuted, 
+                fontSize: '12px', 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textAlign: 'left'
+              }}
+            >
+              {Icons.search(t.textMuted)}
+              <span style={{ flex: 1 }}>Search</span>
+              <span style={{ fontSize: '10px', background: t.bgTertiary, padding: '2px 6px', borderRadius: '4px', color: t.textMuted }}>/</span>
+            </button>
+          </div>
+        )}
+        
+        {/* Collapsed Search */}
+        {!isMobile && sidebarCollapsed && (
+          <div style={{ padding: '12px 10px' }}>
+            <button 
+              onClick={() => setShowGlobalSearch(true)}
+              style={{ 
+                width: '100%', 
+                padding: '10px', 
+                background: t.bgInput, 
+                border: `1px solid ${t.border}`, 
+                borderRadius: '8px', 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {Icons.search(t.textMuted)}
+            </button>
+          </div>
+        )}
+        
+        {/* Navigation */}
+        <nav style={{ flex: 1, padding: isMobile ? '10px' : '8px 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: '4px', alignItems: isMobile ? 'center' : 'stretch' }}>
+          {isMobile && <NotificationPanel />}
+          {isMobile && <button onClick={() => setShowGlobalSearch(true)} style={{ padding: '10px', background: 'transparent', border: 'none', cursor: 'pointer' }}>{Icons.search(t.textSecondary)}</button>}
+          {navItems.map(item => (
+            <div 
+              key={item.id} 
+              onClick={() => { setView(item.id); setSelectedProjectId(null); }} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                padding: sidebarCollapsed ? '10px' : '10px 12px', 
+                borderRadius: '8px', 
+                cursor: 'pointer', 
+                fontSize: '13px', 
+                fontWeight: view === item.id ? '500' : '400',
+                background: view === item.id ? `${t.primary}15` : 'transparent', 
+                color: view === item.id ? t.primary : t.textSecondary,
+                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                transition: 'all 0.15s'
+              }}
+              title={sidebarCollapsed ? item.label : ''}
+            >
+              {Icons[item.icon] && Icons[item.icon](view === item.id ? t.primary : t.textSecondary)}
+              {!isMobile && !sidebarCollapsed && <span>{item.label}</span>}
+            </div>
+          ))}
+        </nav>
+        
+        {/* Bottom Section */}
+        {!isMobile && (
+          <div style={{ padding: sidebarCollapsed ? '10px' : '14px', borderTop: `1px solid ${t.border}` }}>
+            {/* Notification Icon (collapsed) */}
+            {sidebarCollapsed && (
+              <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
+                <NotificationPanel />
+              </div>
+            )}
+            
+            {/* Theme Toggle */}
             <button 
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               style={{ 
-                flex: 1,
-                padding: '8px', 
+                width: '100%',
+                padding: sidebarCollapsed ? '10px' : '8px 12px', 
                 background: t.bgCard, 
                 border: `1px solid ${t.border}`, 
                 borderRadius: '8px', 
@@ -1460,19 +1668,58 @@ export default function MainApp() {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
+                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                gap: '8px',
+                marginBottom: '10px'
               }}
+              title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
             >
-              {theme === 'dark' ? '☀️' : '🌙'} {theme === 'dark' ? 'Light' : 'Dark'}
+              {theme === 'dark' ? Icons.sun(t.textSecondary) : Icons.moon(t.textSecondary)}
+              {!sidebarCollapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
             </button>
+            
+            {/* User Info */}
+            {!sidebarCollapsed ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <Avatar user={userProfile} size={32} />
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '500', color: t.text }}>{userProfile?.firstName}</div>
+                    <div style={{ fontSize: '10px', color: t.textMuted }}>{CORE_ROLES[userProfile?.role]?.label || userProfile?.role}</div>
+                  </div>
+                  {!sidebarCollapsed && <NotificationPanel />}
+                </div>
+                {isProducer && (
+                  <button 
+                    onClick={() => setShowCompanySettings(true)} 
+                    style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '8px' }}
+                  >
+                    {Icons.settings(t.textSecondary)}
+                    <span>Company Settings</span>
+                  </button>
+                )}
+                <button onClick={signOut} style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  {Icons.logout(t.textSecondary)}
+                  <span>Sign Out</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {isProducer && (
+                  <button onClick={() => setShowCompanySettings(true)} style={{ width: '100%', padding: '10px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }} title="Company Settings">
+                    {Icons.settings(t.textSecondary)}
+                  </button>
+                )}
+                <button onClick={signOut} style={{ width: '100%', padding: '10px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sign Out">
+                  {Icons.logout(t.textSecondary)}
+                </button>
+              </>
+            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}><Avatar user={userProfile} size={32} /><div style={{ flex: 1, overflow: 'hidden' }}><div style={{ fontSize: '11px', fontWeight: '500', color: t.text }}>{userProfile?.firstName}</div><div style={{ fontSize: '9px', color: t.textMuted }}>{CORE_ROLES[userProfile?.role]?.label || userProfile?.role}</div></div></div>
-          <button onClick={signOut} style={{ width: '100%', padding: '8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>Sign Out</button>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   const Dashboard = () => {
     const activeProjects = projects.filter(p => p.status === 'active');
@@ -1515,18 +1762,18 @@ export default function MainApp() {
       <div>
         <div style={{ marginBottom: '24px' }}>
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700' }}>Welcome, {userProfile?.firstName}</h1>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: t.textMuted }}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
         
         {/* Stats Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: '12px', marginBottom: '24px' }}>
           {stats.map(s => (
-            <div key={s.label} style={{ background: s.alert ? 'rgba(239,68,68,0.1)' : '#16161f', borderRadius: '12px', border: s.alert ? '1px solid rgba(239,68,68,0.3)' : '1px solid #1e1e2e', padding: '16px' }}>
+            <div key={s.label} style={{ background: s.alert ? 'rgba(239,68,68,0.1)' : t.bgCard, borderRadius: '12px', border: s.alert ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}`, padding: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `${s.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{s.icon}</div>
                 <div>
                   <div style={{ fontSize: '22px', fontWeight: '700', color: s.color }}>{s.value}</div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{s.label}</div>
+                  <div style={{ fontSize: '10px', color: t.textMuted }}>{s.label}</div>
                 </div>
               </div>
             </div>
@@ -1554,7 +1801,7 @@ export default function MainApp() {
         
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
           {/* Active Projects */}
-          <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}>
+          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <h3 style={{ margin: 0, fontSize: '14px' }}>📁 Active Projects ({activeProjects.length})</h3>
             </div>
@@ -1562,27 +1809,27 @@ export default function MainApp() {
               const pAssets = (p.assets || []).filter(a => !a.deleted);
               const pOverdue = pAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered').length;
               return (
-                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px', cursor: 'pointer', border: pOverdue > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid transparent' }}>
+                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px', cursor: 'pointer', border: pOverdue > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid transparent' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: '500', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{p.client} • {pAssets.length} assets</div>
+                    <div style={{ fontSize: '10px', color: t.textMuted }}>{p.client} • {pAssets.length} assets</div>
                   </div>
                   {pOverdue > 0 && <span style={{ padding: '2px 6px', background: '#ef4444', borderRadius: '4px', fontSize: '9px' }}>{pOverdue}⚠️</span>}
                 </div>
               );
             })}
-            {activeProjects.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No active projects</div>}
+            {activeProjects.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>No active projects</div>}
           </div>
           
           {/* Team Workload */}
-          <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}>
+          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>👥 Team Workload</h3>
             {teamWorkload.slice(0, 5).map(m => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px' }}>
+              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
                 <Avatar user={m} size={28} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '11px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{TEAM_ROLES[m.role]?.label || m.role}</div>
+                  <div style={{ fontSize: '10px', color: t.textMuted }}>{TEAM_ROLES[m.role]?.label || m.role}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '14px', fontWeight: '600', color: m.overdue > 0 ? '#ef4444' : '#6366f1' }}>{m.totalAssigned}</div>
@@ -1590,34 +1837,34 @@ export default function MainApp() {
                 </div>
               </div>
             ))}
-            {teamWorkload.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No assigned work</div>}
+            {teamWorkload.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>No assigned work</div>}
           </div>
           
           {/* Recent Activity */}
-          <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}>
+          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>🔔 Recent Activity</h3>
             {recentActivity.map(a => (
-              <div key={a.id} onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }} style={{ display: 'flex', gap: '10px', padding: '8px 10px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px', cursor: 'pointer' }}>
+              <div key={a.id} onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }} style={{ display: 'flex', gap: '10px', padding: '8px 10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px', cursor: 'pointer' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', marginTop: '6px', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.message}</div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>{a.projectName} • {formatTimeAgo(a.timestamp)}</div>
+                  <div style={{ fontSize: '9px', color: t.textMuted }}>{a.projectName} • {formatTimeAgo(a.timestamp)}</div>
                 </div>
               </div>
             ))}
-            {recentActivity.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No activity</div>}
+            {recentActivity.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>No activity</div>}
           </div>
         </div>
         
         {/* Completed Projects Section */}
         {completedProjects.length > 0 && (
           <div style={{ marginTop: '24px' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>✓ Completed Projects ({completedProjects.length})</h3>
+            <h3 style={{ margin: '0 0 12px', fontSize: '14px', color: t.textSecondary }}>✓ Completed Projects ({completedProjects.length})</h3>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '10px' }}>
               {completedProjects.slice(0, 4).map(p => (
-                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ padding: '12px', background: '#16161f', borderRadius: '10px', border: '1px solid #1e1e2e', cursor: 'pointer', opacity: 0.7 }}>
+                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ padding: '12px', background: t.bgTertiary, borderRadius: '10px', border: `1px solid ${t.border}`, cursor: 'pointer', opacity: 0.7 }}>
                   <div style={{ fontSize: '12px', fontWeight: '500', marginBottom: '4px' }}>{p.name}</div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{p.client}</div>
+                  <div style={{ fontSize: '10px', color: t.textMuted }}>{p.client}</div>
                 </div>
               ))}
             </div>
@@ -1631,7 +1878,7 @@ export default function MainApp() {
   const TasksView = () => {
     const [taskTab, setTaskTab] = useState('today'); // today, week, overdue, all
     const [showAddTask, setShowAddTask] = useState(false);
-    const [newTask, setNewTask] = useState({ title: '', dueDate: '', dueTime: '', priority: 'medium', projectId: '' });
+    const [newTask, setNewTask] = useState({ title: '', dueDate: new Date().toISOString().split('T')[0], dueTime: '', priority: 'medium', projectId: '' });
     const [manualTasks, setManualTasks] = useState(() => {
       if (typeof window !== 'undefined') {
         const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
@@ -1733,7 +1980,7 @@ export default function MainApp() {
         createdAt: new Date().toISOString()
       };
       saveTasks([task, ...manualTasks]);
-      setNewTask({ title: '', dueDate: '', dueTime: '', priority: 'medium', projectId: '' });
+      setNewTask({ title: '', dueDate: new Date().toISOString().split('T')[0], dueTime: '', priority: 'medium', projectId: '' });
       setShowAddTask(false);
     };
 
@@ -1765,10 +2012,10 @@ export default function MainApp() {
           display: 'flex', 
           gap: '12px', 
           padding: '14px 16px', 
-          background: '#16161f', 
+          background: t.bgTertiary, 
           borderRadius: '10px', 
           marginBottom: '8px',
-          border: '1px solid #1e1e2e',
+          border: `1px solid ${t.border}`,
           cursor: task.type === 'auto' ? 'pointer' : 'default',
           borderLeft: `3px solid ${priorityColors[task.priority]}`
         }}
@@ -1810,7 +2057,7 @@ export default function MainApp() {
           <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '4px' }}>{task.title}</div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {task.projectName && (
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>📁 {task.projectName}</span>
+              <span style={{ fontSize: '11px', color: t.textMuted }}>📁 {task.projectName}</span>
             )}
             {task.status && (
               <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(99,102,241,0.2)', color: '#818cf8' }}>
@@ -1844,7 +2091,7 @@ export default function MainApp() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>My Tasks</h1>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: t.textMuted }}>
               {allTasks.length} task{allTasks.length !== 1 ? 's' : ''} • {overdueTasks.length} overdue
             </p>
           </div>
@@ -1853,21 +2100,21 @@ export default function MainApp() {
 
         {/* Quick Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '20px' }}>
-          <div style={{ background: overdueTasks.length > 0 ? 'rgba(239,68,68,0.1)' : '#16161f', borderRadius: '10px', padding: '14px', border: overdueTasks.length > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid #1e1e2e' }}>
+          <div style={{ background: overdueTasks.length > 0 ? 'rgba(239,68,68,0.1)' : t.bgCard, borderRadius: '10px', padding: '14px', border: overdueTasks.length > 0 ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}` }}>
             <div style={{ fontSize: '22px', fontWeight: '700', color: overdueTasks.length > 0 ? '#ef4444' : '#fff' }}>{overdueTasks.length}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Overdue</div>
+            <div style={{ fontSize: '11px', color: t.textMuted }}>Overdue</div>
           </div>
-          <div style={{ background: '#16161f', borderRadius: '10px', padding: '14px', border: '1px solid #1e1e2e' }}>
+          <div style={{ background: t.bgTertiary, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: '22px', fontWeight: '700', color: '#f59e0b' }}>{todayTasks.length}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Due Today</div>
+            <div style={{ fontSize: '11px', color: t.textMuted }}>Due Today</div>
           </div>
-          <div style={{ background: '#16161f', borderRadius: '10px', padding: '14px', border: '1px solid #1e1e2e' }}>
+          <div style={{ background: t.bgTertiary, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: '22px', fontWeight: '700', color: '#6366f1' }}>{allTasks.length}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Tasks</div>
+            <div style={{ fontSize: '11px', color: t.textMuted }}>Total Tasks</div>
           </div>
-          <div style={{ background: '#16161f', borderRadius: '10px', padding: '14px', border: '1px solid #1e1e2e' }}>
+          <div style={{ background: t.bgTertiary, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: '22px', fontWeight: '700', color: '#22c55e' }}>{completedTasks.length}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Completed</div>
+            <div style={{ fontSize: '11px', color: t.textMuted }}>Completed</div>
           </div>
         </div>
 
@@ -1886,7 +2133,8 @@ export default function MainApp() {
                 padding: '8px 14px', 
                 borderRadius: '8px', 
                 border: 'none',
-                background: taskTab === tab.id ? '#6366f1' : '#1e1e2e',
+                background: taskTab === tab.id ? t.primary : t.bgCard,
+                border: `1px solid ${taskTab === tab.id ? t.primary : t.border}`,
                 color: taskTab === tab.id ? '#fff' : 'rgba(255,255,255,0.6)',
                 fontSize: '12px',
                 fontWeight: '500',
@@ -1914,7 +2162,7 @@ export default function MainApp() {
         {/* Task List */}
         <div>
           {filteredTasks.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)' }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: t.textMuted }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>
                 {taskTab === 'overdue' ? '🎉' : '📋'}
               </div>
@@ -1936,7 +2184,7 @@ export default function MainApp() {
         {/* Completed Tasks */}
         {completedTasks.length > 0 && taskTab === 'all' && (
           <div style={{ marginTop: '24px' }}>
-            <h3 style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '12px' }}>
+            <h3 style={{ fontSize: '14px', color: t.textMuted, marginBottom: '12px' }}>
               ✓ Completed ({completedTasks.length})
             </h3>
             {completedTasks.slice(0, 5).map(task => (
@@ -1946,7 +2194,7 @@ export default function MainApp() {
                   display: 'flex', 
                   gap: '12px', 
                   padding: '12px 16px', 
-                  background: '#16161f', 
+                  background: t.bgTertiary, 
                   borderRadius: '8px', 
                   marginBottom: '6px',
                   opacity: 0.6
@@ -1977,11 +2225,11 @@ export default function MainApp() {
         {/* Add Task Modal */}
         {showAddTask && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-            <div style={{ background: '#16161f', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '420px', border: '1px solid #2a2a3e' }}>
+            <div style={{ background: t.bgTertiary, borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '420px', border: `1px solid ${t.border}` }}>
               <h2 style={{ margin: '0 0 20px', fontSize: '18px' }}>Add Task</h2>
               
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Task Title *</label>
+                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Task Title *</label>
                 <Input 
                   value={newTask.title} 
                   onChange={(v) => setNewTask({ ...newTask, title: v })} 
@@ -1991,7 +2239,7 @@ export default function MainApp() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Due Date</label>
+                  <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Due Date</label>
                   <Input 
                     type="date" 
                     value={newTask.dueDate} 
@@ -1999,7 +2247,7 @@ export default function MainApp() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Due Time</label>
+                  <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Due Time</label>
                   <Input 
                     type="time" 
                     value={newTask.dueTime} 
@@ -2009,7 +2257,7 @@ export default function MainApp() {
               </div>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Priority</label>
+                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Priority</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {['low', 'medium', 'high'].map(p => (
                     <button 
@@ -2035,7 +2283,7 @@ export default function MainApp() {
               </div>
 
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Link to Project (optional)</label>
+                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Link to Project (optional)</label>
                 <Select value={newTask.projectId} onChange={(v) => setNewTask({ ...newTask, projectId: v })}>
                   <option value="">No project</option>
                   {projects.filter(p => p.status === 'active').map(p => (
@@ -2103,38 +2351,38 @@ export default function MainApp() {
         
         {/* Active / Completed Tabs */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <button onClick={() => setProjectTab('active')} style={{ padding: '10px 20px', background: projectTab === 'active' ? '#6366f1' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button onClick={() => setProjectTab('active')} style={{ padding: '10px 20px', background: projectTab === 'active' ? t.primary : t.bgCard, border: `1px solid ${projectTab === 'active' ? t.primary : t.border}`, borderRadius: '8px', color: projectTab === 'active' ? '#fff' : t.textSecondary, fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
             📂 Active <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px' }}>{activeProjects.length}</span>
           </button>
-          <button onClick={() => setProjectTab('completed')} style={{ padding: '10px 20px', background: projectTab === 'completed' ? '#22c55e' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button onClick={() => setProjectTab('completed')} style={{ padding: '10px 20px', background: projectTab === 'completed' ? t.success : t.bgCard, border: `1px solid ${projectTab === 'completed' ? t.success : t.border}`, borderRadius: '8px', color: projectTab === 'completed' ? '#fff' : t.textSecondary, fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
             ✅ Completed <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px' }}>{completedProjects.length}</span>
           </button>
         </div>
         
         {displayProjects.length === 0 ? (
-          <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '60px 20px', textAlign: 'center' }}>
+          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '60px 20px', textAlign: 'center' }}>
             <div style={{ fontSize: '50px', marginBottom: '16px' }}>{projectTab === 'active' ? '📁' : '✅'}</div>
             <h3 style={{ marginBottom: '8px', fontSize: '16px' }}>{projectTab === 'active' ? 'No Active Projects' : 'No Completed Projects'}</h3>
-            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginBottom: '20px' }}>{projectTab === 'active' ? 'Create your first project' : 'Complete a project to see it here'}</p>
+            <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '20px' }}>{projectTab === 'active' ? 'Create your first project' : 'Complete a project to see it here'}</p>
             {isProducer && projectTab === 'active' && <Btn onClick={() => setShowCreate(true)}>+ Create Project</Btn>}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
             {displayProjects.map(p => {
-              const cnt = p.assets?.length || 0;
-              const approved = p.assets?.filter(a => ['approved', 'delivered'].includes(a.status)).length || 0;
+              const cnt = p.assets?.filter(a => !a.deleted).length || 0;
+              const approved = p.assets?.filter(a => !a.deleted && ['approved', 'delivered'].includes(a.status)).length || 0;
               const notifs = getProjectNotifs(p);
               const totalNotifs = notifs.pendingReview + notifs.newFeedback + notifs.changesRequested + notifs.newVersions;
               
               return (
-                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: '#16161f', borderRadius: '12px', border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : '1px solid #1e1e2e', padding: '18px', cursor: 'pointer', position: 'relative' }}>
+                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: t.bgTertiary, borderRadius: '12px', border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : `1px solid ${t.border}`, padding: '18px', cursor: 'pointer', position: 'relative' }}>
                   {totalNotifs > 0 && (
-                    <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '22px', height: '22px', background: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', border: '2px solid #16161f' }}>{totalNotifs}</div>
+                    <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '22px', height: '22px', background: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', border: `2px solid ${t.bgSecondary}`, color: '#fff' }}>{totalNotifs}</div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <div><div style={{ fontWeight: '600', fontSize: '15px' }}>{p.name}</div><div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>{p.client}</div></div>
+                    <div><div style={{ fontWeight: '600', fontSize: '15px', color: t.text }}>{p.name}</div><div style={{ fontSize: '12px', color: t.textMuted, marginTop: '2px' }}>{p.client}</div></div>
                     {isProducer && (
-                      <button onClick={(e) => handleToggleProjectStatus(p.id, e)} title={p.status === 'active' ? 'Mark Complete' : 'Reopen'} style={{ padding: '6px 10px', background: p.status === 'active' ? '#1e1e2e' : '#22c55e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>
+                      <button onClick={(e) => handleToggleProjectStatus(p.id, e)} title={p.status === 'active' ? 'Mark Complete' : 'Reopen'} style={{ padding: '6px 10px', background: p.status === 'active' ? t.bgCard : '#22c55e', border: `1px solid ${t.border}`, borderRadius: '6px', color: p.status === 'active' ? t.textSecondary : '#fff', fontSize: '11px', cursor: 'pointer' }}>
                         {p.status === 'active' ? '✓ Complete' : '↩ Reopen'}
                       </button>
                     )}
@@ -2149,8 +2397,8 @@ export default function MainApp() {
                     {p.selectionConfirmed && <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>✓ Selection Done</span>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ flex: 1, background: '#1e1e2e', borderRadius: '4px', height: '6px' }}><div style={{ width: `${cnt ? (approved/cnt)*100 : 0}%`, height: '100%', background: '#6366f1', borderRadius: '4px' }} /></div>
-                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{cnt ? Math.round((approved/cnt)*100) : 0}%</span>
+                    <div style={{ flex: 1, background: t.bgCard, borderRadius: '4px', height: '6px' }}><div style={{ width: `${cnt ? (approved/cnt)*100 : 0}%`, height: '100%', background: t.primary, borderRadius: '4px' }} /></div>
+                    <span style={{ fontSize: '11px', color: t.textMuted }}>{cnt ? Math.round((approved/cnt)*100) : 0}%</span>
                   </div>
                 </div>
               );
@@ -2160,13 +2408,13 @@ export default function MainApp() {
         {showCreate && (
           <Modal title="Create Project" onClose={() => setShowCreate(false)}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
-              <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Name *</label><Input value={newProj.name} onChange={v => setNewProj({ ...newProj, name: v })} placeholder="e.g., RasikaD Photoshoot" /></div>
-              <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Client *</label><Input value={newProj.client} onChange={v => setNewProj({ ...newProj, client: v })} placeholder="e.g., Client Name" /></div>
+              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Name *</label><Input value={newProj.name} onChange={v => setNewProj({ ...newProj, name: v })} placeholder="e.g., RasikaD Photoshoot" /></div>
+              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Client *</label><Input value={newProj.client} onChange={v => setNewProj({ ...newProj, client: v })} placeholder="e.g., Client Name" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Type</label><Select value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">📸 Photoshoot</option><option value="ad-film">🎬 Ad Film</option><option value="toolkit">🧰 Toolkit</option><option value="product-video">📦 Product Video</option><option value="social-media">📱 Social Media</option><option value="corporate">🏢 Corporate Video</option><option value="music-video">🎵 Music Video</option><option value="brand-film">🎯 Brand Film</option><option value="reels">🎞️ Reels/Shorts</option><option value="ecommerce">🛒 E-Commerce</option><option value="event">🎪 Event Coverage</option><option value="documentary">📽️ Documentary</option></Select></div>
-                <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Deadline</label><Input type="date" value={newProj.deadline} onChange={v => setNewProj({ ...newProj, deadline: v })} /></div>
+                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label><Select value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">📸 Photoshoot</option><option value="ad-film">🎬 Ad Film</option><option value="toolkit">🧰 Toolkit</option><option value="product-video">📦 Product Video</option><option value="social-media">📱 Social Media</option><option value="corporate">🏢 Corporate Video</option><option value="music-video">🎵 Music Video</option><option value="brand-film">🎯 Brand Film</option><option value="reels">🎞️ Reels/Shorts</option><option value="ecommerce">🛒 E-Commerce</option><option value="event">🎪 Event Coverage</option><option value="documentary">📽️ Documentary</option></Select></div>
+                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Deadline</label><Input type="date" value={newProj.deadline} onChange={v => setNewProj({ ...newProj, deadline: v })} /></div>
               </div>
-              <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>Categories</label><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{DEFAULT_CATEGORIES.map(cat => <div key={cat.id} onClick={() => setNewProj(p => ({ ...p, selectedCats: p.selectedCats.includes(cat.id) ? p.selectedCats.filter(x => x !== cat.id) : [...p.selectedCats, cat.id] }))} style={{ padding: '8px 12px', background: newProj.selectedCats.includes(cat.id) ? `${cat.color}30` : '#0d0d14', border: `1px solid ${newProj.selectedCats.includes(cat.id) ? cat.color : '#1e1e2e'}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>{cat.icon} {cat.name}</div>)}</div></div>
+              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Categories</label><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{DEFAULT_CATEGORIES.map(cat => <div key={cat.id} onClick={() => setNewProj(p => ({ ...p, selectedCats: p.selectedCats.includes(cat.id) ? p.selectedCats.filter(x => x !== cat.id) : [...p.selectedCats, cat.id] }))} style={{ padding: '8px 12px', background: newProj.selectedCats.includes(cat.id) ? `${cat.color}30` : t.bgInput, border: `1px solid ${newProj.selectedCats.includes(cat.id) ? cat.color : t.border}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: newProj.selectedCats.includes(cat.id) ? cat.color : t.textSecondary }}>{cat.icon} {cat.name}</div>)}</div></div>
               <Btn onClick={handleCreate} disabled={!newProj.name || !newProj.client || creating}>{creating ? '⏳...' : '🚀 Create'}</Btn>
             </div>
           </Modal>
@@ -2211,20 +2459,20 @@ export default function MainApp() {
       const overdueAssets = activeAssets.filter(a => a.dueDate && new Date(a.dueDate) < today);
       
       return (
-        <div key={u.id} style={{ background: '#0d0d14', borderRadius: '12px', marginBottom: '12px', overflow: 'hidden', border: '1px solid #1e1e2e' }}>
+        <div key={u.id} style={{ background: t.bgInput, borderRadius: '12px', marginBottom: '12px', overflow: 'hidden', border: `1px solid ${t.border}` }}>
           {/* User Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', borderBottom: userProjects.length > 0 ? '1px solid #1e1e2e' : 'none' }}>
             <Avatar user={u} size={48} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '2px' }}>{u.name}</div>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>{u.email}</div>
+              <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '4px' }}>{u.email}</div>
               <RoleBadge role={u.role} />
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '20px', fontWeight: '700', color: overdueAssets.length > 0 ? '#ef4444' : activeAssets.length > 0 ? '#6366f1' : 'rgba(255,255,255,0.3)' }}>
                 {activeAssets.length}
               </div>
-              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+              <div style={{ fontSize: '10px', color: t.textMuted }}>
                 {overdueAssets.length > 0 ? `${overdueAssets.length} overdue` : 'active tasks'}
               </div>
             </div>
@@ -2233,7 +2481,7 @@ export default function MainApp() {
           {/* Projects */}
           {userProjects.length > 0 && (
             <div style={{ padding: '12px 16px', background: '#0a0a0f' }}>
-              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>ASSIGNED PROJECTS</div>
+              <div style={{ fontSize: '10px', color: t.textMuted, marginBottom: '8px' }}>ASSIGNED PROJECTS</div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {userProjects.map(p => {
                   const pAssets = (p.assets || []).filter(a => !a.deleted && (a.assignedTo === u.id || a.assignedTo === u.email));
@@ -2244,10 +2492,10 @@ export default function MainApp() {
                       onClick={() => { setSelectedProjectId(p.id); setView('projects'); }}
                       style={{ 
                         padding: '8px 12px', 
-                        background: '#16161f', 
+                        background: t.bgTertiary, 
                         borderRadius: '8px', 
                         cursor: 'pointer',
-                        border: '1px solid #2a2a3e',
+                        border: `1px solid ${t.border}`,
                         fontSize: '11px',
                         display: 'flex',
                         alignItems: 'center',
@@ -2280,22 +2528,22 @@ export default function MainApp() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Team</h1>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: t.textMuted }}>
               {coreTeam.length + freelancers.length} team members • {clients.length} clients
             </p>
           </div>
           {isProducer && <Btn onClick={() => setShowAdd(true)}>+ Add</Btn>}
         </div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>{[{ id: 'core', label: '👑 Core', data: coreTeam }, { id: 'freelancers', label: '🎨 Freelancers', data: freelancers }, { id: 'clients', label: '👔 Clients', data: clients }].map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '10px 16px', background: tab === t.id ? '#6366f1' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>{t.label} ({t.data.length})</button>)}</div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>{[{ id: 'core', label: '👑 Core', data: coreTeam }, { id: 'freelancers', label: '🎨 Freelancers', data: freelancers }, { id: 'clients', label: '👔 Clients', data: clients }].map(tabItem => <button key={tabItem.id} onClick={() => setTab(tabItem.id)} style={{ padding: '10px 16px', background: tab === tabItem.id ? t.primary : t.bgCard, border: `1px solid ${tab === tabItem.id ? t.primary : t.border}`, borderRadius: '8px', color: tab === tabItem.id ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>{tabItem.label} ({tabItem.data.length})</button>)}</div>
         <div>
-          {tab === 'core' && (coreTeam.length ? coreTeam.map(renderUser) : <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No core team members</div>)}
-          {tab === 'freelancers' && (freelancers.length ? freelancers.map(renderUser) : <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No freelancers</div>)}
-          {tab === 'clients' && (clients.length ? clients.map(renderUser) : <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No clients</div>)}
+          {tab === 'core' && (coreTeam.length ? coreTeam.map(renderUser) : <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '40px', color: t.textMuted, fontSize: '12px' }}>No core team members</div>)}
+          {tab === 'freelancers' && (freelancers.length ? freelancers.map(renderUser) : <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '40px', color: t.textMuted, fontSize: '12px' }}>No freelancers</div>)}
+          {tab === 'clients' && (clients.length ? clients.map(renderUser) : <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '40px', color: t.textMuted, fontSize: '12px' }}>No clients</div>)}
         </div>
         {showAdd && (
           <Modal title="Add Team Member" onClose={() => { setShowAdd(false); setError(''); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'auto' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>{['core', 'freelancer', 'client'].map(type => <button key={type} onClick={() => setNewUser({ ...newUser, type, role: type === 'core' ? 'producer' : type === 'client' ? 'client' : 'photo-editor' })} style={{ flex: 1, padding: '12px', background: newUser.type === type ? '#6366f1' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>{type === 'core' ? '👑 Core' : type === 'freelancer' ? '🎨 Freelancer' : '👔 Client'}</button>)}</div>
+              <div style={{ display: 'flex', gap: '8px' }}>{['core', 'freelancer', 'client'].map(type => <button key={type} onClick={() => setNewUser({ ...newUser, type, role: type === 'core' ? 'producer' : type === 'client' ? 'client' : 'photo-editor' })} style={{ flex: 1, padding: '12px', background: newUser.type === type ? t.primary : t.bgCard, border: `1px solid ${newUser.type === type ? t.primary : t.border}`, borderRadius: '8px', color: newUser.type === type ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>{type === 'core' ? '👑 Core' : type === 'freelancer' ? '🎨 Freelancer' : '👔 Client'}</button>)}</div>
               <Input value={newUser.name} onChange={v => setNewUser({ ...newUser, name: v })} placeholder="Name *" />
               <Input value={newUser.email} onChange={v => setNewUser({ ...newUser, email: v })} placeholder="Email *" type="email" />
               <Input value={newUser.password} onChange={v => setNewUser({ ...newUser, password: v })} placeholder="Password *" type="password" />
@@ -2392,8 +2640,8 @@ export default function MainApp() {
     const overdueTasks = activeTasks.filter(t => t.dueDate && new Date(t.dueDate) < today);
     
     return (
-      <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e' }}>
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '14px' }}>✓ Project Tasks ({activeTasks.length})</h3>
             {overdueTasks.length > 0 && (
@@ -2405,7 +2653,7 @@ export default function MainApp() {
         
         <div style={{ padding: '14px' }}>
           {activeTasks.length === 0 && completedTasks.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.4)' }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: t.textMuted }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>📋</div>
               <div style={{ fontSize: '13px' }}>No tasks yet</div>
               <div style={{ fontSize: '11px', marginTop: '4px' }}>Add tasks to track project work</div>
@@ -2420,7 +2668,7 @@ export default function MainApp() {
                     display: 'flex', 
                     gap: '12px', 
                     padding: '12px 14px', 
-                    background: '#0d0d14', 
+                    background: t.bgInput, 
                     borderRadius: '10px', 
                     marginBottom: '8px',
                     borderLeft: `3px solid ${priorityColors[task.priority]}`
@@ -2444,7 +2692,7 @@ export default function MainApp() {
                     <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '4px' }}>{task.title}</div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                       {task.assignedToName && (
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>👤 {task.assignedToName}</span>
+                        <span style={{ fontSize: '11px', color: t.textMuted }}>👤 {task.assignedToName}</span>
                       )}
                       {task.dueDate && (
                         <span style={{ 
@@ -2479,7 +2727,7 @@ export default function MainApp() {
               {/* Completed Tasks */}
               {completedTasks.length > 0 && (
                 <div style={{ marginTop: '16px' }}>
-                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '8px' }}>
                     ✓ Completed ({completedTasks.length})
                   </div>
                   {completedTasks.slice(0, 5).map(task => (
@@ -2489,7 +2737,7 @@ export default function MainApp() {
                         display: 'flex', 
                         gap: '12px', 
                         padding: '10px 14px', 
-                        background: '#0d0d14', 
+                        background: t.bgInput, 
                         borderRadius: '8px', 
                         marginBottom: '6px',
                         opacity: 0.5
@@ -2523,11 +2771,11 @@ export default function MainApp() {
         {/* Add Task Modal */}
         {showAddTask && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-            <div style={{ background: '#16161f', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '420px', border: '1px solid #2a2a3e' }}>
+            <div style={{ background: t.bgTertiary, borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '420px', border: `1px solid ${t.border}` }}>
               <h2 style={{ margin: '0 0 20px', fontSize: '18px' }}>Add Task to {project.name}</h2>
               
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Task Title *</label>
+                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Task Title *</label>
                 <Input 
                   value={newTask.title} 
                   onChange={(v) => setNewTask({ ...newTask, title: v })} 
@@ -2537,7 +2785,7 @@ export default function MainApp() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Due Date</label>
+                  <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Due Date</label>
                   <Input 
                     type="date" 
                     value={newTask.dueDate} 
@@ -2545,7 +2793,7 @@ export default function MainApp() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Due Time</label>
+                  <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Due Time</label>
                   <Input 
                     type="time" 
                     value={newTask.dueTime} 
@@ -2555,7 +2803,7 @@ export default function MainApp() {
               </div>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Priority</label>
+                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Priority</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {['low', 'medium', 'high'].map(p => (
                     <button 
@@ -2581,7 +2829,7 @@ export default function MainApp() {
               </div>
 
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>Assign To (optional)</label>
+                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Assign To (optional)</label>
                 <Select value={newTask.assignedTo} onChange={(v) => setNewTask({ ...newTask, assignedTo: v })}>
                   <option value="">Unassigned</option>
                   {allTeam.map(u => (
@@ -2608,6 +2856,8 @@ export default function MainApp() {
     const [showShare, setShowShare] = useState(false);
     const [showAppearance, setShowAppearance] = useState(false);
     const [showAddTeam, setShowAddTeam] = useState(false);
+    const [showEditProject, setShowEditProject] = useState(false);
+    const [editProjectData, setEditProjectData] = useState({ name: '', client: '', categories: [] });
     const [selectedAsset, setSelectedAsset] = useState(null);
     const [assetTab, setAssetTab] = useState('preview');
     const [selectedAssets, setSelectedAssets] = useState(new Set());
@@ -3059,33 +3309,53 @@ export default function MainApp() {
 
     const selectedCount = assets.filter(a => a.isSelected).length;
     const getLatestVersionDate = (asset) => { const versions = asset.versions || []; if (versions.length > 1) return versions[versions.length - 1].uploadedAt; return null; };
+    const totalAssetCount = (selectedProject.assets || []).filter(a => !a.deleted).length;
+    const videoCount = (selectedProject.assets || []).filter(a => !a.deleted && a.type === 'video').length;
 
     return (
-      <div style={{ display: 'flex', marginLeft: isMobile ? '0' : '-200px', flexDirection: isMobile ? 'column' : 'row' }}>
+      <div style={{ display: 'flex', marginLeft: isMobile ? '0' : (sidebarCollapsed ? '-60px' : '-200px'), flexDirection: isMobile ? 'column' : 'row' }}>
         {/* Category Sidebar */}
-        <div style={{ width: isMobile ? '100%' : '180px', background: '#12121a', borderRight: isMobile ? 'none' : '1px solid #1e1e2e', borderBottom: isMobile ? '1px solid #1e1e2e' : 'none', height: isMobile ? 'auto' : 'calc(100vh - 46px)', position: isMobile ? 'relative' : 'fixed', left: isMobile ? 0 : '200px', top: isMobile ? 0 : '46px', overflowX: isMobile ? 'auto' : 'visible', overflowY: isMobile ? 'hidden' : 'auto', zIndex: 40 }}>
+        <div style={{ width: isMobile ? '100%' : '180px', background: t.bgSecondary, borderRight: isMobile ? 'none' : `1px solid ${t.border}`, borderBottom: isMobile ? `1px solid ${t.border}` : 'none', height: isMobile ? 'auto' : 'calc(100vh - 46px)', position: isMobile ? 'relative' : 'fixed', left: isMobile ? 0 : (sidebarCollapsed ? '60px' : '200px'), top: isMobile ? 0 : '46px', overflowX: isMobile ? 'auto' : 'visible', overflowY: isMobile ? 'hidden' : 'auto', zIndex: 40, transition: 'left 0.2s ease' }}>
           <div style={{ padding: '12px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: '6px' }}>
-            <div onClick={() => setSelectedCat(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: !selectedCat ? 'rgba(99,102,241,0.15)' : '#1e1e2e', color: !selectedCat ? '#fff' : 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap' }}><span>📁 All</span><span style={{ fontSize: '10px', opacity: 0.6, marginLeft: '8px' }}>{(selectedProject.assets || []).length}</span></div>
-            {cats.map(cat => <div key={cat.id} onClick={() => setSelectedCat(cat.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: selectedCat === cat.id ? 'rgba(99,102,241,0.15)' : '#1e1e2e', color: selectedCat === cat.id ? '#fff' : 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap' }}><span>{cat.icon} {cat.name}</span><span style={{ fontSize: '10px', opacity: 0.6, marginLeft: '8px' }}>{getCatCount(cat.id)}</span></div>)}
+            <div onClick={() => setSelectedCat(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: !selectedCat ? `${t.primary}15` : t.bgCard, color: !selectedCat ? t.text : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${!selectedCat ? t.primary + '30' : t.border}` }}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons.folder(t.textSecondary)} All</span><span style={{ fontSize: '10px', opacity: 0.6, marginLeft: '8px' }}>{totalAssetCount}</span></div>
+            <div onClick={() => setSelectedCat('__videos__')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: selectedCat === '__videos__' ? `${t.primary}15` : t.bgCard, color: selectedCat === '__videos__' ? t.text : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === '__videos__' ? t.primary + '30' : t.border}` }}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons.video(t.textSecondary)} Videos</span><span style={{ fontSize: '10px', opacity: 0.6, marginLeft: '8px' }}>{videoCount}</span></div>
+            {cats.map(cat => <div key={cat.id} onClick={() => setSelectedCat(cat.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: selectedCat === cat.id ? `${t.primary}15` : t.bgCard, color: selectedCat === cat.id ? t.text : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === cat.id ? t.primary + '30' : t.border}` }}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons[cat.icon] ? Icons[cat.icon](cat.color) : Icons.file(cat.color)} {cat.name}</span><span style={{ fontSize: '10px', opacity: 0.6, marginLeft: '8px' }}>{getCatCount(cat.id)}</span></div>)}
           </div>
         </div>
 
         {/* Main Content */}
-        <div style={{ flex: 1, marginLeft: isMobile ? '0' : '380px' }}>
+        <div style={{ flex: 1, marginLeft: isMobile ? '0' : (sidebarCollapsed ? '240px' : '380px'), transition: 'margin-left 0.2s ease' }}>
           {/* Header */}
-          <div style={{ height: '50px', background: '#12121a', borderBottom: '1px solid #1e1e2e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', position: 'sticky', top: 0, zIndex: 30 }}>
+          <div style={{ height: '50px', background: t.bgSecondary, borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', position: 'sticky', top: 0, zIndex: 30 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-              <button onClick={() => { setSelectedProjectId(null); setView('projects'); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>← Back</button>
-              <span style={{ fontWeight: '600', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedProject.name}</span>
+              <button onClick={() => { setSelectedProjectId(null); setView('projects'); }} style={{ background: 'none', border: 'none', color: t.textMuted, fontSize: '11px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>{Icons.chevronLeft(t.textMuted)} Back</button>
+              <span style={{ fontWeight: '600', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{selectedProject.name}</span>
+              {isProducer && (
+                <button 
+                  onClick={() => {
+                    setEditProjectData({ 
+                      name: selectedProject.name, 
+                      client: selectedProject.client || '', 
+                      categories: selectedProject.categories || [],
+                      status: selectedProject.status || 'active'
+                    });
+                    setShowEditProject(true);
+                  }} 
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                  title="Edit Project"
+                >
+                  {Icons.edit(t.textMuted)}
+                </button>
+              )}
               {!isMobile && <Badge status={selectedProject.status} />}
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {isProducer && !isMobile && <Btn onClick={() => setShowShare(true)} small outline>🔗 Share</Btn>}
+              {isProducer && !isMobile && <Btn onClick={() => setShowShare(true)} small outline>{Icons.share(t.primary)} Share</Btn>}
               <div style={{ position: 'relative' }}>
-                <Btn onClick={() => setShowAppearance(!showAppearance)} small outline>⚙️</Btn>
+                <Btn onClick={() => setShowAppearance(!showAppearance)} small outline>{Icons.settings(t.primary)}</Btn>
                 {showAppearance && <AppearancePanel settings={appearance} onChange={setAppearance} onClose={() => setShowAppearance(false)} />}
               </div>
-              {isProducer && <Btn onClick={() => setShowUpload(true)} small color="#22c55e">⬆️{!isMobile && ' Upload'}</Btn>}
+              {isProducer && <Btn onClick={() => setShowUpload(true)} small color="#22c55e">{Icons.upload('#fff')}{!isMobile && ' Upload'}</Btn>}
             </div>
           </div>
 
@@ -3101,22 +3371,22 @@ export default function MainApp() {
             const progress = projectAssets.length ? Math.round((approved / projectAssets.length) * 100) : 0;
             
             return (
-              <div style={{ padding: '10px 16px', background: '#0d0d14', borderBottom: '1px solid #1e1e2e', display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ padding: '10px 16px', background: t.bgInput, borderBottom: `1px solid ${t.border}`, display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>⏳ Pending</span>
+                    <span style={{ fontSize: '10px', color: t.textMuted }}>⏳ Pending</span>
                     <span style={{ fontSize: '14px', fontWeight: '600', color: '#fbbf24' }}>{pending}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>⚡ In Progress</span>
+                    <span style={{ fontSize: '10px', color: t.textMuted }}>⚡ In Progress</span>
                     <span style={{ fontSize: '14px', fontWeight: '600', color: '#3b82f6' }}>{inProgress}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>👁️ Review</span>
+                    <span style={{ fontSize: '10px', color: t.textMuted }}>👁️ Review</span>
                     <span style={{ fontSize: '14px', fontWeight: '600', color: '#a855f7' }}>{review}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>✓ Done</span>
+                    <span style={{ fontSize: '10px', color: t.textMuted }}>✓ Done</span>
                     <span style={{ fontSize: '14px', fontWeight: '600', color: '#22c55e' }}>{approved}</span>
                   </div>
                   {overdue > 0 && (
@@ -3127,7 +3397,7 @@ export default function MainApp() {
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '120px', height: '6px', background: '#1e1e2e', borderRadius: '3px' }}>
+                  <div style={{ width: '120px', height: '6px', background: t.bgCard, borderRadius: '3px' }}>
                     <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#22c55e' : '#6366f1', borderRadius: '3px', transition: 'width 0.3s' }} />
                   </div>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: progress === 100 ? '#22c55e' : '#6366f1' }}>{progress}%</span>
@@ -3137,13 +3407,13 @@ export default function MainApp() {
           })()}
 
           {/* Tabs */}
-          <div style={{ padding: '10px 16px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               {['assets', 'tasks', 'team', 'activity', 'links'].map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
               {/* Photoshoot Workflow Phase Indicator */}
               {selectedProject.type === 'photoshoot' && (
-                <div style={{ marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: '#0d0d14', padding: '6px 12px', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Phase:</span>
+                <div style={{ marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: t.bgInput, padding: '6px 12px', borderRadius: '8px' }}>
+                  <span style={{ fontSize: '10px', color: t.textMuted }}>Phase:</span>
                   <span style={{ fontSize: '11px', fontWeight: '600', color: selectedProject.workflowPhase === 'review' ? '#22c55e' : '#fbbf24' }}>
                     {selectedProject.workflowPhase === 'review' ? '📝 Review' : '👆 Selection'}
                   </span>
@@ -3162,7 +3432,7 @@ export default function MainApp() {
             </div>
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{selectedAssets.size}</span>
+                <span style={{ fontSize: '11px', color: t.textMuted }}>{selectedAssets.size}</span>
                 <Btn onClick={() => handleBulkSelect(true)} small color="#22c55e">✓</Btn>
                 <Btn onClick={() => handleBulkSelect(false)} small outline>✗</Btn>
               </div>
@@ -3171,7 +3441,7 @@ export default function MainApp() {
             
             {/* View Mode Toggle */}
             {tab === 'assets' && assets.length > 0 && (
-              <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
+              <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
                 <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>📊 Grid</button>
                 <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>📋 Kanban</button>
               </div>
@@ -3180,7 +3450,7 @@ export default function MainApp() {
 
           {/* Upload Progress */}
           {Object.keys(uploadProgress).length > 0 && (
-            <div style={{ padding: '12px 16px', background: '#1e1e2e' }}>
+            <div style={{ padding: '12px 16px', background: t.bgCard }}>
               {Object.entries(uploadProgress).map(([id, item]) => (
                 <div key={id} style={{ marginBottom: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
@@ -3192,7 +3462,7 @@ export default function MainApp() {
                     </span>
                     <span>{item.progress}%</span>
                   </div>
-                  <div style={{ background: '#0d0d14', borderRadius: '3px', height: '4px' }}>
+                  <div style={{ background: t.bgInput, borderRadius: '3px', height: '4px' }}>
                     <div style={{ width: `${item.progress}%`, height: '100%', background: item.status?.includes('Mux') || item.status?.includes('Processing') ? '#22c55e' : '#6366f1', borderRadius: '3px', transition: 'width 0.3s ease' }} />
                   </div>
                 </div>
@@ -3205,9 +3475,9 @@ export default function MainApp() {
             {tab === 'assets' && (
               <div style={{ width: '100%' }}>
                 {assets.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e' }}>
+                  <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
                     <div style={{ fontSize: '50px', marginBottom: '14px' }}>📂</div>
-                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginBottom: '16px' }}>No assets</p>
+                    <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '16px' }}>No assets</p>
                     {isProducer && <Btn onClick={() => setShowUpload(true)}>⬆️ Upload</Btn>}
                   </div>
                 ) : viewMode === 'kanban' ? (
@@ -3221,9 +3491,9 @@ export default function MainApp() {
                     {/* Photoshoot Selection Phase Filter */}
                     {selectedProject.type === 'photoshoot' && selectedProject.selectionConfirmed && (
                       <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
-                        <button onClick={() => setSelectedCat(null)} style={{ padding: '6px 14px', background: !selectedCat ? '#6366f1' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>All ({assets.length})</button>
-                        <button onClick={() => setSelectedCat('__selected__')} style={{ padding: '6px 14px', background: selectedCat === '__selected__' ? '#22c55e' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>⭐ Selected ({assets.filter(a => a.isSelected).length})</button>
-                        <button onClick={() => setSelectedCat('__not_selected__')} style={{ padding: '6px 14px', background: selectedCat === '__not_selected__' ? '#f97316' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Not Selected ({assets.filter(a => !a.isSelected).length})</button>
+                        <button onClick={() => setSelectedCat(null)} style={{ padding: '6px 14px', background: !selectedCat ? t.primary : t.bgCard, border: `1px solid ${!selectedCat ? t.primary : t.border}`, borderRadius: '8px', color: !selectedCat ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>All ({assets.length})</button>
+                        <button onClick={() => setSelectedCat('__selected__')} style={{ padding: '6px 14px', background: selectedCat === '__selected__' ? t.success : t.bgCard, border: `1px solid ${selectedCat === '__selected__' ? t.success : t.border}`, borderRadius: '8px', color: selectedCat === '__selected__' ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>⭐ Selected ({assets.filter(a => a.isSelected).length})</button>
+                        <button onClick={() => setSelectedCat('__not_selected__')} style={{ padding: '6px 14px', background: selectedCat === '__not_selected__' ? t.warning : t.bgCard, border: `1px solid ${selectedCat === '__not_selected__' ? t.warning : t.border}`, borderRadius: '8px', color: selectedCat === '__not_selected__' ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>Not Selected ({assets.filter(a => !a.isSelected).length})</button>
                       </div>
                     )}
                     
@@ -3242,7 +3512,7 @@ export default function MainApp() {
                       
                       return (
                         <div key={a.id} style={{ 
-                          background: '#16161f', 
+                          background: t.bgTertiary, 
                           borderRadius: '10px', 
                           overflow: 'hidden', 
                           border: a.isSelected ? '2px solid #22c55e' : selectedAssets.has(a.id) ? '2px solid #6366f1' : '1px solid #1e1e2e', 
@@ -3265,7 +3535,7 @@ export default function MainApp() {
                             </div>
                           )}
                           
-                          <div onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: '#0d0d14', position: 'relative' }}>
+                          <div onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: t.bgInput, position: 'relative' }}>
                             {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px' }}>{a.feedback.length}💬</div>}
                             {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px' }}>{new Date(a.dueDate) < new Date() ? '⚠️' : '📅'}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
@@ -3273,7 +3543,7 @@ export default function MainApp() {
                           {appearance.showInfo && (
                             <div style={{ padding: '10px' }}>
                               <div style={{ fontWeight: '500', fontSize: '11px', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}><span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>v{a.currentVersion}</span>{a.assignedToName && <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>→{a.assignedToName.split(' ')[0]}</span>}</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}><span style={{ fontSize: '10px', color: t.textMuted }}>v{a.currentVersion}</span>{a.assignedToName && <span style={{ fontSize: '9px', color: t.textMuted }}>→{a.assignedToName.split(' ')[0]}</span>}</div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><StarRating rating={a.rating} onChange={r => handleRate(a.id, r)} size={isMobile ? 14 : 16} /><Badge status={a.status} /></div>
                             </div>
                           )}
@@ -3349,14 +3619,14 @@ export default function MainApp() {
                 })()}
                 
                 {/* Team Members */}
-                <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e' }}>
-                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
+                  <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, fontSize: '14px' }}>👥 Team ({team.length})</h3>
                     {isProducer && <Btn onClick={() => setShowAddTeam(true)} small>+ Add Member</Btn>}
                   </div>
                   <div style={{ padding: '14px' }}>
                     {team.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)' }}>
+                      <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted }}>
                         <div style={{ fontSize: '40px', marginBottom: '10px' }}>👥</div>
                         <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members yet</div>
                         {isProducer && <Btn onClick={() => setShowAddTeam(true)} small>+ Add Team Member</Btn>}
@@ -3372,14 +3642,14 @@ export default function MainApp() {
                         });
                         
                         return (
-                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', background: '#0d0d14', borderRadius: '10px', marginBottom: '10px' }}>
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', background: t.bgInput, borderRadius: '10px', marginBottom: '10px' }}>
                             <Avatar user={m} size={42} />
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 {m.name} 
                                 {m.isOwner && <span style={{ fontSize: '10px', color: '#f97316' }}>👑</span>}
                               </div>
-                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>{m.email}</div>
+                              <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px' }}>{m.email}</div>
                               <div style={{ marginTop: '6px' }}><RoleBadge role={m.role} /></div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
@@ -3428,17 +3698,17 @@ export default function MainApp() {
                   if (suggestedMembers.length === 0) return null;
                   
                   return (
-                    <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', marginTop: '16px' }}>
-                      <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e2e' }}>
+                    <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginTop: '16px' }}>
+                      <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}` }}>
                         <h3 style={{ margin: 0, fontSize: '14px' }}>💡 Suggested Team Members</h3>
                       </div>
                       <div style={{ padding: '14px' }}>
                         {suggestedMembers.map(m => (
-                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#0d0d14', borderRadius: '10px', marginBottom: '8px' }}>
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: t.bgInput, borderRadius: '10px', marginBottom: '8px' }}>
                             <Avatar user={m} size={36} />
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: '500', fontSize: '12px' }}>{m.name}</div>
-                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{m.reason}</div>
+                              <div style={{ fontSize: '10px', color: t.textMuted }}>{m.reason}</div>
                             </div>
                             <Btn onClick={async () => {
                               const updatedTeam = [...(selectedProject.assignedTeam || []), { odId: m.id, isOwner: false }];
@@ -3456,7 +3726,7 @@ export default function MainApp() {
             )}
 
             {tab === 'activity' && (
-              <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '18px' }}>
+              <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '18px' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px' }}>📋 Activity Timeline</h3>
                 <ActivityTimeline activities={selectedProject.activityLog || []} maxItems={20} />
               </div>
@@ -3465,24 +3735,24 @@ export default function MainApp() {
             {tab === 'links' && (
               <div>
                 {isProducer && (
-                  <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px', marginBottom: '16px' }}>
                     <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>🔗 Create Share Link</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr auto', gap: '10px', alignItems: 'end' }}>
-                      <div><label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Name</label><Input value={newLinkName} onChange={setNewLinkName} placeholder="e.g., Client Review" /></div>
-                      <div><label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Type</label><Select value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select></div>
-                      <div><label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Expiry (optional)</label><Input type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
+                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Name</label><Input value={newLinkName} onChange={setNewLinkName} placeholder="e.g., Client Review" /></div>
+                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Type</label><Select value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select></div>
+                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Expiry (optional)</label><Input type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
                       <Btn onClick={handleCreateLink}>Create</Btn>
                     </div>
                   </div>
                 )}
-                <div style={{ background: '#16161f', borderRadius: '12px', border: '1px solid #1e1e2e', padding: '16px' }}>
+                <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px' }}>
                   <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>Active Links ({shareLinks.length})</h3>
-                  {shareLinks.length === 0 ? <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>No share links</div> : shareLinks.map(link => {
+                  {shareLinks.length === 0 ? <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>No share links</div> : shareLinks.map(link => {
                     const isExpired = link.expiresAt && new Date(link.expiresAt) < new Date();
                     return (
-                      <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: isExpired ? 'rgba(239,68,68,0.1)' : '#0d0d14', borderRadius: '10px', marginBottom: '8px', border: isExpired ? '1px solid rgba(239,68,68,0.3)' : 'none' }}>
+                      <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: isExpired ? 'rgba(239,68,68,0.1)' : t.bgInput, borderRadius: '10px', marginBottom: '8px', border: isExpired ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}` }}>
                         <span style={{ fontSize: '24px' }}>{link.type === 'client' ? '👔' : '🎨'}</span>
-                        <div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>{link.name}{isExpired && <span style={{ fontSize: '9px', padding: '2px 6px', background: '#ef4444', borderRadius: '4px' }}>EXPIRED</span>}</div><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{link.type} • {formatTimeAgo(link.createdAt)}{link.expiresAt && !isExpired && <span> • Expires {formatDate(link.expiresAt)}</span>}</div></div>
+                        <div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>{link.name}{isExpired && <span style={{ fontSize: '9px', padding: '2px 6px', background: '#ef4444', borderRadius: '4px' }}>EXPIRED</span>}</div><div style={{ fontSize: '10px', color: t.textMuted }}>{link.type} • {formatTimeAgo(link.createdAt)}{link.expiresAt && !isExpired && <span> • Expires {formatDate(link.expiresAt)}</span>}</div></div>
                         <div style={{ display: 'flex', gap: '6px' }}><Btn onClick={() => copyLink(link.token)} small outline>📋</Btn>{isProducer && <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>}</div>
                       </div>
                     );
@@ -3502,8 +3772,8 @@ export default function MainApp() {
                 <p style={{ margin: 0, fontSize: '14px' }}>{uploadFiles.length ? `${uploadFiles.length} files selected` : 'Click to select files'}</p>
                 <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => setUploadFiles(Array.from(e.target.files))} />
               </div>
-              {uploadFiles.length > 0 && <div style={{ maxHeight: '140px', overflow: 'auto', background: '#0d0d14', borderRadius: '8px', padding: '10px' }}>{uploadFiles.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}><span>{f.name}</span><span style={{ color: 'rgba(255,255,255,0.4)' }}>{formatFileSize(f.size)}</span></div>)}</div>}
-              <div><label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Category</label><Select value={selectedCat || cats[0]?.id || ''} onChange={setSelectedCat}>{cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</Select></div>
+              {uploadFiles.length > 0 && <div style={{ maxHeight: '140px', overflow: 'auto', background: t.bgInput, borderRadius: '8px', padding: '10px' }}>{uploadFiles.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}><span>{f.name}</span><span style={{ color: t.textMuted }}>{formatFileSize(f.size)}</span></div>)}</div>}
+              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Category</label><Select value={selectedCat || cats[0]?.id || ''} onChange={setSelectedCat}>{cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</Select></div>
               <Btn onClick={handleUpload} disabled={!uploadFiles.length} color="#22c55e">⬆️ Upload {uploadFiles.length} Files</Btn>
             </div>
           </Modal>
@@ -3518,13 +3788,13 @@ export default function MainApp() {
                 <Select value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Expiry</label><Input type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
+                <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Expiry</label><Input type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
                 <div style={{ display: 'flex', alignItems: 'end' }}><Btn onClick={handleCreateLink}>Create</Btn></div>
               </div>
               <div style={{ marginTop: '8px' }}>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>Active ({shareLinks.length})</div>
+                <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Active ({shareLinks.length})</div>
                 {shareLinks.map(link => (
-                  <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: '#0d0d14', borderRadius: '8px', marginBottom: '6px' }}>
+                  <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
                     <span style={{ fontSize: '18px' }}>{link.type === 'client' ? '👔' : '🎨'}</span>
                     <div style={{ flex: 1 }}><div style={{ fontSize: '12px' }}>{link.name}</div></div>
                     <Btn onClick={() => copyLink(link.token)} small outline>Copy</Btn>
@@ -3539,7 +3809,93 @@ export default function MainApp() {
         {/* Add Team Modal */}
         {showAddTeam && (
           <Modal title="Add Team Member" onClose={() => setShowAddTeam(false)}>
-            <div style={{ padding: '20px', maxHeight: '400px', overflow: 'auto' }}>{availableTeam.length === 0 ? <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>All added</div> : availableTeam.map(u => <div key={u.id} onClick={() => handleAddTeam(u.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#0d0d14', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer' }}><Avatar user={u} size={40} /><div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '12px' }}>{u.name}</div><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{u.email}</div></div><RoleBadge role={u.role} /></div>)}</div>
+            <div style={{ padding: '20px', maxHeight: '400px', overflow: 'auto' }}>{availableTeam.length === 0 ? <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>All added</div> : availableTeam.map(u => <div key={u.id} onClick={() => handleAddTeam(u.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: t.bgInput, borderRadius: '10px', marginBottom: '8px', cursor: 'pointer' }}><Avatar user={u} size={40} /><div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '12px', color: t.text }}>{u.name}</div><div style={{ fontSize: '10px', color: t.textMuted }}>{u.email}</div></div><RoleBadge role={u.role} /></div>)}</div>
+          </Modal>
+        )}
+
+        {/* Edit Project Modal */}
+        {showEditProject && (
+          <Modal title="Edit Project" onClose={() => setShowEditProject(false)}>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Project Name</label>
+                <Input 
+                  value={editProjectData.name} 
+                  onChange={(v) => setEditProjectData({ ...editProjectData, name: v })} 
+                  placeholder="Project name" 
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Client</label>
+                <Input 
+                  value={editProjectData.client} 
+                  onChange={(v) => setEditProjectData({ ...editProjectData, client: v })} 
+                  placeholder="Client name" 
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Status</label>
+                <Select value={editProjectData.status} onChange={(v) => setEditProjectData({ ...editProjectData, status: v })}>
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="on-hold">On Hold</option>
+                  <option value="archived">Archived</option>
+                </Select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Categories</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {DEFAULT_CATEGORIES.map(cat => {
+                    const isActive = editProjectData.categories?.some(c => c.id === cat.id);
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          if (isActive) {
+                            setEditProjectData({ ...editProjectData, categories: editProjectData.categories.filter(c => c.id !== cat.id) });
+                          } else {
+                            setEditProjectData({ ...editProjectData, categories: [...(editProjectData.categories || []), cat] });
+                          }
+                        }}
+                        style={{
+                          padding: '8px 14px',
+                          background: isActive ? `${cat.color}20` : t.bgInput,
+                          border: `1px solid ${isActive ? cat.color : t.border}`,
+                          borderRadius: '8px',
+                          color: isActive ? cat.color : t.textSecondary,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        {Icons[cat.icon] && Icons[cat.icon](isActive ? cat.color : t.textMuted)}
+                        {cat.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                <Btn 
+                  onClick={async () => {
+                    await updateProject(selectedProject.id, { 
+                      name: editProjectData.name, 
+                      client: editProjectData.client,
+                      status: editProjectData.status,
+                      categories: editProjectData.categories 
+                    });
+                    await refreshProject();
+                    setShowEditProject(false);
+                    showToast('Project updated', 'success');
+                  }}
+                >
+                  Save Changes
+                </Btn>
+                <Btn onClick={() => setShowEditProject(false)} outline>Cancel</Btn>
+              </div>
+            </div>
           </Modal>
         )}
 
@@ -3547,7 +3903,7 @@ export default function MainApp() {
         {selectedAsset && (
           <Modal title={selectedAsset.name} onClose={() => setSelectedAsset(null)} wide>
             {/* Asset Tabs */}
-            <div style={{ display: 'flex', gap: '6px', padding: '12px 20px', borderBottom: '1px solid #1e1e2e', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '6px', padding: '12px 20px', borderBottom: `1px solid ${t.border}`, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: '6px' }}>
                 {[{ id: 'preview', icon: '👁️', label: 'Preview' }, { id: 'compare', icon: '📊', label: 'Compare' }].map(t => (
                   <button key={t.id} onClick={() => setAssetTab(t.id)} style={{ padding: '8px 14px', background: assetTab === t.id ? '#6366f1' : 'transparent', border: assetTab === t.id ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>{t.icon} {!isMobile && t.label}</button>
@@ -3563,7 +3919,7 @@ export default function MainApp() {
             {assetTab === 'preview' && (
               <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: 'hidden' }}>
                 {/* LEFT: Preview Area */}
-                <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: '#0a0a10', minWidth: 0, overflow: 'hidden' }}>
+                <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: t.bg, minWidth: 0, overflow: 'hidden' }}>
                   {/* Content Area */}
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', overflow: 'hidden' }}>
                     {selectedAsset.type === 'video' ? (
@@ -3587,7 +3943,7 @@ export default function MainApp() {
                           <div style={{ textAlign: 'center', padding: '40px' }}>
                             <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
                             <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video for streaming...</div>
-                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '16px' }}>Usually takes 30-60 seconds</div>
+                            <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '16px' }}>Usually takes 30-60 seconds</div>
                             <button
                               onClick={async () => {
                                 try {
@@ -3629,7 +3985,7 @@ export default function MainApp() {
                             {Math.floor(videoTime / 60).toString().padStart(2, '0')}:{Math.floor(videoTime % 60).toString().padStart(2, '0')}
                           </span>
                           <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span>
-                          <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                          <span style={{ color: t.textSecondary }}>
                             {Math.floor(videoDuration / 60).toString().padStart(2, '0')}:{Math.floor(videoDuration % 60).toString().padStart(2, '0')}
                           </span>
                           {selectedAsset.muxPlaybackId && (
@@ -3650,7 +4006,7 @@ export default function MainApp() {
                   </div>
                   
                   {/* Feedback Section */}
-                  <div style={{ padding: '14px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a', flexShrink: 0 }}>
+                  <div style={{ padding: '14px 20px', borderTop: `1px solid ${t.border}`, background: t.bgSecondary, flexShrink: 0 }}>
                     <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>💬 Feedback ({selectedAsset.feedback?.length || 0})</span>
                       {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
@@ -3661,13 +4017,13 @@ export default function MainApp() {
                     </div>
                     <div style={{ maxHeight: '120px', overflow: 'auto', marginBottom: '8px' }}>
                       {(selectedAsset.feedback || []).length === 0 ? (
-                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No feedback yet</div>
+                        <div style={{ fontSize: '11px', color: t.textMuted }}>No feedback yet</div>
                       ) : (selectedAsset.feedback || []).map(fb => (
-                        <div key={fb.id} style={{ padding: '10px', background: fb.isDone ? '#1a2e1a' : '#1e1e2e', borderRadius: '6px', marginBottom: '6px', borderLeft: fb.isDone ? '3px solid #22c55e' : '3px solid #ef4444', opacity: fb.isDone ? 0.7 : 1 }}>
+                        <div key={fb.id} style={{ padding: '10px', background: fb.isDone ? 'rgba(34,197,94,0.1)' : t.bgInput, borderRadius: '6px', marginBottom: '6px', borderLeft: fb.isDone ? `3px solid ${t.success}` : `3px solid ${t.danger}`, opacity: fb.isDone ? 0.7 : 1 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                             <div style={{ flex: 1 }}>
                               <span style={{ fontSize: '10px', fontWeight: '600' }}>{fb.userName}</span>
-                              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '8px' }}>{formatTimeAgo(fb.timestamp)}</span>
+                              <span style={{ fontSize: '9px', color: t.textMuted, marginLeft: '8px' }}>{formatTimeAgo(fb.timestamp)}</span>
                               {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
                                 <span 
                                   onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }}
@@ -3692,7 +4048,7 @@ export default function MainApp() {
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
                       {selectedAsset.type === 'video' && (
-                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>📍 at current time</span>
+                        <span style={{ fontSize: '9px', color: t.textMuted, flexShrink: 0 }}>📍 at current time</span>
                       )}
                       <div style={{ flex: 1, position: 'relative' }}>
                         <input 
@@ -3714,11 +4070,11 @@ export default function MainApp() {
                             }
                           }}
                           placeholder="Add feedback... (@ to mention)"
-                          style={{ width: '100%', padding: '8px 10px', background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                          style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                         />
                         {/* Mentions Dropdown */}
                         {showMentions && (
-                          <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: '8px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100 }}>
+                          <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100 }}>
                             {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5).map(member => (
                               <div key={member.id} onClick={() => {
                                 const lastAt = newFeedback.lastIndexOf('@');
@@ -3734,7 +4090,7 @@ export default function MainApp() {
                               </div>
                             ))}
                             {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).length === 0 && (
-                              <div style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>No team members found</div>
+                              <div style={{ padding: '8px 12px', color: t.textMuted, fontSize: '11px' }}>No team members found</div>
                             )}
                           </div>
                         )}
@@ -3745,16 +4101,16 @@ export default function MainApp() {
                 </div>
 
                 {/* RIGHT: Details Sidebar - Fixed width */}
-                <div style={{ width: isMobile ? '100%' : '280px', background: '#16161f', borderLeft: isMobile ? 'none' : '1px solid #1e1e2e', overflow: 'auto', padding: '16px', flexShrink: 0 }}>
+                <div style={{ width: isMobile ? '100%' : '280px', background: t.bgTertiary, borderLeft: isMobile ? 'none' : '1px solid #1e1e2e', overflow: 'auto', padding: '16px', flexShrink: 0 }}>
                   {/* Rating */}
                   <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>Rating</label>
+                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '8px' }}>Rating</label>
                     <StarRating rating={selectedAsset.rating} onChange={r => { handleRate(selectedAsset.id, r); setSelectedAsset({ ...selectedAsset, rating: r }); }} size={24} />
                   </div>
 
                   {/* Tags */}
                   <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>🏷️ Tags</label>
+                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '8px' }}>🏷️ Tags</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {PREDEFINED_TAGS.map(tag => {
                         const isActive = (selectedAsset.tags || []).includes(tag.id);
@@ -3766,7 +4122,7 @@ export default function MainApp() {
                             const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, tags: newTags } : a);
                             setSelectedAsset({ ...selectedAsset, tags: newTags });
                             await updateProject(selectedProject.id, { assets: updated });
-                          }} style={{ padding: '4px 10px', background: isActive ? `${tag.color}30` : '#0d0d14', border: `1px solid ${isActive ? tag.color : '#2a2a3e'}`, borderRadius: '12px', color: isActive ? tag.color : 'rgba(255,255,255,0.6)', fontSize: '10px', cursor: 'pointer', fontWeight: '500' }}>
+                          }} style={{ padding: '4px 10px', background: isActive ? `${tag.color}30` : t.bgInput, border: `1px solid ${isActive ? tag.color : t.border}`, borderRadius: '12px', color: isActive ? tag.color : t.textMuted, fontSize: '10px', cursor: 'pointer', fontWeight: '500' }}>
                             {tag.label}
                           </button>
                         );
@@ -3775,13 +4131,13 @@ export default function MainApp() {
                   </div>
 
                   {/* Selection Toggle */}
-                  <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? '#22c55e' : '#1e1e2e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px' }}>
+                  <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? t.success : t.bgCard, border: `1px solid ${selectedAsset.isSelected ? t.success : t.border}`, borderRadius: '8px', color: selectedAsset.isSelected ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px' }}>
                     {selectedAsset.isSelected ? '⭐ Selected' : '☆ Mark as Selected'}
                   </button>
 
                   {/* Status */}
                   <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Status</label>
+                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Status</label>
                     <Select value={selectedAsset.status} onChange={v => handleUpdateStatus(selectedAsset.id, v)} style={{ padding: '8px 10px', fontSize: '12px' }}>
                       {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </Select>
@@ -3790,7 +4146,7 @@ export default function MainApp() {
                   {/* Assign */}
                   {isProducer && (
                     <div style={{ marginBottom: '14px' }}>
-                      <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Assign To</label>
+                      <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Assign To</label>
                       <Select value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ padding: '8px 10px', fontSize: '12px' }}>
                         <option value="">-- Unassigned --</option>
                         {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -3801,7 +4157,7 @@ export default function MainApp() {
                   {/* Due Date */}
                   {isProducer && (
                     <div style={{ marginBottom: '14px' }}>
-                      <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>📅 Due Date</label>
+                      <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📅 Due Date</label>
                       <input 
                         type="date" 
                         value={selectedAsset.dueDate?.split('T')[0] || ''} 
@@ -3816,7 +4172,7 @@ export default function MainApp() {
                             if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`);
                           }
                         }}
-                        style={{ width: '100%', padding: '8px 10px', background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                        style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                       />
                       {selectedAsset.dueDate && (
                         <div style={{ marginTop: '6px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>
@@ -3827,17 +4183,17 @@ export default function MainApp() {
                   )}
 
                   {/* Version Upload */}
-                  <div style={{ marginBottom: '14px', padding: '12px', background: '#0d0d14', borderRadius: '8px' }}>
+                  <div style={{ marginBottom: '14px', padding: '12px', background: t.bgInput, borderRadius: '8px' }}>
                     <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>📦 Versions</span>
-                      <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : '#1e1e2e', borderRadius: '4px', fontSize: '10px' }}>v{selectedAsset.currentVersion}</span>
+                      <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? t.warning : t.bgInput, borderRadius: '4px', fontSize: '10px', color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#fff' : t.textSecondary }}>v{selectedAsset.currentVersion}</span>
                     </div>
-                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '8px' }}>
                       {(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}
                     </div>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
-                      <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '8px', background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 12) + '...' : '+ New Version'}</button>
+                      <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 12) + '...' : '+ New Version'}</button>
                       {versionFile && <Btn onClick={handleUploadVersion} small disabled={uploadingVersion}>{uploadingVersion ? '⏳' : '⬆️'}</Btn>}
                     </div>
                   </div>
@@ -3845,7 +4201,7 @@ export default function MainApp() {
                   {/* GDrive Link */}
                   {selectedAsset.status === 'approved' && (
                     <div style={{ marginBottom: '14px' }}>
-                      <label style={{ display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>📁 GDrive Link</label>
+                      <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📁 GDrive Link</label>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <Input value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '8px', fontSize: '11px' }} />
                         <Btn onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} small>Save</Btn>
@@ -3855,10 +4211,10 @@ export default function MainApp() {
                   {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '10px', background: 'rgba(34,197,94,0.15)', borderRadius: '8px', color: '#22c55e', fontSize: '11px', textAlign: 'center', textDecoration: 'none', marginBottom: '14px', fontWeight: '600' }}>📁 Open High-Res</a>}
 
                   {/* File Details */}
-                  <div style={{ background: '#0d0d14', borderRadius: '8px', padding: '12px', marginBottom: '14px', fontSize: '11px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: 'rgba(255,255,255,0.5)' }}>Size</span><span>{formatFileSize(selectedAsset.fileSize)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: 'rgba(255,255,255,0.5)' }}>Type</span><span>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'rgba(255,255,255,0.5)' }}>Uploaded</span><span>{formatDate(selectedAsset.uploadedAt)}</span></div>
+                  <div style={{ background: t.bgInput, borderRadius: '8px', padding: '12px', marginBottom: '14px', fontSize: '11px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Size</span><span>{formatFileSize(selectedAsset.fileSize)}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Type</span><span>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: t.textMuted }}>Uploaded</span><span>{formatDate(selectedAsset.uploadedAt)}</span></div>
                   </div>
 
                   {/* Download */}
@@ -4169,7 +4525,7 @@ export default function MainApp() {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         {/* Toolbar */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0, padding: '0 4px' }}>
-          <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
+          <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
             {TOOLS.map(t => (
               <button key={t.id} onClick={() => setTool(t.id)} title={t.label}
                 style={{ width: '32px', height: '32px', background: tool === t.id ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
@@ -4177,7 +4533,7 @@ export default function MainApp() {
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px' }}>
+          <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
             {COLORS.map(c => (
               <button key={c} onClick={() => setColor(c)} style={{ width: '24px', height: '24px', background: c, border: color === c ? '2px solid #fff' : '2px solid transparent', borderRadius: '4px', cursor: 'pointer' }} />
             ))}
@@ -4186,7 +4542,7 @@ export default function MainApp() {
             <Input value={newText} onChange={setNewText} placeholder={tool === 'text' ? 'Text...' : 'Label...'} style={{ width: '100px', padding: '6px 10px', fontSize: '11px' }} />
           )}
           {/* Zoom controls */}
-          <div style={{ display: 'flex', gap: '4px', background: '#0d0d14', borderRadius: '8px', padding: '4px', marginLeft: 'auto' }}>
+          <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px', marginLeft: 'auto' }}>
             <button onClick={() => setZoom(z => Math.max(25, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>−</button>
             <button onClick={handleFitToContainer} style={{ padding: '4px 8px', fontSize: '11px', color: 'rgba(255,255,255,0.7)', background: 'transparent', border: 'none', cursor: 'pointer' }}>{zoom}%</button>
             <button onClick={() => setZoom(z => Math.min(300, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>+</button>
@@ -4209,7 +4565,7 @@ export default function MainApp() {
           
           {/* Loading spinner */}
           {!imageLoaded && (
-            <div style={{ position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)' }}>
+            <div style={{ position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.textMuted }}>
               Loading...
             </div>
           )}
@@ -4258,7 +4614,7 @@ export default function MainApp() {
           </div>
         </div>
         
-        {annots.length > 0 && <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '6px', flexShrink: 0, textAlign: 'center' }}>{annots.length} annotation{annots.length !== 1 ? 's'  : ''} • Pinch to zoom</div>}
+        {annots.length > 0 && <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '6px', flexShrink: 0, textAlign: 'center' }}>{annots.length} annotation{annots.length !== 1 ? 's'  : ''} • Pinch to zoom</div>}
       </div>
     );
   };
@@ -4267,7 +4623,7 @@ export default function MainApp() {
   const VersionComparison = ({ versions = [], currentVersion }) => {
     const [leftV, setLeftV] = useState(versions.length > 1 ? versions.length - 2 : 0);
     const [rightV, setRightV] = useState(versions.length - 1);
-    if (versions.length < 2) return <div style={{ textAlign: 'center', padding: '40px', background: '#0d0d14', borderRadius: '12px' }}><div style={{ fontSize: '40px', marginBottom: '12px' }}>📦</div><div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>Upload more versions to compare</div></div>;
+    if (versions.length < 2) return <div style={{ textAlign: 'center', padding: '40px', background: t.bgInput, borderRadius: '12px' }}><div style={{ fontSize: '40px', marginBottom: '12px' }}>📦</div><div style={{ color: t.textMuted, fontSize: '13px' }}>Upload more versions to compare</div></div>;
     const left = versions[leftV];
     const right = versions[rightV];
     return (
@@ -4278,12 +4634,12 @@ export default function MainApp() {
           <Select value={rightV} onChange={v => setRightV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
-          <div style={{ background: '#0d0d14', borderRadius: '10px', overflow: 'hidden' }}>
-            <div style={{ padding: '10px', borderBottom: '1px solid #1e1e2e', fontSize: '12px', fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}><span>v{left.version}</span><span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>{formatDate(left.uploadedAt)}</span></div>
+          <div style={{ background: t.bgInput, borderRadius: '10px', overflow: 'hidden' }}>
+            <div style={{ padding: '10px', borderBottom: `1px solid ${t.border}`, fontSize: '12px', fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}><span>v{left.version}</span><span style={{ color: t.textMuted, fontSize: '10px' }}>{formatDate(left.uploadedAt)}</span></div>
             <div style={{ padding: '12px' }}><img src={left.url} alt="" loading="lazy" style={{ width: '100%', borderRadius: '6px' }} /></div>
           </div>
-          <div style={{ background: '#0d0d14', borderRadius: '10px', overflow: 'hidden' }}>
-            <div style={{ padding: '10px', borderBottom: '1px solid #1e1e2e', fontSize: '12px', fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}><span>v{right.version} {right.version === currentVersion && <span style={{ color: '#22c55e' }}>✓</span>}</span><span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>{formatDate(right.uploadedAt)}</span></div>
+          <div style={{ background: t.bgInput, borderRadius: '10px', overflow: 'hidden' }}>
+            <div style={{ padding: '10px', borderBottom: `1px solid ${t.border}`, fontSize: '12px', fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}><span>v{right.version} {right.version === currentVersion && <span style={{ color: '#22c55e' }}>✓</span>}</span><span style={{ color: t.textMuted, fontSize: '10px' }}>{formatDate(right.uploadedAt)}</span></div>
             <div style={{ padding: '12px' }}><img src={right.url} alt="" loading="lazy" style={{ width: '100%', borderRadius: '6px' }} /></div>
           </div>
         </div>
@@ -4293,7 +4649,7 @@ export default function MainApp() {
 
   // Main Render
   return (
-    <div style={{ minHeight: '100vh', background: '#0d0d14', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: t.bgInput, color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Global CSS for animations */}
       <style>{`
         @keyframes shimmer {
@@ -4312,8 +4668,122 @@ export default function MainApp() {
       `}</style>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <GlobalSearch />
+      
+      {/* Company Settings Modal */}
+      {showCompanySettings && (
+        <Modal title="Company Settings" onClose={() => setShowCompanySettings(false)}>
+          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Company Name</label>
+              <Input 
+                value={companySettings.name} 
+                onChange={(v) => setCompanySettings({ ...companySettings, name: v })} 
+                placeholder="Company name" 
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Logo (Dark Mode)</label>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                {companySettings.logoDark && (
+                  <div style={{ width: '100px', height: '40px', background: t.bgInput, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
+                    <img src={companySettings.logoDark} alt="Dark logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        setCompanySettings({ ...companySettings, logoDark: ev.target.result });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  style={{ fontSize: '12px', color: t.textSecondary }}
+                />
+                {companySettings.logoDark && (
+                  <button 
+                    onClick={() => setCompanySettings({ ...companySettings, logoDark: null })}
+                    style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px' }}>Recommended: SVG or PNG with transparent background</div>
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Logo (Light Mode)</label>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                {companySettings.logoLight && (
+                  <div style={{ width: '100px', height: '40px', background: '#f0f2f5', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
+                    <img src={companySettings.logoLight} alt="Light logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        setCompanySettings({ ...companySettings, logoLight: ev.target.result });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  style={{ fontSize: '12px', color: t.textSecondary }}
+                />
+                {companySettings.logoLight && (
+                  <button 
+                    onClick={() => setCompanySettings({ ...companySettings, logoLight: null })}
+                    style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px' }}>For light mode - use darker colors</div>
+            </div>
+            
+            <div style={{ marginTop: '10px', padding: '12px', background: t.bgTertiary, borderRadius: '8px' }}>
+              <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Preview</div>
+              <div style={{ display: 'flex', gap: '20px' }}>
+                <div style={{ background: '#0a0a0f', padding: '12px 16px', borderRadius: '8px' }}>
+                  {companySettings.logoDark ? (
+                    <img src={companySettings.logoDark} alt="Dark" style={{ height: '24px', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>{companySettings.name}</span>
+                  )}
+                </div>
+                <div style={{ background: '#f5f7fa', padding: '12px 16px', borderRadius: '8px' }}>
+                  {companySettings.logoLight ? (
+                    <img src={companySettings.logoLight} alt="Light" style={{ height: '24px', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>{companySettings.name}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <Btn onClick={() => { setShowCompanySettings(false); showToast('Settings saved', 'success'); }}>
+                Save Settings
+              </Btn>
+              <Btn onClick={() => setShowCompanySettings(false)} outline>Cancel</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      
       <Sidebar />
-      <div style={{ marginLeft: isMobile ? '0' : '200px', padding: isMobile ? '60px 16px 16px' : '24px', background: t.bg, minHeight: '100vh' }}>
+      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '60px' : '200px'), padding: isMobile ? '60px 16px 16px' : '24px', background: t.bg, minHeight: '100vh', transition: 'margin-left 0.2s ease' }}>
         {view === 'dashboard' && <Dashboard />}
         {view === 'tasks' && <TasksView />}
         {view === 'projects' && !selectedProjectId && <ProjectsList />}
