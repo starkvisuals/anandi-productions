@@ -410,6 +410,95 @@ const PREDEFINED_TAGS = [
   { id: 'final', label: 'Final', color: '#10b981' },
 ];
 
+// Task Templates
+const TASK_TEMPLATES = {
+  'team-onboarding': {
+    name: 'Team Onboarding',
+    icon: '👋',
+    description: 'Checklist for onboarding new team members',
+    subtasks: [
+      { title: 'Send welcome email with login credentials', assignRole: 'producer' },
+      { title: 'Share project access and folder structure', assignRole: 'producer' },
+      { title: 'Introduce to team via group chat', assignRole: 'producer' },
+      { title: 'Schedule intro call / walkthrough', assignRole: 'producer' },
+      { title: 'Share brand guidelines & style guide', assignRole: 'producer' },
+      { title: 'Verify software & tool access', assignRole: 'producer' },
+    ]
+  },
+  'pre-production': {
+    name: 'Pre-Production Checklist',
+    icon: '🎬',
+    description: 'Preparation tasks before shoot',
+    subtasks: [
+      { title: 'Confirm shoot date & location', assignRole: 'producer' },
+      { title: 'Finalize shot list / storyboard', assignRole: 'producer' },
+      { title: 'Arrange equipment & gear', assignRole: 'producer' },
+      { title: 'Confirm crew & talent', assignRole: 'producer' },
+      { title: 'Share call sheet with team', assignRole: 'producer' },
+      { title: 'Backup storage & cards ready', assignRole: 'producer' },
+      { title: 'Props & wardrobe confirmed', assignRole: 'producer' },
+    ]
+  },
+  'delivery-checklist': {
+    name: 'Delivery Checklist',
+    icon: '📦',
+    description: 'Final delivery preparation',
+    subtasks: [
+      { title: 'Export all approved assets in required formats', assignRole: 'editor' },
+      { title: 'Quality check all files', assignRole: 'producer' },
+      { title: 'Organize folder structure as per client specs', assignRole: 'editor' },
+      { title: 'Create delivery notes / readme', assignRole: 'producer' },
+      { title: 'Upload to delivery platform / Drive', assignRole: 'editor' },
+      { title: 'Send delivery confirmation to client', assignRole: 'producer' },
+      { title: 'Archive project files', assignRole: 'editor' },
+    ]
+  },
+  'post-production': {
+    name: 'Post-Production Workflow',
+    icon: '🎨',
+    description: 'Standard post workflow tasks',
+    subtasks: [
+      { title: 'Ingest & backup raw footage', assignRole: 'editor' },
+      { title: 'Create project structure & proxy files', assignRole: 'editor' },
+      { title: 'Rough cut / first assembly', assignRole: 'editor' },
+      { title: 'Color correction & grading', assignRole: 'colorist' },
+      { title: 'Audio sync & cleanup', assignRole: 'editor' },
+      { title: 'Graphics & text overlays', assignRole: 'motion' },
+      { title: 'Final review & export', assignRole: 'editor' },
+    ]
+  },
+  'client-review': {
+    name: 'Client Review Prep',
+    icon: '👔',
+    description: 'Prepare for client presentation',
+    subtasks: [
+      { title: 'Export review-ready files (watermarked)', assignRole: 'editor' },
+      { title: 'Upload to review portal / Frame.io', assignRole: 'editor' },
+      { title: 'Create review link with expiry', assignRole: 'producer' },
+      { title: 'Send review email to client', assignRole: 'producer' },
+      { title: 'Schedule feedback call if needed', assignRole: 'producer' },
+    ]
+  }
+};
+
+// Auto-task settings defaults
+const DEFAULT_NOTIFICATION_SETTINGS = {
+  autoTaskDueBefore: 24, // hours before project deadline
+  clientNotifications: {
+    onAssetReady: false,
+    onVersionUpload: false,
+    onAllRevisionsComplete: true,
+    onMilestoneReached: true,
+  },
+  teamNotifications: {
+    onTaskAssigned: true,
+    onDueApproaching: true,
+    onOverdue: true,
+    onFeedbackReceived: true,
+    onSubtaskComplete: true,
+  }
+};
+
 // Email notification via Resend API
 const sendEmailNotification = async (to, subject, body, type = 'default', data = {}) => {
   try {
@@ -869,6 +958,323 @@ export default function MainApp() {
   const showToast = (msg, type = 'info') => setToast({ message: msg, type });
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   const refreshProject = async () => { const all = await getProjects(); setProjects(all); };
+
+  // ==================== ADVANCED TASK MANAGEMENT ====================
+  
+  // Global Tasks State
+  const [globalTasks, setGlobalTasks] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('anandi-global-tasks');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  
+  // Notification Settings (producer controlled)
+  const [notificationSettings, setNotificationSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('anandi-notification-settings');
+      return saved ? JSON.parse(saved) : DEFAULT_NOTIFICATION_SETTINGS;
+    }
+    return DEFAULT_NOTIFICATION_SETTINGS;
+  });
+  
+  // Save global tasks
+  const saveGlobalTasks = (tasks) => {
+    setGlobalTasks(tasks);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('anandi-global-tasks', JSON.stringify(tasks));
+    }
+  };
+  
+  // Save notification settings
+  const saveNotificationSettings = (settings) => {
+    setNotificationSettings(settings);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('anandi-notification-settings', JSON.stringify(settings));
+    }
+  };
+  
+  // Create a new task
+  const createTask = (taskData) => {
+    const task = {
+      id: generateId(),
+      title: taskData.title || '',
+      description: taskData.description || '',
+      type: taskData.type || 'team', // personal, team, project, feedback
+      status: taskData.status || 'pending', // pending, in-progress, review, done
+      priority: taskData.priority || 'medium', // low, medium, high, urgent
+      createdBy: userProfile?.id,
+      createdByName: userProfile?.name,
+      assignedTo: taskData.assignedTo || [], // Array of user IDs
+      projectId: taskData.projectId || null,
+      projectName: taskData.projectId ? projects.find(p => p.id === taskData.projectId)?.name : null,
+      assetId: taskData.assetId || null,
+      feedbackId: taskData.feedbackId || null,
+      feedbackText: taskData.feedbackText || null,
+      dueDate: taskData.dueDate || null,
+      dueTime: taskData.dueTime || null,
+      recurring: taskData.recurring || { enabled: false, frequency: 'weekly', days: [], endDate: null },
+      subtasks: taskData.subtasks || [],
+      attachments: taskData.attachments || [],
+      activity: [{
+        action: 'created',
+        by: userProfile?.id,
+        byName: userProfile?.name,
+        timestamp: new Date().toISOString()
+      }],
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+    };
+    
+    const updated = [task, ...globalTasks];
+    saveGlobalTasks(updated);
+    
+    // Send notifications to assignees
+    if (task.assignedTo.length > 0 && notificationSettings.teamNotifications.onTaskAssigned) {
+      task.assignedTo.forEach(assigneeId => {
+        const assignee = [...users, ...freelancers, ...coreTeam].find(u => u.id === assigneeId);
+        if (assignee && assignee.email && assignee.id !== userProfile?.id) {
+          sendEmailNotification(
+            assignee.email,
+            `New task assigned: ${task.title}`,
+            `${userProfile?.name} assigned you a task: "${task.title}"${task.projectName ? ` in project ${task.projectName}` : ''}`
+          );
+          addNotification({
+            type: 'task_assigned',
+            icon: '📋',
+            title: 'Task Assigned',
+            message: `You've been assigned: "${task.title}"`,
+            taskId: task.id
+          });
+        }
+      });
+    }
+    
+    return task;
+  };
+  
+  // Update a task
+  const updateTask = (taskId, updates) => {
+    const updated = globalTasks.map(t => {
+      if (t.id === taskId) {
+        const newTask = { ...t, ...updates };
+        // Add activity log
+        newTask.activity = [
+          { action: 'updated', by: userProfile?.id, byName: userProfile?.name, timestamp: new Date().toISOString(), changes: Object.keys(updates) },
+          ...t.activity
+        ];
+        return newTask;
+      }
+      return t;
+    });
+    saveGlobalTasks(updated);
+  };
+  
+  // Toggle task completion
+  const toggleTaskComplete = (taskId) => {
+    const task = globalTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const isNowComplete = task.status !== 'done';
+    const updated = globalTasks.map(t => {
+      if (t.id === taskId) {
+        return {
+          ...t,
+          status: isNowComplete ? 'done' : 'pending',
+          completedAt: isNowComplete ? new Date().toISOString() : null,
+          activity: [
+            { action: isNowComplete ? 'completed' : 'reopened', by: userProfile?.id, byName: userProfile?.name, timestamp: new Date().toISOString() },
+            ...t.activity
+          ]
+        };
+      }
+      return t;
+    });
+    saveGlobalTasks(updated);
+  };
+  
+  // Toggle subtask completion
+  const toggleSubtask = (taskId, subtaskId) => {
+    const updated = globalTasks.map(t => {
+      if (t.id === taskId) {
+        const newSubtasks = t.subtasks.map(st => 
+          st.id === subtaskId ? { ...st, done: !st.done, completedAt: !st.done ? new Date().toISOString() : null } : st
+        );
+        return {
+          ...t,
+          subtasks: newSubtasks,
+          activity: [
+            { action: 'subtask_toggled', subtaskId, by: userProfile?.id, byName: userProfile?.name, timestamp: new Date().toISOString() },
+            ...t.activity
+          ]
+        };
+      }
+      return t;
+    });
+    saveGlobalTasks(updated);
+    
+    // Check if all subtasks are done
+    const task = updated.find(t => t.id === taskId);
+    if (task && task.subtasks.length > 0 && task.subtasks.every(st => st.done)) {
+      showToast('All subtasks completed! 🎉', 'success');
+    }
+  };
+  
+  // Add subtask
+  const addSubtask = (taskId, subtaskTitle, assignedTo = null) => {
+    const subtask = {
+      id: generateId(),
+      title: subtaskTitle,
+      done: false,
+      assignedTo: assignedTo,
+      createdAt: new Date().toISOString()
+    };
+    
+    const updated = globalTasks.map(t => {
+      if (t.id === taskId) {
+        return {
+          ...t,
+          subtasks: [...t.subtasks, subtask],
+          activity: [
+            { action: 'subtask_added', subtaskTitle, by: userProfile?.id, byName: userProfile?.name, timestamp: new Date().toISOString() },
+            ...t.activity
+          ]
+        };
+      }
+      return t;
+    });
+    saveGlobalTasks(updated);
+  };
+  
+  // Delete task
+  const deleteTask = (taskId) => {
+    const updated = globalTasks.filter(t => t.id !== taskId);
+    saveGlobalTasks(updated);
+    showToast('Task deleted', 'info');
+  };
+  
+  // Add attachment to task
+  const addTaskAttachment = async (taskId, file) => {
+    try {
+      // Upload to Firebase Storage
+      const storageRef = ref(storage, `task-attachments/${taskId}/${file.name}`);
+      await uploadBytesResumable(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      
+      const attachment = {
+        id: generateId(),
+        name: file.name,
+        url: url,
+        type: file.type,
+        size: file.size,
+        uploadedBy: userProfile?.id,
+        uploadedByName: userProfile?.name,
+        uploadedAt: new Date().toISOString()
+      };
+      
+      const updated = globalTasks.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            attachments: [...t.attachments, attachment],
+            activity: [
+              { action: 'attachment_added', fileName: file.name, by: userProfile?.id, byName: userProfile?.name, timestamp: new Date().toISOString() },
+              ...t.activity
+            ]
+          };
+        }
+        return t;
+      });
+      saveGlobalTasks(updated);
+      showToast('Attachment added', 'success');
+    } catch (error) {
+      console.error('Attachment upload error:', error);
+      showToast('Failed to upload attachment', 'error');
+    }
+  };
+  
+  // Create task from feedback (auto-task generation)
+  const createTaskFromFeedback = (feedback, asset, project) => {
+    // Calculate due date based on settings
+    const projectDeadline = project.deadline ? new Date(project.deadline) : null;
+    let dueDate = null;
+    
+    if (projectDeadline) {
+      dueDate = new Date(projectDeadline);
+      dueDate.setHours(dueDate.getHours() - notificationSettings.autoTaskDueBefore);
+    } else {
+      // Default to 24 hours from now if no project deadline
+      dueDate = new Date();
+      dueDate.setHours(dueDate.getHours() + 24);
+    }
+    
+    // Determine assignee based on asset type/category
+    let assignedTo = [];
+    if (asset.assignedTo) {
+      assignedTo = [asset.assignedTo];
+    }
+    
+    const task = createTask({
+      type: 'feedback',
+      title: `REVISION: ${asset.name} - "${feedback.text.slice(0, 40)}${feedback.text.length > 40 ? '...' : ''}"`,
+      description: feedback.text,
+      projectId: project.id,
+      assetId: asset.id,
+      feedbackId: feedback.id,
+      feedbackText: feedback.text,
+      assignedTo: assignedTo,
+      dueDate: dueDate.toISOString().split('T')[0],
+      priority: 'high',
+    });
+    
+    showToast('Revision task created automatically', 'info');
+    return task;
+  };
+  
+  // Create task from template
+  const createTaskFromTemplate = (templateId, projectId = null, assignees = {}) => {
+    const template = TASK_TEMPLATES[templateId];
+    if (!template) return null;
+    
+    const subtasks = template.subtasks.map(st => ({
+      id: generateId(),
+      title: st.title,
+      done: false,
+      assignedTo: assignees[st.assignRole] || null,
+      createdAt: new Date().toISOString()
+    }));
+    
+    const task = createTask({
+      type: 'team',
+      title: template.name,
+      description: template.description,
+      projectId: projectId,
+      priority: 'medium',
+      subtasks: subtasks,
+      assignedTo: Object.values(assignees).filter(Boolean),
+    });
+    
+    showToast(`Created "${template.name}" with ${subtasks.length} subtasks`, 'success');
+    return task;
+  };
+  
+  // Send manual notification to client
+  const sendClientNotification = async (clientEmail, subject, message, projectId = null) => {
+    try {
+      await sendEmailNotification(clientEmail, subject, message, 'client_update', { projectId });
+      showToast('Client notification sent', 'success');
+      return true;
+    } catch (error) {
+      showToast('Failed to send notification', 'error');
+      return false;
+    }
+  };
+  
+  // Get all team members for assignment
+  const allTeamMembers = [...users, ...freelancers, ...coreTeam].filter(u => u.id !== userProfile?.id);
+  
+  // ==================== END TASK MANAGEMENT ====================
 
   // Notification Panel Component
   const NotificationPanel = () => {
@@ -1869,27 +2275,43 @@ export default function MainApp() {
     );
   };
 
-  // PHASE B: Task Management View
+  // PHASE B: Advanced Task Management View
   const TasksView = () => {
-    const [taskTab, setTaskTab] = useState('today'); // today, week, overdue, all
+    // Local state
+    const [taskTab, setTaskTab] = useState('my'); // my, team, today, week, overdue, all
+    const [taskFilter, setTaskFilter] = useState('all'); // all, pending, in-progress, done
+    const [projectFilter, setProjectFilter] = useState('all');
     const [showAddTask, setShowAddTask] = useState(false);
-    const [newTask, setNewTask] = useState({ title: '', dueDate: new Date().toISOString().split('T')[0], dueTime: '', priority: 'medium', projectId: '' });
-    const [manualTasks, setManualTasks] = useState(() => {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
-        return saved ? JSON.parse(saved) : [];
-      }
-      return [];
+    const [showTemplates, setShowTemplates] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [expandedTask, setExpandedTask] = useState(null);
+    const [quickAddText, setQuickAddText] = useState('');
+    const [quickAddDate, setQuickAddDate] = useState(new Date().toISOString().split('T')[0]);
+    const [newSubtaskText, setNewSubtaskText] = useState('');
+    
+    // New task form state
+    const [newTask, setNewTask] = useState({
+      title: '',
+      description: '',
+      type: 'team',
+      priority: 'medium',
+      dueDate: new Date().toISOString().split('T')[0],
+      dueTime: '',
+      projectId: '',
+      assignedTo: [],
+      recurring: { enabled: false, frequency: 'weekly', days: [], endDate: '' },
+      subtasks: [],
     });
-
-    // Save manual tasks
-    const saveTasks = (tasks) => {
-      setManualTasks(tasks);
-      if (typeof window !== 'undefined' && userProfile?.id) {
-        localStorage.setItem(`anandi-tasks-${userProfile.id}`, JSON.stringify(tasks));
-      }
-    };
-
+    
+    // Template form state
+    const [templateProjectId, setTemplateProjectId] = useState('');
+    const [templateAssignees, setTemplateAssignees] = useState({});
+    const [selectedTemplate, setSelectedTemplate] = useState('');
+    
+    // Priority colors
+    const priorityColors = { urgent: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
+    const priorityIcons = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+    
     // Get auto-generated tasks from assigned assets
     const getAutoTasks = () => {
       const tasks = [];
@@ -1901,14 +2323,17 @@ export default function MainApp() {
               tasks.push({
                 id: `auto-${asset.id}`,
                 type: 'auto',
-                title: asset.name,
+                title: `📁 ${asset.name}`,
                 projectId: project.id,
                 projectName: project.name,
                 assetId: asset.id,
-                status: asset.status,
+                status: asset.status === 'pending' ? 'pending' : 'in-progress',
                 dueDate: asset.dueDate,
                 priority: asset.dueDate && new Date(asset.dueDate) < new Date() ? 'high' : 'medium',
-                category: asset.category
+                category: asset.category,
+                assignedTo: [asset.assignedTo],
+                subtasks: [],
+                createdBy: 'system'
               });
             }
           }
@@ -1916,210 +2341,566 @@ export default function MainApp() {
       });
       return tasks;
     };
-
-    // Combine auto and manual tasks
-    const allTasks = [...getAutoTasks(), ...manualTasks.filter(t => !t.completed)];
-    const completedTasks = manualTasks.filter(t => t.completed);
-
-    // Filter tasks by tab
+    
+    // Combine all tasks
+    const allTasks = [...getAutoTasks(), ...globalTasks];
+    
+    // Date helpers
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekEnd = new Date(today);
     weekEnd.setDate(weekEnd.getDate() + 7);
-
+    
+    // Filter tasks
     const filterTasks = (tasks) => {
+      let filtered = tasks;
+      
+      // Tab filter
       switch (taskTab) {
+        case 'my':
+          filtered = filtered.filter(t => 
+            t.createdBy === userProfile?.id || 
+            (t.assignedTo || []).includes(userProfile?.id) ||
+            t.type === 'auto'
+          );
+          break;
+        case 'team':
+          filtered = filtered.filter(t => t.type !== 'personal');
+          break;
         case 'today':
-          return tasks.filter(t => {
+          filtered = filtered.filter(t => {
             if (!t.dueDate) return false;
             const due = new Date(t.dueDate);
             return due >= today && due < new Date(today.getTime() + 24 * 60 * 60 * 1000);
           });
+          break;
         case 'week':
-          return tasks.filter(t => {
+          filtered = filtered.filter(t => {
             if (!t.dueDate) return false;
             const due = new Date(t.dueDate);
             return due >= today && due <= weekEnd;
           });
+          break;
         case 'overdue':
-          return tasks.filter(t => {
+          filtered = filtered.filter(t => {
             if (!t.dueDate) return false;
-            return new Date(t.dueDate) < today;
+            return new Date(t.dueDate) < today && t.status !== 'done';
           });
-        default:
-          return tasks;
+          break;
       }
+      
+      // Status filter
+      if (taskFilter !== 'all') {
+        filtered = filtered.filter(t => t.status === taskFilter);
+      }
+      
+      // Project filter
+      if (projectFilter !== 'all') {
+        filtered = filtered.filter(t => t.projectId === projectFilter);
+      }
+      
+      return filtered;
     };
-
+    
     const filteredTasks = filterTasks(allTasks);
-    const overdueTasks = allTasks.filter(t => t.dueDate && new Date(t.dueDate) < today);
+    
+    // Stats
+    const myTasks = allTasks.filter(t => t.createdBy === userProfile?.id || (t.assignedTo || []).includes(userProfile?.id) || t.type === 'auto');
+    const overdueTasks = allTasks.filter(t => t.dueDate && new Date(t.dueDate) < today && t.status !== 'done');
     const todayTasks = allTasks.filter(t => {
       if (!t.dueDate) return false;
       const due = new Date(t.dueDate);
       return due >= today && due < new Date(today.getTime() + 24 * 60 * 60 * 1000);
     });
-
-    // Add manual task
-    const addTask = () => {
+    const completedTasks = allTasks.filter(t => t.status === 'done');
+    
+    // Quick add task
+    const handleQuickAdd = () => {
+      if (!quickAddText.trim()) return;
+      createTask({
+        title: quickAddText,
+        type: isProducer ? 'team' : 'personal',
+        dueDate: quickAddDate,
+        priority: 'medium',
+      });
+      setQuickAddText('');
+      showToast('Task added', 'success');
+    };
+    
+    // Handle add task from modal
+    const handleAddTask = () => {
       if (!newTask.title.trim()) return;
-      const task = {
-        id: generateId(),
-        type: 'manual',
-        title: newTask.title,
-        dueDate: newTask.dueDate || null,
-        dueTime: newTask.dueTime || null,
-        priority: newTask.priority,
-        projectId: newTask.projectId || null,
-        projectName: newTask.projectId ? projects.find(p => p.id === newTask.projectId)?.name : null,
-        completed: false,
-        createdAt: new Date().toISOString()
-      };
-      saveTasks([task, ...manualTasks]);
-      setNewTask({ title: '', dueDate: new Date().toISOString().split('T')[0], dueTime: '', priority: 'medium', projectId: '' });
+      createTask(newTask);
+      setNewTask({
+        title: '',
+        description: '',
+        type: 'team',
+        priority: 'medium',
+        dueDate: new Date().toISOString().split('T')[0],
+        dueTime: '',
+        projectId: '',
+        assignedTo: [],
+        recurring: { enabled: false, frequency: 'weekly', days: [], endDate: '' },
+        subtasks: [],
+      });
       setShowAddTask(false);
+      showToast('Task created', 'success');
     };
-
-    // Toggle task completion
-    const toggleTask = (taskId) => {
-      const updated = manualTasks.map(t => 
-        t.id === taskId ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : null } : t
-      );
-      saveTasks(updated);
+    
+    // Handle template creation
+    const handleCreateFromTemplate = () => {
+      if (!selectedTemplate) return;
+      createTaskFromTemplate(selectedTemplate, templateProjectId || null, templateAssignees);
+      setShowTemplates(false);
+      setSelectedTemplate('');
+      setTemplateProjectId('');
+      setTemplateAssignees({});
     };
-
-    // Delete task
-    const deleteTask = (taskId) => {
-      saveTasks(manualTasks.filter(t => t.id !== taskId));
-    };
-
-    const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
-    const statusLabels = { pending: 'Pending', 'in-progress': 'In Progress', 'review-ready': 'Review Ready', revision: 'Revision' };
-
-    const TaskCard = ({ task }) => (
-      <div 
-        onClick={() => {
-          if (task.type === 'auto' && task.projectId) {
-            setSelectedProjectId(task.projectId);
-            setView('projects');
-          }
-        }}
-        style={{ 
-          display: 'flex', 
-          gap: '12px', 
-          padding: '14px 16px', 
-          background: t.bgTertiary, 
+    
+    // Task Card Component
+    const TaskCard = ({ task }) => {
+      const isExpanded = expandedTask === task.id;
+      const isOverdue = task.dueDate && new Date(task.dueDate) < today && task.status !== 'done';
+      const completedSubtasks = (task.subtasks || []).filter(st => st.done).length;
+      const totalSubtasks = (task.subtasks || []).length;
+      const assignees = (task.assignedTo || []).map(id => 
+        [...users, ...freelancers, ...coreTeam].find(u => u.id === id)
+      ).filter(Boolean);
+      
+      return (
+        <div style={{ 
+          background: t.bgCard, 
           borderRadius: '10px', 
-          marginBottom: '8px',
-          border: `1px solid ${t.border}`,
-          cursor: task.type === 'auto' ? 'pointer' : 'default',
-          borderLeft: `3px solid ${priorityColors[task.priority]}`
-        }}
-      >
-        {task.type === 'manual' && (
+          border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : t.border}`,
+          borderLeft: `4px solid ${priorityColors[task.priority]}`,
+          marginBottom: '10px',
+          overflow: 'hidden',
+          transition: 'all 0.2s'
+        }}>
+          {/* Main Row */}
           <div 
-            onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }}
             style={{ 
-              width: '20px', 
-              height: '20px', 
-              borderRadius: '4px', 
-              border: '2px solid #3a3a4a', 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              padding: '14px 16px',
+              cursor: 'pointer'
             }}
+            onClick={() => setExpandedTask(isExpanded ? null : task.id)}
           >
-            {task.completed && <span style={{ color: '#22c55e' }}>✓</span>}
-          </div>
-        )}
-        {task.type === 'auto' && (
-          <div style={{ 
-            width: '20px', 
-            height: '20px', 
-            borderRadius: '4px', 
-            background: 'rgba(99,102,241,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '10px',
-            flexShrink: 0
-          }}>
-            📁
-          </div>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '4px' }}>{task.title}</div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {task.projectName && (
-              <span style={{ fontSize: '11px', color: t.textMuted }}>📁 {task.projectName}</span>
-            )}
-            {task.status && (
-              <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(99,102,241,0.2)', color: '#818cf8' }}>
-                {statusLabels[task.status] || task.status}
-              </span>
-            )}
-            {task.dueDate && (
-              <span style={{ 
-                fontSize: '11px', 
-                color: new Date(task.dueDate) < today ? '#ef4444' : 'rgba(255,255,255,0.5)'
+            {/* Checkbox */}
+            <div 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (task.type !== 'auto') toggleTaskComplete(task.id);
+              }}
+              style={{ 
+                width: '22px', 
+                height: '22px', 
+                borderRadius: '6px', 
+                border: task.status === 'done' ? 'none' : `2px solid ${t.border}`,
+                background: task.status === 'done' ? t.success : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: task.type === 'auto' ? 'default' : 'pointer',
+                flexShrink: 0,
+                transition: 'all 0.15s'
+              }}
+            >
+              {task.status === 'done' && <span style={{ color: '#fff', fontSize: '12px' }}>✓</span>}
+            </div>
+            
+            {/* Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ 
+                fontWeight: '500', 
+                fontSize: '14px', 
+                marginBottom: '6px',
+                textDecoration: task.status === 'done' ? 'line-through' : 'none',
+                opacity: task.status === 'done' ? 0.6 : 1,
+                color: t.text
               }}>
-                📅 {new Date(task.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                {task.dueTime && ` at ${task.dueTime}`}
-              </span>
+                {task.type === 'feedback' && '🔄 '}
+                {task.title}
+              </div>
+              
+              {/* Meta info */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {task.projectName && (
+                  <span style={{ fontSize: '11px', color: t.primary, background: `${t.primary}15`, padding: '2px 8px', borderRadius: '4px' }}>
+                    📁 {task.projectName}
+                  </span>
+                )}
+                {task.dueDate && (
+                  <span style={{ 
+                    fontSize: '11px', 
+                    color: isOverdue ? '#ef4444' : t.textMuted,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    📅 {new Date(task.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                    {task.dueTime && ` ${task.dueTime}`}
+                  </span>
+                )}
+                {totalSubtasks > 0 && (
+                  <span style={{ fontSize: '11px', color: completedSubtasks === totalSubtasks ? t.success : t.textMuted }}>
+                    ☑️ {completedSubtasks}/{totalSubtasks}
+                  </span>
+                )}
+                {(task.attachments || []).length > 0 && (
+                  <span style={{ fontSize: '11px', color: t.textMuted }}>
+                    📎 {task.attachments.length}
+                  </span>
+                )}
+                {task.recurring?.enabled && (
+                  <span style={{ fontSize: '11px', color: t.accent }}>🔁 {task.recurring.frequency}</span>
+                )}
+              </div>
+            </div>
+            
+            {/* Assignees */}
+            {assignees.length > 0 && (
+              <div style={{ display: 'flex', marginRight: '8px' }}>
+                {assignees.slice(0, 3).map((u, i) => (
+                  <div 
+                    key={u.id}
+                    style={{ 
+                      width: '28px', 
+                      height: '28px', 
+                      borderRadius: '50%', 
+                      background: `hsl(${(u.name || '').charCodeAt(0) * 10}, 60%, 50%)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      color: '#fff',
+                      marginLeft: i > 0 ? '-8px' : 0,
+                      border: `2px solid ${t.bgCard}`
+                    }}
+                    title={u.name}
+                  >
+                    {(u.name || '?').charAt(0).toUpperCase()}
+                  </div>
+                ))}
+                {assignees.length > 3 && (
+                  <div style={{ 
+                    width: '28px', 
+                    height: '28px', 
+                    borderRadius: '50%', 
+                    background: t.bgTertiary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '10px',
+                    color: t.textMuted,
+                    marginLeft: '-8px',
+                    border: `2px solid ${t.bgCard}`
+                  }}>
+                    +{assignees.length - 3}
+                  </div>
+                )}
+              </div>
             )}
+            
+            {/* Priority indicator */}
+            <div style={{ fontSize: '14px' }} title={task.priority}>
+              {priorityIcons[task.priority]}
+            </div>
+            
+            {/* Expand chevron */}
+            <div style={{ color: t.textMuted, fontSize: '16px', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+              ▼
+            </div>
           </div>
+          
+          {/* Expanded Content */}
+          {isExpanded && (
+            <div style={{ borderTop: `1px solid ${t.border}`, padding: '16px', background: t.bgTertiary }}>
+              {/* Description */}
+              {task.description && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '4px' }}>Description</div>
+                  <div style={{ fontSize: '13px', color: t.textSecondary, lineHeight: '1.5' }}>{task.description}</div>
+                </div>
+              )}
+              
+              {/* Feedback reference */}
+              {task.feedbackText && (
+                <div style={{ marginBottom: '16px', padding: '12px', background: t.bgInput, borderRadius: '8px', borderLeft: `3px solid ${t.warning}` }}>
+                  <div style={{ fontSize: '11px', color: t.warning, marginBottom: '4px' }}>📝 Original Feedback</div>
+                  <div style={{ fontSize: '12px', color: t.textSecondary }}>{task.feedbackText}</div>
+                </div>
+              )}
+              
+              {/* Subtasks */}
+              {(task.subtasks || []).length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Subtasks</div>
+                  {task.subtasks.map(st => {
+                    const stAssignee = st.assignedTo ? [...users, ...freelancers, ...coreTeam].find(u => u.id === st.assignedTo) : null;
+                    return (
+                      <div 
+                        key={st.id}
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '10px', 
+                          padding: '8px 0',
+                          borderBottom: `1px solid ${t.border}`
+                        }}
+                      >
+                        <div 
+                          onClick={() => task.type !== 'auto' && toggleSubtask(task.id, st.id)}
+                          style={{ 
+                            width: '18px', 
+                            height: '18px', 
+                            borderRadius: '4px', 
+                            border: st.done ? 'none' : `2px solid ${t.border}`,
+                            background: st.done ? t.success : 'transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: task.type === 'auto' ? 'default' : 'pointer',
+                            flexShrink: 0
+                          }}
+                        >
+                          {st.done && <span style={{ color: '#fff', fontSize: '10px' }}>✓</span>}
+                        </div>
+                        <span style={{ 
+                          flex: 1, 
+                          fontSize: '13px',
+                          textDecoration: st.done ? 'line-through' : 'none',
+                          opacity: st.done ? 0.6 : 1,
+                          color: t.text
+                        }}>
+                          {st.title}
+                        </span>
+                        {stAssignee && (
+                          <span style={{ fontSize: '11px', color: t.textMuted }}>
+                            👤 {stAssignee.name?.split(' ')[0]}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Add Subtask */}
+              {task.type !== 'auto' && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <Input
+                      theme={theme}
+                      value={newSubtaskText}
+                      onChange={setNewSubtaskText}
+                      placeholder="Add subtask..."
+                      style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newSubtaskText.trim()) {
+                          addSubtask(task.id, newSubtaskText);
+                          setNewSubtaskText('');
+                        }
+                      }}
+                    />
+                    <Btn 
+                      theme={theme}
+                      onClick={() => {
+                        if (newSubtaskText.trim()) {
+                          addSubtask(task.id, newSubtaskText);
+                          setNewSubtaskText('');
+                        }
+                      }}
+                      small
+                      disabled={!newSubtaskText.trim()}
+                    >
+                      + Add
+                    </Btn>
+                  </div>
+                </div>
+              )}
+              
+              {/* Attachments */}
+              {(task.attachments || []).length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>📎 Attachments</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {task.attachments.map(att => (
+                      <a
+                        key={att.id}
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 10px',
+                          background: t.bgInput,
+                          borderRadius: '6px',
+                          border: `1px solid ${t.border}`,
+                          fontSize: '11px',
+                          color: t.text,
+                          textDecoration: 'none'
+                        }}
+                      >
+                        📄 {att.name}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Quick Actions */}
+              {task.type !== 'auto' && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <label style={{ 
+                    padding: '6px 12px', 
+                    background: t.bgInput, 
+                    borderRadius: '6px', 
+                    border: `1px solid ${t.border}`,
+                    fontSize: '11px',
+                    color: t.textMuted,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    📎 Add File
+                    <input 
+                      type="file" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => e.target.files[0] && addTaskAttachment(task.id, e.target.files[0])}
+                    />
+                  </label>
+                  <button 
+                    onClick={() => deleteTask(task.id)}
+                    style={{ 
+                      padding: '6px 12px', 
+                      background: 'rgba(239,68,68,0.1)', 
+                      borderRadius: '6px', 
+                      border: '1px solid rgba(239,68,68,0.3)',
+                      fontSize: '11px',
+                      color: '#ef4444',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+              )}
+              
+              {/* Activity Log (if has any) */}
+              {(task.activity || []).length > 0 && (
+                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${t.border}` }}>
+                  <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Activity</div>
+                  {task.activity.slice(0, 5).map((a, i) => (
+                    <div key={i} style={{ fontSize: '11px', color: t.textMuted, marginBottom: '4px' }}>
+                      • {a.byName || 'System'} {a.action} - {formatTimeAgo(a.timestamp)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        {task.type === 'manual' && (
-          <button 
-            onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '14px' }}
-          >
-            ×
-          </button>
-        )}
-      </div>
-    );
-
+      );
+    };
+    
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>My Tasks</h1>
+            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: t.text }}>Tasks</h1>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: t.textMuted }}>
-              {allTasks.length} task{allTasks.length !== 1 ? 's' : ''} • {overdueTasks.length} overdue
+              {myTasks.length} task{myTasks.length !== 1 ? 's' : ''} • {overdueTasks.length} overdue
             </p>
           </div>
-          <Btn theme={theme} onClick={() => setShowAddTask(true)} small>+ Add Task</Btn>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {isProducer && (
+              <>
+                <Btn theme={theme} onClick={() => setShowTemplates(true)} small outline>📋 Templates</Btn>
+                <Btn theme={theme} onClick={() => setShowSettings(true)} small outline>⚙️</Btn>
+              </>
+            )}
+            <Btn theme={theme} onClick={() => setShowAddTask(true)} small>+ Add Task</Btn>
+          </div>
         </div>
-
-        {/* Quick Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+        
+        {/* Quick Add Bar */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '10px', 
+          marginBottom: '20px',
+          padding: '4px',
+          background: t.bgCard,
+          borderRadius: '12px',
+          border: `1px solid ${t.border}`
+        }}>
+          <input
+            value={quickAddText}
+            onChange={(e) => setQuickAddText(e.target.value)}
+            placeholder="+ Quick add task... (press Enter)"
+            onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              background: 'transparent',
+              border: 'none',
+              color: t.text,
+              fontSize: '14px',
+              outline: 'none'
+            }}
+          />
+          <input
+            type="date"
+            value={quickAddDate}
+            onChange={(e) => setQuickAddDate(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              background: t.bgInput,
+              border: `1px solid ${t.border}`,
+              borderRadius: '8px',
+              color: t.text,
+              fontSize: '12px'
+            }}
+          />
+          <Btn theme={theme} onClick={handleQuickAdd} disabled={!quickAddText.trim()}>Add</Btn>
+        </div>
+        
+        {/* Stats Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px', marginBottom: '20px' }}>
           <div style={{ background: overdueTasks.length > 0 ? 'rgba(239,68,68,0.1)' : t.bgCard, borderRadius: '10px', padding: '14px', border: overdueTasks.length > 0 ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}` }}>
-            <div style={{ fontSize: '22px', fontWeight: '700', color: overdueTasks.length > 0 ? '#ef4444' : '#fff' }}>{overdueTasks.length}</div>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: overdueTasks.length > 0 ? '#ef4444' : t.text }}>{overdueTasks.length}</div>
             <div style={{ fontSize: '11px', color: t.textMuted }}>Overdue</div>
           </div>
-          <div style={{ background: t.bgTertiary, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
+          <div style={{ background: t.bgCard, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: '22px', fontWeight: '700', color: '#f59e0b' }}>{todayTasks.length}</div>
             <div style={{ fontSize: '11px', color: t.textMuted }}>Due Today</div>
           </div>
-          <div style={{ background: t.bgTertiary, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
-            <div style={{ fontSize: '22px', fontWeight: '700', color: '#6366f1' }}>{allTasks.length}</div>
-            <div style={{ fontSize: '11px', color: t.textMuted }}>Total Tasks</div>
+          <div style={{ background: t.bgCard, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: t.primary }}>{myTasks.filter(t => t.status !== 'done').length}</div>
+            <div style={{ fontSize: '11px', color: t.textMuted }}>Active</div>
           </div>
-          <div style={{ background: t.bgTertiary, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
-            <div style={{ fontSize: '22px', fontWeight: '700', color: '#22c55e' }}>{completedTasks.length}</div>
+          <div style={{ background: t.bgCard, borderRadius: '10px', padding: '14px', border: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: t.success }}>{completedTasks.length}</div>
             <div style={{ fontSize: '11px', color: t.textMuted }}>Completed</div>
           </div>
         </div>
-
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        
+        {/* Tabs & Filters */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
           {[
+            { id: 'my', label: 'My Tasks' },
+            { id: 'team', label: 'Team' },
             { id: 'today', label: 'Today', count: todayTasks.length },
             { id: 'week', label: 'This Week' },
             { id: 'overdue', label: 'Overdue', count: overdueTasks.length },
-            { id: 'all', label: 'All Tasks' }
+            { id: 'all', label: 'All' }
           ].map(tab => (
             <button 
               key={tab.id}
@@ -2127,10 +2908,9 @@ export default function MainApp() {
               style={{ 
                 padding: '8px 14px', 
                 borderRadius: '8px', 
-                border: 'none',
-                background: taskTab === tab.id ? t.primary : t.bgCard,
                 border: `1px solid ${taskTab === tab.id ? t.primary : t.border}`,
-                color: taskTab === tab.id ? '#fff' : 'rgba(255,255,255,0.6)',
+                background: taskTab === tab.id ? t.primary : 'transparent',
+                color: taskTab === tab.id ? '#fff' : t.textSecondary,
                 fontSize: '12px',
                 fontWeight: '500',
                 cursor: 'pointer',
@@ -2152,133 +2932,119 @@ export default function MainApp() {
               )}
             </button>
           ))}
+          
+          {/* Project Filter */}
+          <Select 
+            theme={theme}
+            value={projectFilter} 
+            onChange={setProjectFilter}
+            style={{ padding: '8px 12px', fontSize: '12px', width: 'auto', minWidth: '140px' }}
+          >
+            <option value="all">All Projects</option>
+            {projects.filter(p => p.status === 'active').map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </Select>
         </div>
-
+        
         {/* Task List */}
         <div>
           {filteredTasks.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: t.textMuted }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>
                 {taskTab === 'overdue' ? '🎉' : '📋'}
               </div>
-              <div style={{ fontSize: '14px' }}>
-                {taskTab === 'overdue' ? 'No overdue tasks!' : 'No tasks in this view'}
+              <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: t.text }}>
+                {taskTab === 'overdue' ? 'No overdue tasks!' : 'No tasks here'}
+              </div>
+              <div style={{ fontSize: '13px' }}>
+                {taskTab === 'overdue' ? 'Great job staying on top of things!' : 'Create a task to get started'}
               </div>
             </div>
           ) : (
-            filteredTasks.sort((a, b) => {
-              // Sort by due date, then priority
-              if (!a.dueDate && !b.dueDate) return 0;
-              if (!a.dueDate) return 1;
-              if (!b.dueDate) return -1;
-              return new Date(a.dueDate) - new Date(b.dueDate);
-            }).map(task => <TaskCard key={task.id} task={task} />)
+            filteredTasks
+              .sort((a, b) => {
+                // Sort by status (done last), then by due date
+                if (a.status === 'done' && b.status !== 'done') return 1;
+                if (a.status !== 'done' && b.status === 'done') return -1;
+                if (!a.dueDate && !b.dueDate) return 0;
+                if (!a.dueDate) return 1;
+                if (!b.dueDate) return -1;
+                return new Date(a.dueDate) - new Date(b.dueDate);
+              })
+              .map(task => <TaskCard key={task.id} task={task} />)
           )}
         </div>
-
-        {/* Completed Tasks */}
-        {completedTasks.length > 0 && taskTab === 'all' && (
-          <div style={{ marginTop: '24px' }}>
-            <h3 style={{ fontSize: '14px', color: t.textMuted, marginBottom: '12px' }}>
-              ✓ Completed ({completedTasks.length})
-            </h3>
-            {completedTasks.slice(0, 5).map(task => (
-              <div 
-                key={task.id}
-                style={{ 
-                  display: 'flex', 
-                  gap: '12px', 
-                  padding: '12px 16px', 
-                  background: t.bgTertiary, 
-                  borderRadius: '8px', 
-                  marginBottom: '6px',
-                  opacity: 0.6
-                }}
-              >
-                <div 
-                  onClick={() => toggleTask(task.id)}
-                  style={{ 
-                    width: '18px', 
-                    height: '18px', 
-                    borderRadius: '4px', 
-                    background: '#22c55e',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    flexShrink: 0
-                  }}
-                >
-                  <span style={{ color: '#fff', fontSize: '10px' }}>✓</span>
-                </div>
-                <span style={{ fontSize: '13px', textDecoration: 'line-through' }}>{task.title}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
+        
         {/* Add Task Modal */}
         {showAddTask && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-            <div style={{ background: t.bgTertiary, borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '420px', border: `1px solid ${t.border}` }}>
-              <h2 style={{ margin: '0 0 20px', fontSize: '18px' }}>Add Task</h2>
-              
+          <Modal theme={theme} title="Create Task" onClose={() => setShowAddTask(false)}>
+            <div style={{ padding: '20px', overflow: 'auto' }}>
+              {/* Title */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Task Title *</label>
-                <Input 
-                  value={newTask.title} 
-                  onChange={(v) => setNewTask({ ...newTask, title: v })} 
-                  placeholder="What needs to be done?"
+                <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Task Title *</label>
+                <Input theme={theme} value={newTask.title} onChange={(v) => setNewTask({ ...newTask, title: v })} placeholder="What needs to be done?" />
+              </div>
+              
+              {/* Description */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Description</label>
+                <textarea
+                  value={newTask.description}
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                  placeholder="Add details..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: t.bgInput,
+                    border: `1px solid ${t.border}`,
+                    borderRadius: '8px',
+                    color: t.text,
+                    fontSize: '13px',
+                    minHeight: '80px',
+                    resize: 'vertical',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
-
+              
+              {/* Type & Priority */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Due Date</label>
-                  <Input 
-                    type="date" 
-                    value={newTask.dueDate} 
-                    onChange={(v) => setNewTask({ ...newTask, dueDate: v })} 
-                  />
+                  <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Type</label>
+                  <Select theme={theme} value={newTask.type} onChange={(v) => setNewTask({ ...newTask, type: v })}>
+                    <option value="personal">👤 Personal</option>
+                    <option value="team">👥 Team</option>
+                    <option value="project">📁 Project</option>
+                  </Select>
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Due Time</label>
-                  <Input 
-                    type="time" 
-                    value={newTask.dueTime} 
-                    onChange={(v) => setNewTask({ ...newTask, dueTime: v })} 
-                  />
+                  <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Priority</label>
+                  <Select theme={theme} value={newTask.priority} onChange={(v) => setNewTask({ ...newTask, priority: v })}>
+                    <option value="low">🟢 Low</option>
+                    <option value="medium">🟡 Medium</option>
+                    <option value="high">🟠 High</option>
+                    <option value="urgent">🔴 Urgent</option>
+                  </Select>
                 </div>
               </div>
-
+              
+              {/* Date & Time */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Due Date</label>
+                  <Input theme={theme} type="date" value={newTask.dueDate} onChange={(v) => setNewTask({ ...newTask, dueDate: v })} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Due Time</label>
+                  <Input theme={theme} type="time" value={newTask.dueTime} onChange={(v) => setNewTask({ ...newTask, dueTime: v })} />
+                </div>
+              </div>
+              
+              {/* Project Link */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Priority</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {['low', 'medium', 'high'].map(p => (
-                    <button 
-                      key={p}
-                      onClick={() => setNewTask({ ...newTask, priority: p })}
-                      style={{ 
-                        flex: 1,
-                        padding: '8px', 
-                        borderRadius: '8px', 
-                        border: newTask.priority === p ? `2px solid ${priorityColors[p]}` : '1px solid #2a2a3e',
-                        background: newTask.priority === p ? `${priorityColors[p]}20` : 'transparent',
-                        color: priorityColors[p],
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        textTransform: 'capitalize'
-                      }}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Link to Project (optional)</label>
+                <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Link to Project</label>
                 <Select theme={theme} value={newTask.projectId} onChange={(v) => setNewTask({ ...newTask, projectId: v })}>
                   <option value="">No project</option>
                   {projects.filter(p => p.status === 'active').map(p => (
@@ -2286,13 +3052,310 @@ export default function MainApp() {
                   ))}
                 </Select>
               </div>
-
+              
+              {/* Assignees */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Assign To</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {allTeamMembers.slice(0, 12).map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => {
+                        const current = newTask.assignedTo || [];
+                        if (current.includes(u.id)) {
+                          setNewTask({ ...newTask, assignedTo: current.filter(id => id !== u.id) });
+                        } else {
+                          setNewTask({ ...newTask, assignedTo: [...current, u.id] });
+                        }
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        border: (newTask.assignedTo || []).includes(u.id) ? `2px solid ${t.primary}` : `1px solid ${t.border}`,
+                        background: (newTask.assignedTo || []).includes(u.id) ? `${t.primary}20` : 'transparent',
+                        color: (newTask.assignedTo || []).includes(u.id) ? t.primary : t.textSecondary,
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {u.name?.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Recurring */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '12px', color: t.textMuted }}>Recurring</label>
+                  <button
+                    onClick={() => setNewTask({ 
+                      ...newTask, 
+                      recurring: { ...newTask.recurring, enabled: !newTask.recurring.enabled }
+                    })}
+                    style={{
+                      width: '40px',
+                      height: '22px',
+                      borderRadius: '11px',
+                      border: 'none',
+                      background: newTask.recurring.enabled ? t.primary : t.bgInput,
+                      cursor: 'pointer',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '50%',
+                      background: '#fff',
+                      position: 'absolute',
+                      top: '2px',
+                      left: newTask.recurring.enabled ? '20px' : '2px',
+                      transition: 'left 0.2s'
+                    }} />
+                  </button>
+                </div>
+                {newTask.recurring.enabled && (
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <Select 
+                      theme={theme}
+                      value={newTask.recurring.frequency} 
+                      onChange={(v) => setNewTask({ ...newTask, recurring: { ...newTask.recurring, frequency: v }})}
+                      style={{ flex: 1 }}
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </Select>
+                    <Input 
+                      theme={theme}
+                      type="date" 
+                      value={newTask.recurring.endDate} 
+                      onChange={(v) => setNewTask({ ...newTask, recurring: { ...newTask.recurring, endDate: v }})}
+                      placeholder="End date"
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Actions */}
               <div style={{ display: 'flex', gap: '10px' }}>
                 <Btn theme={theme} onClick={() => setShowAddTask(false)} outline style={{ flex: 1 }}>Cancel</Btn>
-                <Btn theme={theme} onClick={addTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Add Task</Btn>
+                <Btn theme={theme} onClick={handleAddTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Create Task</Btn>
               </div>
             </div>
-          </div>
+          </Modal>
+        )}
+        
+        {/* Templates Modal */}
+        {showTemplates && (
+          <Modal theme={theme} title="Task Templates" onClose={() => setShowTemplates(false)}>
+            <div style={{ padding: '20px', overflow: 'auto' }}>
+              <p style={{ fontSize: '13px', color: t.textMuted, marginBottom: '20px' }}>
+                Create tasks from pre-built templates with subtasks ready to go.
+              </p>
+              
+              {/* Template Selection */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '8px' }}>Select Template</label>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {Object.entries(TASK_TEMPLATES).map(([id, tmpl]) => (
+                    <button
+                      key={id}
+                      onClick={() => setSelectedTemplate(id)}
+                      style={{
+                        padding: '14px 16px',
+                        borderRadius: '10px',
+                        border: selectedTemplate === id ? `2px solid ${t.primary}` : `1px solid ${t.border}`,
+                        background: selectedTemplate === id ? `${t.primary}10` : t.bgCard,
+                        cursor: 'pointer',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '18px' }}>{tmpl.icon}</span>
+                        <span style={{ fontWeight: '600', fontSize: '14px', color: t.text }}>{tmpl.name}</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: t.textMuted }}>{tmpl.description}</div>
+                      <div style={{ fontSize: '11px', color: t.textSecondary, marginTop: '6px' }}>
+                        {tmpl.subtasks.length} subtasks
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Project Selection */}
+              {selectedTemplate && (
+                <>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '6px' }}>Link to Project (optional)</label>
+                    <Select theme={theme} value={templateProjectId} onChange={setTemplateProjectId}>
+                      <option value="">No project</option>
+                      {projects.filter(p => p.status === 'active').map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </Select>
+                  </div>
+                  
+                  {/* Preview subtasks */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ fontSize: '12px', color: t.textMuted, display: 'block', marginBottom: '8px' }}>Subtasks Preview</label>
+                    <div style={{ background: t.bgTertiary, borderRadius: '8px', padding: '12px', maxHeight: '200px', overflow: 'auto' }}>
+                      {TASK_TEMPLATES[selectedTemplate].subtasks.map((st, i) => (
+                        <div key={i} style={{ fontSize: '12px', color: t.textSecondary, padding: '6px 0', borderBottom: i < TASK_TEMPLATES[selectedTemplate].subtasks.length - 1 ? `1px solid ${t.border}` : 'none' }}>
+                          ☐ {st.title}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <Btn theme={theme} onClick={() => setShowTemplates(false)} outline style={{ flex: 1 }}>Cancel</Btn>
+                <Btn theme={theme} onClick={handleCreateFromTemplate} disabled={!selectedTemplate} style={{ flex: 1 }}>Create from Template</Btn>
+              </div>
+            </div>
+          </Modal>
+        )}
+        
+        {/* Notification Settings Modal (Producer only) */}
+        {showSettings && isProducer && (
+          <Modal theme={theme} title="Task & Notification Settings" onClose={() => setShowSettings(false)}>
+            <div style={{ padding: '20px', overflow: 'auto' }}>
+              {/* Auto-task due time */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: t.text, display: 'block', marginBottom: '8px' }}>
+                  ⏰ Auto-Task Due Time
+                </label>
+                <p style={{ fontSize: '12px', color: t.textMuted, marginBottom: '10px' }}>
+                  When feedback creates a revision task, set due time before project deadline:
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[24, 48, 72].map(h => (
+                    <button
+                      key={h}
+                      onClick={() => saveNotificationSettings({ ...notificationSettings, autoTaskDueBefore: h })}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border: notificationSettings.autoTaskDueBefore === h ? `2px solid ${t.primary}` : `1px solid ${t.border}`,
+                        background: notificationSettings.autoTaskDueBefore === h ? `${t.primary}20` : 'transparent',
+                        color: notificationSettings.autoTaskDueBefore === h ? t.primary : t.textSecondary,
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {h}h before
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Client Notifications */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: t.text, display: 'block', marginBottom: '8px' }}>
+                  📧 Client Auto-Notifications
+                </label>
+                <p style={{ fontSize: '12px', color: t.textMuted, marginBottom: '10px' }}>
+                  Control what clients receive automatically (to avoid spam):
+                </p>
+                {[
+                  { key: 'onAssetReady', label: 'When asset ready for review' },
+                  { key: 'onVersionUpload', label: 'When new version uploaded' },
+                  { key: 'onAllRevisionsComplete', label: 'When all revisions complete' },
+                  { key: 'onMilestoneReached', label: 'When milestone reached' },
+                ].map(item => (
+                  <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${t.border}` }}>
+                    <span style={{ fontSize: '13px', color: t.text }}>{item.label}</span>
+                    <button
+                      onClick={() => saveNotificationSettings({
+                        ...notificationSettings,
+                        clientNotifications: {
+                          ...notificationSettings.clientNotifications,
+                          [item.key]: !notificationSettings.clientNotifications[item.key]
+                        }
+                      })}
+                      style={{
+                        width: '44px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        background: notificationSettings.clientNotifications[item.key] ? t.success : t.bgInput,
+                        cursor: 'pointer',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        background: '#fff',
+                        position: 'absolute',
+                        top: '2px',
+                        left: notificationSettings.clientNotifications[item.key] ? '22px' : '2px',
+                        transition: 'left 0.2s'
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Team Notifications */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: t.text, display: 'block', marginBottom: '8px' }}>
+                  👥 Team Auto-Notifications
+                </label>
+                {[
+                  { key: 'onTaskAssigned', label: 'When task assigned' },
+                  { key: 'onDueApproaching', label: 'When due date approaching (24h)' },
+                  { key: 'onOverdue', label: 'When task overdue' },
+                  { key: 'onFeedbackReceived', label: 'When feedback received' },
+                  { key: 'onSubtaskComplete', label: 'When subtask completed' },
+                ].map(item => (
+                  <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${t.border}` }}>
+                    <span style={{ fontSize: '13px', color: t.text }}>{item.label}</span>
+                    <button
+                      onClick={() => saveNotificationSettings({
+                        ...notificationSettings,
+                        teamNotifications: {
+                          ...notificationSettings.teamNotifications,
+                          [item.key]: !notificationSettings.teamNotifications[item.key]
+                        }
+                      })}
+                      style={{
+                        width: '44px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        background: notificationSettings.teamNotifications[item.key] ? t.success : t.bgInput,
+                        cursor: 'pointer',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        background: '#fff',
+                        position: 'absolute',
+                        top: '2px',
+                        left: notificationSettings.teamNotifications[item.key] ? '22px' : '2px',
+                        transition: 'left 0.2s'
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              <Btn theme={theme} onClick={() => setShowSettings(false)} style={{ width: '100%' }}>Done</Btn>
+            </div>
+          </Modal>
         )}
       </div>
     );
@@ -3269,6 +4332,11 @@ export default function MainApp() {
       const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback, status: 'changes-requested' } : a); 
       const activity = { id: generateId(), type: 'feedback', message: `${userProfile.name} added feedback on ${selectedAsset.name}${mentions.length > 0 ? ` (mentioned ${mentions.map(m => m.name).join(', ')})` : ''}`, timestamp: new Date().toISOString() };
       await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); 
+      
+      // Auto-create revision task from feedback (for clients and producers)
+      if (isClientView || isProducer) {
+        createTaskFromFeedback(fb, selectedAsset, selectedProject);
+      }
       
       // Email notification to assigned person
       if (selectedAsset.assignedTo) {
