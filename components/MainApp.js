@@ -351,8 +351,7 @@ const getProjectNotifs = (project) => {
 };
 
 // Full Screen Image/Video Modal
-const Modal = ({ title, onClose, children, wide }) => {
-  const { theme } = useTheme();
+const Modal = ({ title, onClose, children, wide, theme = 'dark' }) => {
   const t = THEMES[theme];
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
@@ -375,8 +374,7 @@ const Modal = ({ title, onClose, children, wide }) => {
 };
 
 // Activity Timeline Component
-const ActivityTimeline = ({ activities = [], maxItems = 10 }) => {
-  const { theme } = useTheme();
+const ActivityTimeline = ({ activities = [], maxItems = 10, theme = 'dark' }) => {
   const t = THEMES[theme];
   const sorted = [...activities].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, maxItems);
   const getIcon = (type) => {
@@ -430,18 +428,15 @@ const sendEmailNotification = async (to, subject, body, type = 'default', data =
 };
 
 const Toast = ({ message, type, onClose }) => { useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]); return <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', padding: '14px 24px', background: type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '500', zIndex: 2000, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>{message}</div>; };
-const Btn = ({ children, onClick, color = '#6366f1', disabled, small, outline }) => {
-  const { theme } = useTheme();
+const Btn = ({ children, onClick, color = '#6366f1', disabled, small, outline, theme = 'dark' }) => {
   const t = THEMES[theme];
   return <button onClick={onClick} disabled={disabled} style={{ padding: small ? '8px 14px' : '10px 18px', background: outline ? 'transparent' : color, border: outline ? `1px solid ${color}` : 'none', borderRadius: '8px', color: outline ? color : '#fff', fontSize: small ? '11px' : '13px', fontWeight: '500', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s' }}>{children}</button>;
 };
-const Input = ({ value, onChange, placeholder, type = 'text', style, ...props }) => {
-  const { theme } = useTheme();
+const Input = ({ value, onChange, placeholder, type = 'text', style, theme = 'dark', ...props }) => {
   const t = THEMES[theme];
   return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type} style={{ width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.15s', ...style }} {...props} />;
 };
-const Select = ({ value, onChange, children, style }) => {
-  const { theme } = useTheme();
+const Select = ({ value, onChange, children, style, theme = 'dark' }) => {
   const t = THEMES[theme];
   return <select value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', outline: 'none', ...style }}>{children}</select>;
 };
@@ -2095,7 +2090,7 @@ export default function MainApp() {
               {allTasks.length} task{allTasks.length !== 1 ? 's' : ''} • {overdueTasks.length} overdue
             </p>
           </div>
-          <Btn onClick={() => setShowAddTask(true)} small>+ Add Task</Btn>
+          <Btn theme={theme} onClick={() => setShowAddTask(true)} small>+ Add Task</Btn>
         </div>
 
         {/* Quick Stats */}
@@ -2284,7 +2279,7 @@ export default function MainApp() {
 
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Link to Project (optional)</label>
-                <Select value={newTask.projectId} onChange={(v) => setNewTask({ ...newTask, projectId: v })}>
+                <Select theme={theme} value={newTask.projectId} onChange={(v) => setNewTask({ ...newTask, projectId: v })}>
                   <option value="">No project</option>
                   {projects.filter(p => p.status === 'active').map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -2293,8 +2288,8 @@ export default function MainApp() {
               </div>
 
               <div style={{ display: 'flex', gap: '10px' }}>
-                <Btn onClick={() => setShowAddTask(false)} outline style={{ flex: 1 }}>Cancel</Btn>
-                <Btn onClick={addTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Add Task</Btn>
+                <Btn theme={theme} onClick={() => setShowAddTask(false)} outline style={{ flex: 1 }}>Cancel</Btn>
+                <Btn theme={theme} onClick={addTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Add Task</Btn>
               </div>
             </div>
           </div>
@@ -2344,8 +2339,8 @@ export default function MainApp() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Projects</h1>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <Input value={search} onChange={setSearch} placeholder="🔍 Search..." style={{ width: isMobile ? '140px' : '180px' }} />
-            {isProducer && <Btn onClick={() => setShowCreate(true)}>+ New</Btn>}
+            <Input theme={theme} value={search} onChange={setSearch} placeholder="🔍 Search..." style={{ width: isMobile ? '140px' : '180px' }} />
+            {isProducer && <Btn theme={theme} onClick={() => setShowCreate(true)}>+ New</Btn>}
           </div>
         </div>
         
@@ -2364,7 +2359,7 @@ export default function MainApp() {
             <div style={{ fontSize: '50px', marginBottom: '16px' }}>{projectTab === 'active' ? '📁' : '✅'}</div>
             <h3 style={{ marginBottom: '8px', fontSize: '16px' }}>{projectTab === 'active' ? 'No Active Projects' : 'No Completed Projects'}</h3>
             <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '20px' }}>{projectTab === 'active' ? 'Create your first project' : 'Complete a project to see it here'}</p>
-            {isProducer && projectTab === 'active' && <Btn onClick={() => setShowCreate(true)}>+ Create Project</Btn>}
+            {isProducer && projectTab === 'active' && <Btn theme={theme} onClick={() => setShowCreate(true)}>+ Create Project</Btn>}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
@@ -2406,16 +2401,16 @@ export default function MainApp() {
           </div>
         )}
         {showCreate && (
-          <Modal title="Create Project" onClose={() => setShowCreate(false)}>
+          <Modal theme={theme} title="Create Project" onClose={() => setShowCreate(false)}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
-              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Name *</label><Input value={newProj.name} onChange={v => setNewProj({ ...newProj, name: v })} placeholder="e.g., RasikaD Photoshoot" /></div>
-              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Client *</label><Input value={newProj.client} onChange={v => setNewProj({ ...newProj, client: v })} placeholder="e.g., Client Name" /></div>
+              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Name *</label><Input theme={theme} value={newProj.name} onChange={v => setNewProj({ ...newProj, name: v })} placeholder="e.g., RasikaD Photoshoot" /></div>
+              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Client *</label><Input theme={theme} value={newProj.client} onChange={v => setNewProj({ ...newProj, client: v })} placeholder="e.g., Client Name" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label><Select value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">📸 Photoshoot</option><option value="ad-film">🎬 Ad Film</option><option value="toolkit">🧰 Toolkit</option><option value="product-video">📦 Product Video</option><option value="social-media">📱 Social Media</option><option value="corporate">🏢 Corporate Video</option><option value="music-video">🎵 Music Video</option><option value="brand-film">🎯 Brand Film</option><option value="reels">🎞️ Reels/Shorts</option><option value="ecommerce">🛒 E-Commerce</option><option value="event">🎪 Event Coverage</option><option value="documentary">📽️ Documentary</option></Select></div>
-                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Deadline</label><Input type="date" value={newProj.deadline} onChange={v => setNewProj({ ...newProj, deadline: v })} /></div>
+                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label><Select theme={theme} value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">📸 Photoshoot</option><option value="ad-film">🎬 Ad Film</option><option value="toolkit">🧰 Toolkit</option><option value="product-video">📦 Product Video</option><option value="social-media">📱 Social Media</option><option value="corporate">🏢 Corporate Video</option><option value="music-video">🎵 Music Video</option><option value="brand-film">🎯 Brand Film</option><option value="reels">🎞️ Reels/Shorts</option><option value="ecommerce">🛒 E-Commerce</option><option value="event">🎪 Event Coverage</option><option value="documentary">📽️ Documentary</option></Select></div>
+                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Deadline</label><Input theme={theme} type="date" value={newProj.deadline} onChange={v => setNewProj({ ...newProj, deadline: v })} /></div>
               </div>
               <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Categories</label><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{DEFAULT_CATEGORIES.map(cat => <div key={cat.id} onClick={() => setNewProj(p => ({ ...p, selectedCats: p.selectedCats.includes(cat.id) ? p.selectedCats.filter(x => x !== cat.id) : [...p.selectedCats, cat.id] }))} style={{ padding: '8px 12px', background: newProj.selectedCats.includes(cat.id) ? `${cat.color}30` : t.bgInput, border: `1px solid ${newProj.selectedCats.includes(cat.id) ? cat.color : t.border}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: newProj.selectedCats.includes(cat.id) ? cat.color : t.textSecondary }}>{cat.icon} {cat.name}</div>)}</div></div>
-              <Btn onClick={handleCreate} disabled={!newProj.name || !newProj.client || creating}>{creating ? '⏳...' : '🚀 Create'}</Btn>
+              <Btn theme={theme} onClick={handleCreate} disabled={!newProj.name || !newProj.client || creating}>{creating ? '⏳...' : '🚀 Create'}</Btn>
             </div>
           </Modal>
         )}
@@ -2532,7 +2527,7 @@ export default function MainApp() {
               {coreTeam.length + freelancers.length} team members • {clients.length} clients
             </p>
           </div>
-          {isProducer && <Btn onClick={() => setShowAdd(true)}>+ Add</Btn>}
+          {isProducer && <Btn theme={theme} onClick={() => setShowAdd(true)}>+ Add</Btn>}
         </div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>{[{ id: 'core', label: '👑 Core', data: coreTeam }, { id: 'freelancers', label: '🎨 Freelancers', data: freelancers }, { id: 'clients', label: '👔 Clients', data: clients }].map(tabItem => <button key={tabItem.id} onClick={() => setTab(tabItem.id)} style={{ padding: '10px 16px', background: tab === tabItem.id ? t.primary : t.bgCard, border: `1px solid ${tab === tabItem.id ? t.primary : t.border}`, borderRadius: '8px', color: tab === tabItem.id ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>{tabItem.label} ({tabItem.data.length})</button>)}</div>
         <div>
@@ -2541,16 +2536,16 @@ export default function MainApp() {
           {tab === 'clients' && (clients.length ? clients.map(renderUser) : <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '40px', color: t.textMuted, fontSize: '12px' }}>No clients</div>)}
         </div>
         {showAdd && (
-          <Modal title="Add Team Member" onClose={() => { setShowAdd(false); setError(''); }}>
+          <Modal theme={theme} title="Add Team Member" onClose={() => { setShowAdd(false); setError(''); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'auto' }}>
               <div style={{ display: 'flex', gap: '8px' }}>{['core', 'freelancer', 'client'].map(type => <button key={type} onClick={() => setNewUser({ ...newUser, type, role: type === 'core' ? 'producer' : type === 'client' ? 'client' : 'photo-editor' })} style={{ flex: 1, padding: '12px', background: newUser.type === type ? t.primary : t.bgCard, border: `1px solid ${newUser.type === type ? t.primary : t.border}`, borderRadius: '8px', color: newUser.type === type ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>{type === 'core' ? '👑 Core' : type === 'freelancer' ? '🎨 Freelancer' : '👔 Client'}</button>)}</div>
-              <Input value={newUser.name} onChange={v => setNewUser({ ...newUser, name: v })} placeholder="Name *" />
-              <Input value={newUser.email} onChange={v => setNewUser({ ...newUser, email: v })} placeholder="Email *" type="email" />
-              <Input value={newUser.password} onChange={v => setNewUser({ ...newUser, password: v })} placeholder="Password *" type="password" />
-              {newUser.type !== 'client' && <Select value={newUser.role} onChange={v => setNewUser({ ...newUser, role: v })}>{newUser.type === 'core' ? Object.entries(CORE_ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>) : Object.entries(TEAM_ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}</Select>}
-              {newUser.type === 'client' && <Input value={newUser.company} onChange={v => setNewUser({ ...newUser, company: v })} placeholder="Company" />}
+              <Input theme={theme} value={newUser.name} onChange={v => setNewUser({ ...newUser, name: v })} placeholder="Name *" />
+              <Input theme={theme} value={newUser.email} onChange={v => setNewUser({ ...newUser, email: v })} placeholder="Email *" type="email" />
+              <Input theme={theme} value={newUser.password} onChange={v => setNewUser({ ...newUser, password: v })} placeholder="Password *" type="password" />
+              {newUser.type !== 'client' && <Select theme={theme} value={newUser.role} onChange={v => setNewUser({ ...newUser, role: v })}>{newUser.type === 'core' ? Object.entries(CORE_ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>) : Object.entries(TEAM_ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}</Select>}
+              {newUser.type === 'client' && <Input theme={theme} value={newUser.company} onChange={v => setNewUser({ ...newUser, company: v })} placeholder="Company" />}
               {error && <div style={{ padding: '10px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', color: '#ef4444', fontSize: '12px' }}>{error}</div>}
-              <Btn onClick={handleCreate} disabled={creating}>{creating ? '⏳...' : '✓ Add'}</Btn>
+              <Btn theme={theme} onClick={handleCreate} disabled={creating}>{creating ? '⏳...' : '✓ Add'}</Btn>
             </div>
           </Modal>
         )}
@@ -2648,7 +2643,7 @@ export default function MainApp() {
               <span style={{ fontSize: '11px', color: '#ef4444' }}>{overdueTasks.length} overdue</span>
             )}
           </div>
-          <Btn onClick={() => setShowAddTask(true)} small>+ Add Task</Btn>
+          <Btn theme={theme} onClick={() => setShowAddTask(true)} small>+ Add Task</Btn>
         </div>
         
         <div style={{ padding: '14px' }}>
@@ -2830,7 +2825,7 @@ export default function MainApp() {
 
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Assign To (optional)</label>
-                <Select value={newTask.assignedTo} onChange={(v) => setNewTask({ ...newTask, assignedTo: v })}>
+                <Select theme={theme} value={newTask.assignedTo} onChange={(v) => setNewTask({ ...newTask, assignedTo: v })}>
                   <option value="">Unassigned</option>
                   {allTeam.map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({TEAM_ROLES[u.role]?.label || u.role})</option>
@@ -2839,8 +2834,8 @@ export default function MainApp() {
               </div>
 
               <div style={{ display: 'flex', gap: '10px' }}>
-                <Btn onClick={() => setShowAddTask(false)} outline style={{ flex: 1 }}>Cancel</Btn>
-                <Btn onClick={addTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Add Task</Btn>
+                <Btn theme={theme} onClick={() => setShowAddTask(false)} outline style={{ flex: 1 }}>Cancel</Btn>
+                <Btn theme={theme} onClick={addTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Add Task</Btn>
               </div>
             </div>
           </div>
@@ -3350,12 +3345,12 @@ export default function MainApp() {
               {!isMobile && <Badge status={selectedProject.status} />}
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {isProducer && !isMobile && <Btn onClick={() => setShowShare(true)} small outline>{Icons.share(t.primary)} Share</Btn>}
+              {isProducer && !isMobile && <Btn theme={theme} onClick={() => setShowShare(true)} small outline>{Icons.share(t.primary)} Share</Btn>}
               <div style={{ position: 'relative' }}>
-                <Btn onClick={() => setShowAppearance(!showAppearance)} small outline>{Icons.settings(t.primary)}</Btn>
+                <Btn theme={theme} onClick={() => setShowAppearance(!showAppearance)} small outline>{Icons.settings(t.primary)}</Btn>
                 {showAppearance && <AppearancePanel settings={appearance} onChange={setAppearance} onClose={() => setShowAppearance(false)} />}
               </div>
-              {isProducer && <Btn onClick={() => setShowUpload(true)} small color="#22c55e">{Icons.upload('#fff')}{!isMobile && ' Upload'}</Btn>}
+              {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)} small color="#22c55e">{Icons.upload('#fff')}{!isMobile && ' Upload'}</Btn>}
             </div>
           </div>
 
@@ -3433,11 +3428,11 @@ export default function MainApp() {
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', color: t.textMuted }}>{selectedAssets.size}</span>
-                <Btn onClick={() => handleBulkSelect(true)} small color="#22c55e">✓</Btn>
-                <Btn onClick={() => handleBulkSelect(false)} small outline>✗</Btn>
+                <Btn theme={theme} onClick={() => handleBulkSelect(true)} small color="#22c55e">✓</Btn>
+                <Btn theme={theme} onClick={() => handleBulkSelect(false)} small outline>✗</Btn>
               </div>
             )}
-            {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && isProducer && !isMobile && <Btn onClick={handleConfirmSelection} small color="#f59e0b">🎯 Confirm ({selectedCount})</Btn>}
+            {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && isProducer && !isMobile && <Btn theme={theme} onClick={handleConfirmSelection} small color="#f59e0b">🎯 Confirm ({selectedCount})</Btn>}
             
             {/* View Mode Toggle */}
             {tab === 'assets' && assets.length > 0 && (
@@ -3478,7 +3473,7 @@ export default function MainApp() {
                   <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
                     <div style={{ fontSize: '50px', marginBottom: '14px' }}>📂</div>
                     <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '16px' }}>No assets</p>
-                    {isProducer && <Btn onClick={() => setShowUpload(true)}>⬆️ Upload</Btn>}
+                    {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>⬆️ Upload</Btn>}
                   </div>
                 ) : viewMode === 'kanban' ? (
                   <KanbanView 
@@ -3622,14 +3617,14 @@ export default function MainApp() {
                 <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
                   <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, fontSize: '14px' }}>👥 Team ({team.length})</h3>
-                    {isProducer && <Btn onClick={() => setShowAddTeam(true)} small>+ Add Member</Btn>}
+                    {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Member</Btn>}
                   </div>
                   <div style={{ padding: '14px' }}>
                     {team.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted }}>
                         <div style={{ fontSize: '40px', marginBottom: '10px' }}>👥</div>
                         <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members yet</div>
-                        {isProducer && <Btn onClick={() => setShowAddTeam(true)} small>+ Add Team Member</Btn>}
+                        {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Team Member</Btn>}
                       </div>
                     ) : (
                       team.map(m => {
@@ -3710,7 +3705,7 @@ export default function MainApp() {
                               <div style={{ fontWeight: '500', fontSize: '12px' }}>{m.name}</div>
                               <div style={{ fontSize: '10px', color: t.textMuted }}>{m.reason}</div>
                             </div>
-                            <Btn onClick={async () => {
+                            <Btn theme={theme} onClick={async () => {
                               const updatedTeam = [...(selectedProject.assignedTeam || []), { odId: m.id, isOwner: false }];
                               await updateProject(selectedProject.id, { assignedTeam: updatedTeam });
                               await refreshProject();
@@ -3728,7 +3723,7 @@ export default function MainApp() {
             {tab === 'activity' && (
               <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '18px' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px' }}>📋 Activity Timeline</h3>
-                <ActivityTimeline activities={selectedProject.activityLog || []} maxItems={20} />
+                <ActivityTimeline activities={selectedProject.activityLog || []} maxItems={20} theme={theme} />
               </div>
             )}
 
@@ -3738,10 +3733,10 @@ export default function MainApp() {
                   <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px', marginBottom: '16px' }}>
                     <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>🔗 Create Share Link</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr auto', gap: '10px', alignItems: 'end' }}>
-                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Name</label><Input value={newLinkName} onChange={setNewLinkName} placeholder="e.g., Client Review" /></div>
-                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Type</label><Select value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select></div>
-                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Expiry (optional)</label><Input type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
-                      <Btn onClick={handleCreateLink}>Create</Btn>
+                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Name</label><Input theme={theme} value={newLinkName} onChange={setNewLinkName} placeholder="e.g., Client Review" /></div>
+                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Type</label><Select theme={theme} value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select></div>
+                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Expiry (optional)</label><Input theme={theme} type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
+                      <Btn theme={theme} onClick={handleCreateLink}>Create</Btn>
                     </div>
                   </div>
                 )}
@@ -3753,7 +3748,7 @@ export default function MainApp() {
                       <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: isExpired ? 'rgba(239,68,68,0.1)' : t.bgInput, borderRadius: '10px', marginBottom: '8px', border: isExpired ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}` }}>
                         <span style={{ fontSize: '24px' }}>{link.type === 'client' ? '👔' : '🎨'}</span>
                         <div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>{link.name}{isExpired && <span style={{ fontSize: '9px', padding: '2px 6px', background: '#ef4444', borderRadius: '4px' }}>EXPIRED</span>}</div><div style={{ fontSize: '10px', color: t.textMuted }}>{link.type} • {formatTimeAgo(link.createdAt)}{link.expiresAt && !isExpired && <span> • Expires {formatDate(link.expiresAt)}</span>}</div></div>
-                        <div style={{ display: 'flex', gap: '6px' }}><Btn onClick={() => copyLink(link.token)} small outline>📋</Btn>{isProducer && <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>}</div>
+                        <div style={{ display: 'flex', gap: '6px' }}><Btn theme={theme} onClick={() => copyLink(link.token)} small outline>📋</Btn>{isProducer && <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>}</div>
                       </div>
                     );
                   })}
@@ -3765,7 +3760,7 @@ export default function MainApp() {
 
         {/* Upload Modal */}
         {showUpload && (
-          <Modal title="Upload Assets" onClose={() => { setShowUpload(false); setUploadFiles([]); }}>
+          <Modal theme={theme} title="Upload Assets" onClose={() => { setShowUpload(false); setUploadFiles([]); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
               <div style={{ textAlign: 'center', padding: '40px', border: '2px dashed #2a2a3e', borderRadius: '12px', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
                 <div style={{ fontSize: '44px', marginBottom: '12px' }}>📤</div>
@@ -3773,23 +3768,23 @@ export default function MainApp() {
                 <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => setUploadFiles(Array.from(e.target.files))} />
               </div>
               {uploadFiles.length > 0 && <div style={{ maxHeight: '140px', overflow: 'auto', background: t.bgInput, borderRadius: '8px', padding: '10px' }}>{uploadFiles.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}><span>{f.name}</span><span style={{ color: t.textMuted }}>{formatFileSize(f.size)}</span></div>)}</div>}
-              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Category</label><Select value={selectedCat || cats[0]?.id || ''} onChange={setSelectedCat}>{cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</Select></div>
-              <Btn onClick={handleUpload} disabled={!uploadFiles.length} color="#22c55e">⬆️ Upload {uploadFiles.length} Files</Btn>
+              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Category</label><Select theme={theme} value={selectedCat || cats[0]?.id || ''} onChange={setSelectedCat}>{cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</Select></div>
+              <Btn theme={theme} onClick={handleUpload} disabled={!uploadFiles.length} color="#22c55e">⬆️ Upload {uploadFiles.length} Files</Btn>
             </div>
           </Modal>
         )}
 
         {/* Share Modal */}
         {showShare && (
-          <Modal title="Share Project" onClose={() => setShowShare(false)}>
+          <Modal theme={theme} title="Share Project" onClose={() => setShowShare(false)}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <Input value={newLinkName} onChange={setNewLinkName} placeholder="Link name" />
-                <Select value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select>
+                <Input theme={theme} value={newLinkName} onChange={setNewLinkName} placeholder="Link name" />
+                <Select theme={theme} value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Expiry</label><Input type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
-                <div style={{ display: 'flex', alignItems: 'end' }}><Btn onClick={handleCreateLink}>Create</Btn></div>
+                <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Expiry</label><Input theme={theme} type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
+                <div style={{ display: 'flex', alignItems: 'end' }}><Btn theme={theme} onClick={handleCreateLink}>Create</Btn></div>
               </div>
               <div style={{ marginTop: '8px' }}>
                 <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Active ({shareLinks.length})</div>
@@ -3797,7 +3792,7 @@ export default function MainApp() {
                   <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
                     <span style={{ fontSize: '18px' }}>{link.type === 'client' ? '👔' : '🎨'}</span>
                     <div style={{ flex: 1 }}><div style={{ fontSize: '12px' }}>{link.name}</div></div>
-                    <Btn onClick={() => copyLink(link.token)} small outline>Copy</Btn>
+                    <Btn theme={theme} onClick={() => copyLink(link.token)} small outline>Copy</Btn>
                     <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>🗑️</button>
                   </div>
                 ))}
@@ -3808,14 +3803,14 @@ export default function MainApp() {
 
         {/* Add Team Modal */}
         {showAddTeam && (
-          <Modal title="Add Team Member" onClose={() => setShowAddTeam(false)}>
+          <Modal theme={theme} title="Add Team Member" onClose={() => setShowAddTeam(false)}>
             <div style={{ padding: '20px', maxHeight: '400px', overflow: 'auto' }}>{availableTeam.length === 0 ? <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>All added</div> : availableTeam.map(u => <div key={u.id} onClick={() => handleAddTeam(u.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: t.bgInput, borderRadius: '10px', marginBottom: '8px', cursor: 'pointer' }}><Avatar user={u} size={40} /><div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '12px', color: t.text }}>{u.name}</div><div style={{ fontSize: '10px', color: t.textMuted }}>{u.email}</div></div><RoleBadge role={u.role} /></div>)}</div>
           </Modal>
         )}
 
         {/* Edit Project Modal */}
         {showEditProject && (
-          <Modal title="Edit Project" onClose={() => setShowEditProject(false)}>
+          <Modal theme={theme} title="Edit Project" onClose={() => setShowEditProject(false)}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Project Name</label>
@@ -3835,7 +3830,7 @@ export default function MainApp() {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Status</label>
-                <Select value={editProjectData.status} onChange={(v) => setEditProjectData({ ...editProjectData, status: v })}>
+                <Select theme={theme} value={editProjectData.status} onChange={(v) => setEditProjectData({ ...editProjectData, status: v })}>
                   <option value="active">Active</option>
                   <option value="completed">Completed</option>
                   <option value="on-hold">On Hold</option>
@@ -3893,7 +3888,7 @@ export default function MainApp() {
                 >
                   Save Changes
                 </Btn>
-                <Btn onClick={() => setShowEditProject(false)} outline>Cancel</Btn>
+                <Btn theme={theme} onClick={() => setShowEditProject(false)} outline>Cancel</Btn>
               </div>
             </div>
           </Modal>
@@ -3901,7 +3896,7 @@ export default function MainApp() {
 
         {/* ASSET PREVIEW MODAL - FIXED IMAGE SIZING */}
         {selectedAsset && (
-          <Modal title={selectedAsset.name} onClose={() => setSelectedAsset(null)} wide>
+          <Modal theme={theme} title={selectedAsset.name} onClose={() => setSelectedAsset(null)} wide>
             {/* Asset Tabs */}
             <div style={{ display: 'flex', gap: '6px', padding: '12px 20px', borderBottom: `1px solid ${t.border}`, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: '6px' }}>
@@ -4095,7 +4090,7 @@ export default function MainApp() {
                           </div>
                         )}
                       </div>
-                      <Btn onClick={handleAddFeedback} disabled={!newFeedback.trim()} small>Send</Btn>
+                      <Btn theme={theme} onClick={handleAddFeedback} disabled={!newFeedback.trim()} small>Send</Btn>
                     </div>
                   </div>
                 </div>
@@ -4138,7 +4133,7 @@ export default function MainApp() {
                   {/* Status */}
                   <div style={{ marginBottom: '14px' }}>
                     <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Status</label>
-                    <Select value={selectedAsset.status} onChange={v => handleUpdateStatus(selectedAsset.id, v)} style={{ padding: '8px 10px', fontSize: '12px' }}>
+                    <Select theme={theme} value={selectedAsset.status} onChange={v => handleUpdateStatus(selectedAsset.id, v)} style={{ padding: '8px 10px', fontSize: '12px' }}>
                       {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </Select>
                   </div>
@@ -4147,7 +4142,7 @@ export default function MainApp() {
                   {isProducer && (
                     <div style={{ marginBottom: '14px' }}>
                       <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Assign To</label>
-                      <Select value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ padding: '8px 10px', fontSize: '12px' }}>
+                      <Select theme={theme} value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ padding: '8px 10px', fontSize: '12px' }}>
                         <option value="">-- Unassigned --</option>
                         {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                       </Select>
@@ -4194,7 +4189,7 @@ export default function MainApp() {
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
                       <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 12) + '...' : '+ New Version'}</button>
-                      {versionFile && <Btn onClick={handleUploadVersion} small disabled={uploadingVersion}>{uploadingVersion ? '⏳' : '⬆️'}</Btn>}
+                      {versionFile && <Btn theme={theme} onClick={handleUploadVersion} small disabled={uploadingVersion}>{uploadingVersion ? '⏳' : '⬆️'}</Btn>}
                     </div>
                   </div>
 
@@ -4203,8 +4198,8 @@ export default function MainApp() {
                     <div style={{ marginBottom: '14px' }}>
                       <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📁 GDrive Link</label>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <Input value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '8px', fontSize: '11px' }} />
-                        <Btn onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} small>Save</Btn>
+                        <Input theme={theme} value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '8px', fontSize: '11px' }} />
+                        <Btn theme={theme} onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} small>Save</Btn>
                       </div>
                     </div>
                   )}
@@ -4539,7 +4534,7 @@ export default function MainApp() {
             ))}
           </div>
           {(tool === 'text' || tool === 'rect' || tool === 'circle') && (
-            <Input value={newText} onChange={setNewText} placeholder={tool === 'text' ? 'Text...' : 'Label...'} style={{ width: '100px', padding: '6px 10px', fontSize: '11px' }} />
+            <Input theme={theme} value={newText} onChange={setNewText} placeholder={tool === 'text' ? 'Text...' : 'Label...'} style={{ width: '100px', padding: '6px 10px', fontSize: '11px' }} />
           )}
           {/* Zoom controls */}
           <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px', marginLeft: 'auto' }}>
@@ -4629,9 +4624,9 @@ export default function MainApp() {
     return (
       <div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Select value={leftV} onChange={v => setLeftV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
+          <Select theme={theme} value={leftV} onChange={v => setLeftV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
           <span style={{ color: 'rgba(255,255,255,0.3)', alignSelf: 'center' }}>vs</span>
-          <Select value={rightV} onChange={v => setRightV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
+          <Select theme={theme} value={rightV} onChange={v => setRightV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
           <div style={{ background: t.bgInput, borderRadius: '10px', overflow: 'hidden' }}>
@@ -4671,7 +4666,7 @@ export default function MainApp() {
       
       {/* Company Settings Modal */}
       {showCompanySettings && (
-        <Modal title="Company Settings" onClose={() => setShowCompanySettings(false)}>
+        <Modal theme={theme} title="Company Settings" onClose={() => setShowCompanySettings(false)}>
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Company Name</label>
@@ -4773,10 +4768,10 @@ export default function MainApp() {
             </div>
             
             <div style={{ display: 'flex', gap: '10px' }}>
-              <Btn onClick={() => { setShowCompanySettings(false); showToast('Settings saved', 'success'); }}>
+              <Btn theme={theme} onClick={() => { setShowCompanySettings(false); showToast('Settings saved', 'success'); }}>
                 Save Settings
               </Btn>
-              <Btn onClick={() => setShowCompanySettings(false)} outline>Cancel</Btn>
+              <Btn theme={theme} onClick={() => setShowCompanySettings(false)} outline>Cancel</Btn>
             </div>
           </div>
         </Modal>
