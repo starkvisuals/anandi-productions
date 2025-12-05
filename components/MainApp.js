@@ -2213,21 +2213,21 @@ export default function MainApp() {
     }).filter(m => m.totalAssigned > 0).sort((a, b) => b.totalAssigned - a.totalAssigned);
     
     return (
-      <div>
+      <div style={{ overflow: 'auto' }}>
         <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700' }}>Welcome, {userProfile?.firstName}</h1>
+          <h1 style={{ margin: 0, fontSize: isMobile ? '20px' : '24px', fontWeight: '700' }}>Welcome, {userProfile?.firstName}</h1>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: t.textMuted }}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
         
         {/* Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: '12px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
           {stats.map(s => (
-            <div key={s.label} style={{ background: s.alert ? 'rgba(239,68,68,0.1)' : t.bgCard, borderRadius: '12px', border: s.alert ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}`, padding: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `${s.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{s.icon}</div>
+            <div key={s.label} style={{ background: s.alert ? 'rgba(239,68,68,0.1)' : t.bgCard, borderRadius: '10px', border: s.alert ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}`, padding: isMobile ? '12px' : '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', borderRadius: '8px', background: `${s.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '14px' : '18px' }}>{s.icon}</div>
                 <div>
-                  <div style={{ fontSize: '22px', fontWeight: '700', color: s.color }}>{s.value}</div>
-                  <div style={{ fontSize: '10px', color: t.textMuted }}>{s.label}</div>
+                  <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '700', color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: isMobile ? '9px' : '10px', color: t.textMuted }}>{s.label}</div>
                 </div>
               </div>
             </div>
@@ -2236,77 +2236,83 @@ export default function MainApp() {
         
         {/* Alerts Section */}
         {(overdueAssets.length > 0 || pendingReview.length > 0) && (
-          <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '14px', color: '#ef4444' }}>⚠️ Needs Attention</h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', padding: isMobile ? '12px' : '16px', marginBottom: '20px' }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: '13px', color: '#ef4444' }}>⚠️ Needs Attention</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {overdueAssets.slice(0, 5).map(a => (
-                <span key={a.id} style={{ padding: '6px 12px', background: 'rgba(239,68,68,0.15)', borderRadius: '6px', fontSize: '11px', color: '#fca5a5' }}>
-                  🚨 {a.name} overdue
+                <span key={a.id} style={{ padding: '5px 10px', background: 'rgba(239,68,68,0.15)', borderRadius: '6px', fontSize: '10px', color: '#fca5a5' }}>
+                  🚨 {a.name.length > 15 ? a.name.substring(0, 15) + '...' : a.name}
                 </span>
               ))}
               {pendingReview.slice(0, 3).map(a => (
-                <span key={a.id} style={{ padding: '6px 12px', background: 'rgba(168,85,247,0.15)', borderRadius: '6px', fontSize: '11px', color: '#c4b5fd' }}>
-                  👁️ {a.name} needs review
+                <span key={a.id} style={{ padding: '5px 10px', background: 'rgba(168,85,247,0.15)', borderRadius: '6px', fontSize: '10px', color: '#c4b5fd' }}>
+                  👁️ {a.name.length > 15 ? a.name.substring(0, 15) + '...' : a.name}
                 </span>
               ))}
             </div>
           </div>
         )}
         
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '12px' }}>
           {/* Active Projects */}
-          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ margin: 0, fontSize: '14px' }}>📁 Active Projects ({activeProjects.length})</h3>
+          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: isMobile ? '12px' : '16px', minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '13px' }}>📁 Active ({activeProjects.length})</h3>
             </div>
-            {activeProjects.slice(0, 5).map(p => {
-              const pAssets = (p.assets || []).filter(a => !a.deleted);
-              const pOverdue = pAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered').length;
-              return (
-                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px', cursor: 'pointer', border: pOverdue > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid transparent' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: '500', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontSize: '10px', color: t.textMuted }}>{p.client} • {pAssets.length} assets</div>
+            <div style={{ maxHeight: isMobile ? '200px' : '280px', overflowY: 'auto' }}>
+              {activeProjects.slice(0, 5).map(p => {
+                const pAssets = (p.assets || []).filter(a => !a.deleted);
+                const pOverdue = pAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered').length;
+                return (
+                  <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px', cursor: 'pointer', border: pOverdue > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid transparent' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: '500', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                      <div style={{ fontSize: '10px', color: t.textMuted }}>{p.client} • {pAssets.length} assets</div>
+                    </div>
+                    {pOverdue > 0 && <span style={{ padding: '2px 6px', background: '#ef4444', borderRadius: '4px', fontSize: '9px', flexShrink: 0, marginLeft: '6px' }}>{pOverdue}⚠️</span>}
                   </div>
-                  {pOverdue > 0 && <span style={{ padding: '2px 6px', background: '#ef4444', borderRadius: '4px', fontSize: '9px' }}>{pOverdue}⚠️</span>}
-                </div>
-              );
-            })}
-            {activeProjects.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>No active projects</div>}
+                );
+              })}
+              {activeProjects.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: t.textMuted, fontSize: '11px' }}>No active projects</div>}
+            </div>
           </div>
           
           {/* Team Workload */}
-          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>👥 Team Workload</h3>
-            {teamWorkload.slice(0, 5).map(m => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
-                <Avatar user={m} size={28} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                  <div style={{ fontSize: '10px', color: t.textMuted }}>{TEAM_ROLES[m.role]?.label || m.role}</div>
+          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: isMobile ? '12px' : '16px', minWidth: 0 }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: '13px' }}>👥 Team Workload</h3>
+            <div style={{ maxHeight: isMobile ? '200px' : '280px', overflowY: 'auto' }}>
+              {teamWorkload.slice(0, 5).map(m => (
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
+                  <Avatar user={m} size={28} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '11px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                    <div style={{ fontSize: '9px', color: t.textMuted }}>{TEAM_ROLES[m.role]?.label || m.role}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: m.overdue > 0 ? '#ef4444' : '#6366f1' }}>{m.totalAssigned}</div>
+                    {m.overdue > 0 && <div style={{ fontSize: '9px', color: '#ef4444' }}>{m.overdue} late</div>}
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', color: m.overdue > 0 ? '#ef4444' : '#6366f1' }}>{m.totalAssigned}</div>
-                  {m.overdue > 0 && <div style={{ fontSize: '9px', color: '#ef4444' }}>{m.overdue} overdue</div>}
-                </div>
-              </div>
-            ))}
-            {teamWorkload.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>No assigned work</div>}
+              ))}
+              {teamWorkload.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: t.textMuted, fontSize: '11px' }}>No assigned work</div>}
+            </div>
           </div>
           
           {/* Recent Activity */}
-          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>🔔 Recent Activity</h3>
-            {recentActivity.map(a => (
-              <div key={a.id} onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }} style={{ display: 'flex', gap: '10px', padding: '8px 10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px', cursor: 'pointer' }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', marginTop: '6px', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.message}</div>
-                  <div style={{ fontSize: '9px', color: t.textMuted }}>{a.projectName} • {formatTimeAgo(a.timestamp)}</div>
+          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: isMobile ? '12px' : '16px', minWidth: 0 }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: '13px' }}>🔔 Recent Activity</h3>
+            <div style={{ maxHeight: isMobile ? '200px' : '280px', overflowY: 'auto' }}>
+              {recentActivity.map(a => (
+                <div key={a.id} onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }} style={{ display: 'flex', gap: '8px', padding: '8px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px', cursor: 'pointer' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', marginTop: '5px', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.message}</div>
+                    <div style={{ fontSize: '9px', color: t.textMuted }}>{a.projectName} • {formatTimeAgo(a.timestamp)}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {recentActivity.length === 0 && <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>No activity</div>}
+              ))}
+              {recentActivity.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: t.textMuted, fontSize: '11px' }}>No activity</div>}
+            </div>
           </div>
         </div>
         
@@ -4029,87 +4035,63 @@ export default function MainApp() {
   // Project Tasks Tab Component - syncs with My Tasks
   const ProjectTasksTab = ({ project, onUpdate }) => {
     const [showAddTask, setShowAddTask] = useState(false);
-    const [newTask, setNewTask] = useState({ title: '', dueDate: '', dueTime: '', priority: 'medium', assignedTo: '' });
+    const [newTask, setNewTask] = useState({ title: '', dueDate: '', dueTime: '', priority: 'medium', assignedTo: [] });
+    const [newSubtask, setNewSubtask] = useState('');
+    const [expandedTask, setExpandedTask] = useState(null);
     
-    // Get project tasks from localStorage (synced with My Tasks)
-    const getProjectTasks = () => {
-      if (typeof window === 'undefined') return [];
-      const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
-      const allTasks = saved ? JSON.parse(saved) : [];
-      return allTasks.filter(t => t.projectId === project.id);
+    // Get project tasks from globalTasks (properly interlinked)
+    const projectTasks = globalTasks.filter(t => t.projectId === project.id);
+    
+    const priorityColors = { urgent: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
+    const priorityIcons = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+    const allTeam = [...coreTeam, ...freelancers, ...users].filter(u => 
+      (project.assignedTeam || []).some(t => t.odId === u.id) || u.role === 'producer'
+    );
+    
+    // Get subtask suggestions
+    const getSuggestions = (title) => {
+      if (!title) return [];
+      const words = title.toLowerCase().split(/\s+/);
+      const suggestions = new Set();
+      words.forEach(word => {
+        if (SUBTASK_SUGGESTIONS[word]) {
+          SUBTASK_SUGGESTIONS[word].forEach(s => suggestions.add(s));
+        }
+        Object.keys(SUBTASK_SUGGESTIONS).forEach(key => {
+          if (word.includes(key) || key.includes(word)) {
+            SUBTASK_SUGGESTIONS[key].slice(0, 2).forEach(s => suggestions.add(s));
+          }
+        });
+      });
+      return Array.from(suggestions).slice(0, 4);
     };
     
-    const [projectTasks, setProjectTasks] = useState(getProjectTasks());
+    const suggestions = getSuggestions(newTask.title);
     
-    // Refresh tasks when project changes
-    useEffect(() => {
-      setProjectTasks(getProjectTasks());
-    }, [project.id]);
-    
-    const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
-    const allTeam = [...coreTeam, ...freelancers];
-    
-    // Add task to project
-    const addTask = () => {
+    // Add task using global createTask
+    const handleAddTask = () => {
       if (!newTask.title.trim()) return;
-      const task = {
-        id: generateId(),
-        type: 'manual',
-        title: newTask.title,
-        dueDate: newTask.dueDate || null,
-        dueTime: newTask.dueTime || null,
-        priority: newTask.priority,
+      createTask({
+        ...newTask,
+        type: 'project',
         projectId: project.id,
         projectName: project.name,
-        assignedTo: newTask.assignedTo || null,
-        assignedToName: newTask.assignedTo ? allTeam.find(u => u.id === newTask.assignedTo)?.name : null,
-        completed: false,
-        createdAt: new Date().toISOString(),
-        createdBy: userProfile?.id
-      };
-      
-      // Save to localStorage (global task store)
-      const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
-      const allTasks = saved ? JSON.parse(saved) : [];
-      const updated = [task, ...allTasks];
-      localStorage.setItem(`anandi-tasks-${userProfile.id}`, JSON.stringify(updated));
-      
-      setProjectTasks([task, ...projectTasks]);
-      setNewTask({ title: '', dueDate: '', dueTime: '', priority: 'medium', assignedTo: '' });
+        assignedTo: newTask.assignedTo,
+        subtasks: newTask.subtasks || []
+      });
+      setNewTask({ title: '', dueDate: '', dueTime: '', priority: 'medium', assignedTo: [], subtasks: [] });
       setShowAddTask(false);
-      showToast('Task added', 'success');
     };
     
-    // Toggle task completion
-    const toggleTask = (taskId) => {
-      const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
-      const allTasks = saved ? JSON.parse(saved) : [];
-      const updated = allTasks.map(t => 
-        t.id === taskId ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : null } : t
-      );
-      localStorage.setItem(`anandi-tasks-${userProfile.id}`, JSON.stringify(updated));
-      setProjectTasks(updated.filter(t => t.projectId === project.id));
-    };
-    
-    // Delete task
-    const deleteTask = (taskId) => {
-      const saved = localStorage.getItem(`anandi-tasks-${userProfile?.id}`);
-      const allTasks = saved ? JSON.parse(saved) : [];
-      const updated = allTasks.filter(t => t.id !== taskId);
-      localStorage.setItem(`anandi-tasks-${userProfile.id}`, JSON.stringify(updated));
-      setProjectTasks(updated.filter(t => t.projectId === project.id));
-      showToast('Task deleted', 'success');
-    };
-    
-    const activeTasks = projectTasks.filter(t => !t.completed);
-    const completedTasks = projectTasks.filter(t => t.completed);
+    const activeTasks = projectTasks.filter(t => t.status !== 'done');
+    const completedTasks = projectTasks.filter(t => t.status === 'done');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const overdueTasks = activeTasks.filter(t => t.dueDate && new Date(t.dueDate) < today);
     
     return (
       <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
-        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '14px' }}>✓ Project Tasks ({activeTasks.length})</h3>
             {overdueTasks.length > 0 && (
@@ -4124,110 +4106,138 @@ export default function MainApp() {
             <div style={{ textAlign: 'center', padding: '40px', color: t.textMuted }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>📋</div>
               <div style={{ fontSize: '13px' }}>No tasks yet</div>
-              <div style={{ fontSize: '11px', marginTop: '4px' }}>Add tasks to track project work</div>
+              <div style={{ fontSize: '11px', marginTop: '4px' }}>Tasks created here sync with the Tasks tab</div>
             </div>
           ) : (
             <>
               {/* Active Tasks */}
-              {activeTasks.map(task => (
-                <div 
-                  key={task.id}
-                  style={{ 
-                    display: 'flex', 
-                    gap: '12px', 
-                    padding: '12px 14px', 
-                    background: t.bgInput, 
-                    borderRadius: '10px', 
-                    marginBottom: '8px',
-                    borderLeft: `3px solid ${priorityColors[task.priority]}`
-                  }}
-                >
+              {activeTasks.map(task => {
+                const isExpanded = expandedTask === task.id;
+                const isOverdue = task.dueDate && new Date(task.dueDate) < today;
+                const assignees = (task.assignedTo || []).map(id => allTeam.find(u => u.id === id)).filter(Boolean);
+                const completedSubs = (task.subtasks || []).filter(s => s.done).length;
+                const totalSubs = (task.subtasks || []).length;
+                
+                return (
                   <div 
-                    onClick={() => toggleTask(task.id)}
+                    key={task.id}
                     style={{ 
-                      width: '20px', 
-                      height: '20px', 
-                      borderRadius: '4px', 
-                      border: '2px solid #3a3a4a', 
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
+                      background: t.bgCard, 
+                      borderRadius: '10px', 
+                      marginBottom: '8px',
+                      border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.4)' : t.border}`,
+                      overflow: 'hidden'
                     }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '4px' }}>{task.title}</div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {task.assignedToName && (
-                        <span style={{ fontSize: '11px', color: t.textMuted }}>👤 {task.assignedToName}</span>
-                      )}
-                      {task.dueDate && (
-                        <span style={{ 
-                          fontSize: '11px', 
-                          color: new Date(task.dueDate) < today ? '#ef4444' : 'rgba(255,255,255,0.5)'
-                        }}>
-                          📅 {new Date(task.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                          {task.dueTime && ` ${task.dueTime}`}
-                        </span>
-                      )}
-                      <span style={{ 
-                        fontSize: '9px', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px', 
-                        background: `${priorityColors[task.priority]}20`, 
-                        color: priorityColors[task.priority],
-                        textTransform: 'uppercase'
-                      }}>
-                        {task.priority}
-                      </span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => deleteTask(task.id)}
-                    style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '16px' }}
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    <div style={{ height: '3px', background: priorityColors[task.priority] }} />
+                    <div 
+                      style={{ display: 'flex', gap: '12px', padding: '12px 14px', cursor: 'pointer' }}
+                      onClick={() => setExpandedTask(isExpanded ? null : task.id)}
+                    >
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id); }}
+                        style={{ 
+                          width: '20px', height: '20px', borderRadius: '5px', 
+                          border: `2px solid ${t.border}`, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '4px', color: t.text }}>
+                          {task.type === 'feedback' && '🔄 '}{task.title}
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          {task.dueDate && (
+                            <span style={{ fontSize: '11px', color: isOverdue ? '#ef4444' : t.textMuted }}>
+                              📅 {formatDate(task.dueDate)}
+                            </span>
+                          )}
+                          {totalSubs > 0 && (
+                            <span style={{ fontSize: '11px', color: completedSubs === totalSubs ? t.success : t.textMuted }}>
+                              ☑️ {completedSubs}/{totalSubs}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '10px' }}>{priorityIcons[task.priority]}</span>
+                        </div>
+                      </div>
+                      {assignees.length > 0 && (
+                        <div style={{ display: 'flex' }}>
+                          {assignees.slice(0, 2).map((u, i) => (
+                            <div key={u.id} style={{ 
+                              width: '24px', height: '24px', borderRadius: '50%', 
+                              background: `hsl(${(u.name || '').charCodeAt(0) * 10}, 60%, 50%)`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '10px', color: '#fff', marginLeft: i > 0 ? '-6px' : 0,
+                              border: `2px solid ${t.bgCard}`
+                            }} title={u.name}>
+                              {(u.name || '?').charAt(0).toUpperCase()}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <span style={{ color: t.textMuted, fontSize: '12px' }}>{isExpanded ? '▲' : '▼'}</span>
+                    </div>
+                    
+                    {isExpanded && (
+                      <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${t.border}` }}>
+                        {task.feedbackText && (
+                          <div style={{ background: `${t.accent}15`, borderRadius: '6px', padding: '10px', margin: '10px 0', borderLeft: `3px solid ${t.accent}` }}>
+                            <div style={{ fontSize: '10px', color: t.accent, marginBottom: '4px', fontWeight: '600' }}>Original Feedback</div>
+                            <div style={{ fontSize: '12px', color: t.text }}>{task.feedbackText}</div>
+                          </div>
+                        )}
+                        
+                        {(task.subtasks || []).length > 0 && (
+                          <div style={{ marginTop: '10px' }}>
+                            {task.subtasks.map(st => (
+                              <div key={st.id} onClick={() => toggleSubtask(task.id, st.id)} style={{ 
+                                display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', cursor: 'pointer'
+                              }}>
+                                <div style={{ 
+                                  width: '16px', height: '16px', borderRadius: '4px',
+                                  border: st.done ? 'none' : `1.5px solid ${t.border}`,
+                                  background: st.done ? t.success : 'transparent',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                  {st.done && <span style={{ color: '#fff', fontSize: '9px' }}>✓</span>}
+                                </div>
+                                <span style={{ fontSize: '12px', color: t.text, textDecoration: st.done ? 'line-through' : 'none', opacity: st.done ? 0.6 : 1 }}>{st.title}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                          <input
+                            value={newSubtask}
+                            onChange={(e) => setNewSubtask(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && newSubtask.trim()) {
+                                addSubtask(task.id, newSubtask);
+                                setNewSubtask('');
+                              }
+                            }}
+                            placeholder="Add subtask..."
+                            style={{ flex: 1, padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px', outline: 'none' }}
+                          />
+                          <button onClick={() => deleteTask(task.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               
               {/* Completed Tasks */}
               {completedTasks.length > 0 && (
                 <div style={{ marginTop: '16px' }}>
-                  <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '8px' }}>
-                    ✓ Completed ({completedTasks.length})
-                  </div>
+                  <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '8px' }}>✓ Completed ({completedTasks.length})</div>
                   {completedTasks.slice(0, 5).map(task => (
-                    <div 
-                      key={task.id}
-                      style={{ 
-                        display: 'flex', 
-                        gap: '12px', 
-                        padding: '10px 14px', 
-                        background: t.bgInput, 
-                        borderRadius: '8px', 
-                        marginBottom: '6px',
-                        opacity: 0.5
-                      }}
-                    >
-                      <div 
-                        onClick={() => toggleTask(task.id)}
-                        style={{ 
-                          width: '18px', 
-                          height: '18px', 
-                          borderRadius: '4px', 
-                          background: '#22c55e',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          flexShrink: 0
-                        }}
-                      >
+                    <div key={task.id} style={{ display: 'flex', gap: '10px', padding: '10px 12px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px', opacity: 0.6 }}>
+                      <div onClick={() => toggleTaskComplete(task.id)} style={{ width: '18px', height: '18px', borderRadius: '4px', background: t.success, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <span style={{ color: '#fff', fontSize: '10px' }}>✓</span>
                       </div>
-                      <span style={{ fontSize: '12px', textDecoration: 'line-through' }}>{task.title}</span>
+                      <span style={{ fontSize: '12px', textDecoration: 'line-through', color: t.textMuted }}>{task.title}</span>
                     </div>
                   ))}
                 </div>
@@ -4238,80 +4248,324 @@ export default function MainApp() {
         
         {/* Add Task Modal */}
         {showAddTask && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-            <div style={{ background: t.bgTertiary, borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '420px', border: `1px solid ${t.border}` }}>
-              <h2 style={{ margin: '0 0 20px', fontSize: '18px' }}>Add Task to {project.name}</h2>
+          <Modal theme={theme} title="Add Project Task" onClose={() => setShowAddTask(false)}>
+            <div style={{ padding: '20px' }}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Task Title *</label>
+                <Input theme={theme} value={newTask.title} onChange={v => setNewTask({ ...newTask, title: v })} placeholder="What needs to be done?" />
+              </div>
               
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Task Title *</label>
-                <Input 
-                  value={newTask.title} 
-                  onChange={(v) => setNewTask({ ...newTask, title: v })} 
-                  placeholder="What needs to be done?"
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              {suggestions.length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: t.accent, marginBottom: '6px' }}>✨ Suggested subtasks</label>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {suggestions.map((s, i) => {
+                      const added = (newTask.subtasks || []).some(st => st.title === s);
+                      return (
+                        <button key={i} onClick={() => {
+                          if (!added) setNewTask({ ...newTask, subtasks: [...(newTask.subtasks || []), { id: generateId(), title: s, done: false }] });
+                        }} style={{
+                          padding: '4px 8px', background: added ? `${t.success}20` : `${t.accent}15`,
+                          border: `1px solid ${added ? t.success : t.accent}30`, borderRadius: '6px',
+                          color: added ? t.success : t.accent, fontSize: '10px', cursor: added ? 'default' : 'pointer'
+                        }}>{added ? '✓' : '+'} {s}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
                 <div>
-                  <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Due Date</label>
-                  <Input 
-                    type="date" 
-                    value={newTask.dueDate} 
-                    onChange={(v) => setNewTask({ ...newTask, dueDate: v })} 
-                  />
+                  <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Due Date</label>
+                  <Input theme={theme} type="date" value={newTask.dueDate} onChange={v => setNewTask({ ...newTask, dueDate: v })} />
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Due Time</label>
-                  <Input 
-                    type="time" 
-                    value={newTask.dueTime} 
-                    onChange={(v) => setNewTask({ ...newTask, dueTime: v })} 
-                  />
+                  <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Priority</label>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {['low', 'medium', 'high', 'urgent'].map(p => (
+                      <button key={p} onClick={() => setNewTask({ ...newTask, priority: p })} style={{
+                        flex: 1, padding: '8px 4px', background: newTask.priority === p ? priorityColors[p] : t.bgInput,
+                        border: `1px solid ${newTask.priority === p ? priorityColors[p] : t.border}`,
+                        borderRadius: '6px', color: newTask.priority === p ? '#fff' : t.textSecondary,
+                        fontSize: '10px', cursor: 'pointer'
+                      }}>{priorityIcons[p]}</button>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Priority</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {['low', 'medium', 'high'].map(p => (
-                    <button 
-                      key={p}
-                      onClick={() => setNewTask({ ...newTask, priority: p })}
-                      style={{ 
-                        flex: 1,
-                        padding: '8px', 
-                        borderRadius: '8px', 
-                        border: newTask.priority === p ? `2px solid ${priorityColors[p]}` : '1px solid #2a2a3e',
-                        background: newTask.priority === p ? `${priorityColors[p]}20` : 'transparent',
-                        color: priorityColors[p],
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        textTransform: 'capitalize'
-                      }}
-                    >
-                      {p}
-                    </button>
+              
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Assign To (project team)</label>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {allTeam.map(u => {
+                    const selected = (newTask.assignedTo || []).includes(u.id);
+                    return (
+                      <button key={u.id} onClick={() => {
+                        if (selected) setNewTask({ ...newTask, assignedTo: newTask.assignedTo.filter(id => id !== u.id) });
+                        else setNewTask({ ...newTask, assignedTo: [...(newTask.assignedTo || []), u.id] });
+                      }} style={{
+                        padding: '6px 10px', background: selected ? t.primary : t.bgInput,
+                        border: `1px solid ${selected ? t.primary : t.border}`, borderRadius: '14px',
+                        color: selected ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer'
+                      }}>{u.name?.split(' ')[0]}</button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {(newTask.subtasks || []).length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Subtasks</label>
+                  {newTask.subtasks.map((st, i) => (
+                    <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ flex: 1, fontSize: '12px', color: t.text }}>• {st.title}</span>
+                      <button onClick={() => setNewTask({ ...newTask, subtasks: newTask.subtasks.filter((_, idx) => idx !== i) })} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>×</button>
+                    </div>
                   ))}
                 </div>
-              </div>
+              )}
+              
+              <Btn theme={theme} onClick={handleAddTask} disabled={!newTask.title.trim()} style={{ width: '100%' }} color="#22c55e">Create Task</Btn>
+            </div>
+          </Modal>
+        )}
+      </div>
+    );
+  };
 
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '12px', color: t.textSecondary, display: 'block', marginBottom: '6px' }}>Assign To (optional)</label>
-                <Select theme={theme} value={newTask.assignedTo} onChange={(v) => setNewTask({ ...newTask, assignedTo: v })}>
-                  <option value="">Unassigned</option>
-                  {allTeam.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({TEAM_ROLES[u.role]?.label || u.role})</option>
-                  ))}
-                </Select>
+  // Project Decks Tab - Upload decks, embed Google Slides
+  const ProjectDecksTab = ({ project, onUpdate }) => {
+    const [showAddDeck, setShowAddDeck] = useState(false);
+    const [deckType, setDeckType] = useState('upload'); // upload, embed
+    const [deckPhase, setDeckPhase] = useState('pre-production'); // pre-production, production, delivery
+    const [embedUrl, setEmbedUrl] = useState('');
+    const [deckName, setDeckName] = useState('');
+    const [uploading, setUploading] = useState(false);
+    const deckInputRef = useRef(null);
+    
+    // Get decks from project
+    const decks = project.decks || [];
+    
+    // Group by phase
+    const preProduction = decks.filter(d => d.phase === 'pre-production');
+    const production = decks.filter(d => d.phase === 'production');
+    const delivery = decks.filter(d => d.phase === 'delivery');
+    
+    // Extract Google Slides ID from URL
+    const getGoogleSlidesEmbedUrl = (url) => {
+      const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) {
+        return `https://docs.google.com/presentation/d/${match[1]}/embed?start=false&loop=false&delayms=3000`;
+      }
+      return url;
+    };
+    
+    // Handle deck upload
+    const handleUploadDeck = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      setUploading(true);
+      try {
+        const { ref, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
+        const { storage } = await import('@/lib/firebase');
+        
+        const fileRef = ref(storage, `projects/${project.id}/decks/${Date.now()}-${file.name}`);
+        await uploadBytesResumable(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+        
+        const newDeck = {
+          id: generateId(),
+          name: deckName || file.name,
+          type: 'file',
+          phase: deckPhase,
+          url,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: userProfile?.id,
+          uploadedByName: userProfile?.name
+        };
+        
+        await updateProject(project.id, { decks: [...decks, newDeck] });
+        onUpdate();
+        setShowAddDeck(false);
+        setDeckName('');
+        showToast('Deck uploaded!', 'success');
+      } catch (err) {
+        console.error('Deck upload error:', err);
+        showToast('Upload failed', 'error');
+      }
+      setUploading(false);
+    };
+    
+    // Handle embed add
+    const handleAddEmbed = async () => {
+      if (!embedUrl) return;
+      
+      const newDeck = {
+        id: generateId(),
+        name: deckName || 'Google Slides Presentation',
+        type: 'embed',
+        phase: deckPhase,
+        embedUrl: getGoogleSlidesEmbedUrl(embedUrl),
+        originalUrl: embedUrl,
+        addedAt: new Date().toISOString(),
+        addedBy: userProfile?.id,
+        addedByName: userProfile?.name
+      };
+      
+      await updateProject(project.id, { decks: [...decks, newDeck] });
+      onUpdate();
+      setShowAddDeck(false);
+      setDeckName('');
+      setEmbedUrl('');
+      showToast('Presentation added!', 'success');
+    };
+    
+    // Delete deck
+    const handleDeleteDeck = async (deckId) => {
+      if (!confirm('Delete this presentation?')) return;
+      const updated = decks.filter(d => d.id !== deckId);
+      await updateProject(project.id, { decks: updated });
+      onUpdate();
+      showToast('Deleted', 'success');
+    };
+    
+    // Deck card component
+    const DeckCard = ({ deck }) => {
+      const [showPreview, setShowPreview] = useState(false);
+      
+      return (
+        <>
+          <div style={{ background: t.bgCard, borderRadius: '10px', border: `1px solid ${t.border}`, overflow: 'hidden', marginBottom: '10px' }}>
+            <div style={{ padding: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '8px', background: deck.type === 'embed' ? 'rgba(234,179,8,0.2)' : 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                {deck.type === 'embed' ? '📊' : '📄'}
               </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <Btn theme={theme} onClick={() => setShowAddTask(false)} outline style={{ flex: 1 }}>Cancel</Btn>
-                <Btn theme={theme} onClick={addTask} disabled={!newTask.title.trim()} style={{ flex: 1 }}>Add Task</Btn>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: '500', fontSize: '13px', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deck.name}</div>
+                <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px' }}>
+                  {deck.type === 'embed' ? 'Google Slides' : formatFileSize(deck.fileSize)} • {formatTimeAgo(deck.addedAt || deck.uploadedAt)}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {deck.type === 'embed' ? (
+                  <button onClick={() => setShowPreview(true)} style={{ padding: '6px 10px', background: t.primary, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>View</button>
+                ) : (
+                  <a href={deck.url} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 10px', background: t.primary, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', textDecoration: 'none' }}>Open</a>
+                )}
+                {isProducer && (
+                  <button onClick={() => handleDeleteDeck(deck.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>🗑️</button>
+                )}
               </div>
             </div>
           </div>
+          
+          {/* Preview Modal for Embeds */}
+          {showPreview && deck.type === 'embed' && (
+            <Modal theme={theme} title={deck.name} onClose={() => setShowPreview(false)} wide>
+              <div style={{ padding: '0', height: '70vh' }}>
+                <iframe
+                  src={deck.embedUrl}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  allowFullScreen
+                  title={deck.name}
+                />
+              </div>
+            </Modal>
+          )}
+        </>
+      );
+    };
+    
+    // Phase section component
+    const PhaseSection = ({ title, icon, phaseName, items }) => (
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+          <span style={{ fontSize: '16px' }}>{icon}</span>
+          <h4 style={{ margin: 0, fontSize: '13px', color: t.text }}>{title}</h4>
+          <span style={{ fontSize: '11px', color: t.textMuted }}>({items.length})</span>
+        </div>
+        {items.length === 0 ? (
+          <div style={{ padding: '20px', background: t.bgInput, borderRadius: '8px', textAlign: 'center', color: t.textMuted, fontSize: '12px' }}>
+            No {title.toLowerCase()} decks yet
+          </div>
+        ) : (
+          items.map(deck => <DeckCard key={deck.id} deck={deck} />)
+        )}
+      </div>
+    );
+    
+    return (
+      <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '14px' }}>📑 Decks & Presentations</h3>
+            <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>Upload PDFs, PPTs or embed Google Slides</div>
+          </div>
+          {isProducer && <Btn theme={theme} onClick={() => setShowAddDeck(true)} small>+ Add Deck</Btn>}
+        </div>
+        
+        <div style={{ padding: '16px' }}>
+          <PhaseSection title="Pre-Production" icon="🎬" phaseName="pre-production" items={preProduction} />
+          <PhaseSection title="Production" icon="🎥" phaseName="production" items={production} />
+          <PhaseSection title="Delivery" icon="📦" phaseName="delivery" items={delivery} />
+        </div>
+        
+        {/* Add Deck Modal */}
+        {showAddDeck && (
+          <Modal theme={theme} title="Add Presentation" onClose={() => setShowAddDeck(false)}>
+            <div style={{ padding: '20px' }}>
+              {/* Type selector */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setDeckType('upload')} style={{ flex: 1, padding: '10px', background: deckType === 'upload' ? t.primary : t.bgInput, border: `1px solid ${deckType === 'upload' ? t.primary : t.border}`, borderRadius: '8px', color: deckType === 'upload' ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>📄 Upload File</button>
+                  <button onClick={() => setDeckType('embed')} style={{ flex: 1, padding: '10px', background: deckType === 'embed' ? t.primary : t.bgInput, border: `1px solid ${deckType === 'embed' ? t.primary : t.border}`, borderRadius: '8px', color: deckType === 'embed' ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>📊 Google Slides</button>
+                </div>
+              </div>
+              
+              {/* Phase selector */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Phase</label>
+                <Select theme={theme} value={deckPhase} onChange={setDeckPhase}>
+                  <option value="pre-production">🎬 Pre-Production</option>
+                  <option value="production">🎥 Production</option>
+                  <option value="delivery">📦 Delivery</option>
+                </Select>
+              </div>
+              
+              {/* Name */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Name (optional)</label>
+                <Input theme={theme} value={deckName} onChange={setDeckName} placeholder="Presentation name" />
+              </div>
+              
+              {deckType === 'upload' ? (
+                <div style={{ marginBottom: '16px' }}>
+                  <div onClick={() => deckInputRef.current?.click()} style={{ padding: '30px', border: `2px dashed ${t.border}`, borderRadius: '10px', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ fontSize: '30px', marginBottom: '8px' }}>📤</div>
+                    <div style={{ fontSize: '12px', color: t.textMuted }}>Click to upload PDF, PPT, or PPTX</div>
+                    <input ref={deckInputRef} type="file" accept=".pdf,.ppt,.pptx" style={{ display: 'none' }} onChange={handleUploadDeck} />
+                  </div>
+                  {uploading && <div style={{ textAlign: 'center', marginTop: '10px', color: t.primary, fontSize: '12px' }}>Uploading...</div>}
+                </div>
+              ) : (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Google Slides URL</label>
+                  <Input theme={theme} value={embedUrl} onChange={setEmbedUrl} placeholder="https://docs.google.com/presentation/d/..." />
+                  <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px' }}>Paste the share link from Google Slides</div>
+                </div>
+              )}
+              
+              {deckType === 'embed' && (
+                <Btn theme={theme} onClick={handleAddEmbed} disabled={!embedUrl} style={{ width: '100%' }} color="#22c55e">Add Presentation</Btn>
+              )}
+            </div>
+          </Modal>
         )}
       </div>
     );
@@ -4882,7 +5136,7 @@ export default function MainApp() {
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {['assets', 'tasks', 'team', 'activity', 'links'].map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
+              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? '📑 Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
               {/* Photoshoot Workflow Phase Indicator */}
               {selectedProject.type === 'photoshoot' && (
                 <div style={{ marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: t.bgInput, padding: '6px 12px', borderRadius: '8px' }}>
@@ -5031,6 +5285,10 @@ export default function MainApp() {
 
             {tab === 'tasks' && (
               <ProjectTasksTab project={selectedProject} onUpdate={refreshProject} />
+            )}
+
+            {tab === 'decks' && (
+              <ProjectDecksTab project={selectedProject} onUpdate={refreshProject} />
             )}
 
             {tab === 'team' && (
