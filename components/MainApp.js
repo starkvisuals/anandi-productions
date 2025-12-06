@@ -6560,7 +6560,7 @@ export default function MainApp() {
                   {/* Other Selected Assets */}
                   {otherSelected.length > 0 && (
                     <div style={{ marginBottom: '20px' }}>
-                      <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', color: t.textSecondary' }}>Other Selected ({otherSelected.length})</h4>
+                      <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', color: t.textSecondary }}>Other Selected ({otherSelected.length})</h4>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '6px' }}>
                         {otherSelected.slice(0, 20).map(asset => (
                           <div key={asset.id} style={{ aspectRatio: '1', borderRadius: '6px', overflow: 'hidden', border: '1px solid #22c55e', position: 'relative' }}>
