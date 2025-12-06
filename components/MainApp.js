@@ -216,8 +216,33 @@ const findMatchingAsset = (filename, assets) => {
   return assets.find(a => !a.deleted && getBaseName(a.name) === baseName);
 };
 
-// Generate thumbnail from image file (400px max)
-const generateThumbnail = (file, maxSize = 400) => {
+// Generate optimized thumbnail from image file (smaller for grid)
+const generateThumbnail = (file, maxSize = 300) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        // Make it square crop from center for consistent grid
+        const size = Math.min(w, h);
+        const sx = (w - size) / 2;
+        const sy = (h - size) / 2;
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, maxSize, maxSize);
+        canvas.toBlob(resolve, 'image/jpeg', 0.6); // Lower quality for faster load
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+// Generate preview image (larger but still optimized for lightbox)
+const generatePreview = (file, maxSize = 1200) => {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -230,7 +255,7 @@ const generateThumbnail = (file, maxSize = 400) => {
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        canvas.toBlob(resolve, 'image/jpeg', 0.7);
+        canvas.toBlob(resolve, 'image/jpeg', 0.8);
       };
       img.src = e.target.result;
     };
@@ -1920,17 +1945,34 @@ export default function MainApp() {
                     }}
                   >
                     {a.thumbnail && (
-                      <img 
-                        src={a.thumbnail} 
-                        alt="" 
-                        style={{ 
-                          width: '100%', 
-                          height: '45px', 
-                          objectFit: 'cover', 
-                          borderRadius: '4px',
-                          marginBottom: '4px'
-                        }} 
-                      />
+                      <div style={{ 
+                        width: '100%', 
+                        paddingBottom: '100%', /* 1:1 Square aspect ratio */
+                        position: 'relative',
+                        borderRadius: '4px',
+                        marginBottom: '4px',
+                        overflow: 'hidden',
+                        background: t.bgInput
+                      }}>
+                        <img 
+                          src={a.thumbnail} 
+                          alt="" 
+                          style={{ 
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'cover'
+                          }} 
+                        />
+                        {/* Rating overlay */}
+                        {a.rating > 0 && (
+                          <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '2px 4px', fontSize: '9px' }}>
+                            {'⭐'.repeat(a.rating)}
+                          </div>
+                        )}
+                      </div>
                     )}
                     <div style={{ fontSize: '10px', fontWeight: '500', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {a.name?.replace(/\.[^/.]+$/, '').substring(0, 20)}
@@ -3880,6 +3922,19 @@ export default function MainApp() {
       await refreshProject();
       showToast(`Project ${newStatus}!`, 'success');
     };
+    
+    const handleDeleteProject = async (projId, e) => {
+      e.stopPropagation();
+      const proj = projects.find(p => p.id === projId);
+      if (!confirm(`Delete "${proj.name}"?\n\nThis will permanently delete the project and all its assets. This action cannot be undone.`)) return;
+      try {
+        await deleteProject(projId);
+        setProjects(projects.filter(p => p.id !== projId));
+        showToast('Project deleted', 'success');
+      } catch (err) {
+        showToast('Failed to delete project', 'error');
+      }
+    };
 
     return (
       <div>
@@ -3924,9 +3979,14 @@ export default function MainApp() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <div><div style={{ fontWeight: '600', fontSize: '15px', color: t.text }}>{p.name}</div><div style={{ fontSize: '12px', color: t.textMuted, marginTop: '2px' }}>{p.client}</div></div>
                     {isProducer && (
-                      <button onClick={(e) => handleToggleProjectStatus(p.id, e)} title={p.status === 'active' ? 'Mark Complete' : 'Reopen'} style={{ padding: '6px 10px', background: p.status === 'active' ? t.bgCard : '#22c55e', border: `1px solid ${t.border}`, borderRadius: '6px', color: p.status === 'active' ? t.textSecondary : '#fff', fontSize: '11px', cursor: 'pointer' }}>
-                        {p.status === 'active' ? '✓ Complete' : '↩ Reopen'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button onClick={(e) => handleToggleProjectStatus(p.id, e)} title={p.status === 'active' ? 'Mark Complete' : 'Reopen'} style={{ padding: '6px 10px', background: p.status === 'active' ? t.bgCard : '#22c55e', border: `1px solid ${t.border}`, borderRadius: '6px', color: p.status === 'active' ? t.textSecondary : '#fff', fontSize: '11px', cursor: 'pointer' }}>
+                          {p.status === 'active' ? '✓ Complete' : '↩ Reopen'}
+                        </button>
+                        <button onClick={(e) => handleDeleteProject(p.id, e)} title="Delete Project" style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>
+                          🗑️
+                        </button>
+                      </div>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -4803,6 +4863,7 @@ export default function MainApp() {
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [imageLoading, setImageLoading] = useState(true);
     const [showSelectionOverview, setShowSelectionOverview] = useState(false);
     const hlsRef = useRef(null);
 
@@ -4885,9 +4946,9 @@ export default function MainApp() {
       const handleKeyNav = (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (e.key === 'ArrowLeft' && currentIndex > 0) {
-          setSelectedAsset(sortedAssets[currentIndex - 1]);
+          setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex - 1]);
         } else if (e.key === 'ArrowRight' && currentIndex < sortedAssets.length - 1) {
-          setSelectedAsset(sortedAssets[currentIndex + 1]);
+          setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex + 1]);
         }
       };
       window.addEventListener('keydown', handleKeyNav);
@@ -5081,10 +5142,14 @@ export default function MainApp() {
                   try {
                     const url = await getDownloadURL(task.snapshot.ref);
                     
-                    // Generate thumbnail for images
+                    // Generate optimized thumbnail and preview for images
                     let thumbnailUrl = null;
+                    let previewUrl = null;
                     try {
                       if (fileType === 'image') {
+                        setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], status: 'Optimizing...' } }));
+                        
+                        // Generate small thumbnail for grid (300px square)
                         const thumbBlob = await generateThumbnail(file);
                         if (thumbBlob) {
                           const thumbPath = `projects/${selectedProject.id}/${cat}/thumbs/${Date.now()}-thumb.jpg`;
@@ -5092,8 +5157,17 @@ export default function MainApp() {
                           await uploadBytesResumable(thumbRef, thumbBlob);
                           thumbnailUrl = await getDownloadURL(thumbRef);
                         }
+                        
+                        // Generate preview for lightbox (1200px)
+                        const previewBlob = await generatePreview(file);
+                        if (previewBlob) {
+                          const previewPath = `projects/${selectedProject.id}/${cat}/preview/${Date.now()}-preview.jpg`;
+                          const previewRef = ref(storage, previewPath);
+                          await uploadBytesResumable(previewRef, previewBlob);
+                          previewUrl = await getDownloadURL(previewRef);
+                        }
                       }
-                    } catch (e) { console.log('Thumb generation failed:', e); }
+                    } catch (e) { console.log('Image optimization failed:', e); }
                     
                     const newAsset = { 
                       id: assetId, 
@@ -5102,7 +5176,8 @@ export default function MainApp() {
                       category: cat, 
                       url, 
                       path, 
-                      thumbnail: thumbnailUrl || (fileType === 'image' ? url : null), 
+                      thumbnail: thumbnailUrl || (fileType === 'image' ? url : null),
+                      preview: previewUrl || thumbnailUrl || url, // Use preview for lightbox
                       fileSize: file.size, 
                       mimeType: file.type, 
                       status: 'pending', 
@@ -5218,6 +5293,16 @@ export default function MainApp() {
     const handleRate = async (assetId, rating) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, rating } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
     const handleToggleSelect = async (assetId) => { const asset = (selectedProject.assets || []).find(a => a.id === assetId); const newSelected = !asset?.isSelected; const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
     const handleBulkSelect = async (select) => { const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAssets(new Set()); showToast(`${selectedAssets.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
+    const handleBulkDelete = async () => {
+      if (!confirm(`Delete ${selectedAssets.size} assets? This cannot be undone.`)) return;
+      const deletedAt = new Date().toISOString();
+      const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, deleted: true, deletedAt } : a);
+      const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAssets.size} assets`, timestamp: new Date().toISOString() };
+      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] });
+      await refreshProject();
+      setSelectedAssets(new Set());
+      showToast(`${selectedAssets.size} assets deleted`, 'success');
+    };
     
     // Enhanced selection confirmation with notifications
     const handleConfirmSelection = async () => {
@@ -5509,9 +5594,10 @@ export default function MainApp() {
             </div>
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <span style={{ fontSize: '11px', color: t.textMuted }}>{selectedAssets.size}</span>
-                <Btn theme={theme} onClick={() => handleBulkSelect(true)} small color="#22c55e">✓</Btn>
-                <Btn theme={theme} onClick={() => handleBulkSelect(false)} small outline>✗</Btn>
+                <span style={{ fontSize: '11px', color: t.textMuted }}>{selectedAssets.size} selected</span>
+                <Btn theme={theme} onClick={() => handleBulkSelect(true)} small color="#22c55e" title="Mark as Selected">✓</Btn>
+                <Btn theme={theme} onClick={() => handleBulkSelect(false)} small outline title="Deselect">✗</Btn>
+                {isProducer && <Btn theme={theme} onClick={handleBulkDelete} small color="#ef4444" title="Delete Selected">🗑️</Btn>}
               </div>
             )}
             {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && (isProducer || userProfile?.role === 'client') && !isMobile && <Btn theme={theme} onClick={() => setShowSelectionOverview(true)} small color="#f59e0b">🎯 Confirm ({selectedCount})</Btn>}
@@ -5526,25 +5612,43 @@ export default function MainApp() {
             )}
           </div>
 
-          {/* Upload Progress */}
+          {/* Upload Progress - Floating Panel */}
           {Object.keys(uploadProgress).length > 0 && (
-            <div style={{ padding: '12px 16px', background: t.bgCard }}>
-              {Object.entries(uploadProgress).map(([id, item]) => (
-                <div key={id} style={{ marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {item.name}
-                      {item.status && typeof item.status === 'string' && item.status !== 'uploading' && (
-                        <span style={{ fontSize: '9px', color: '#6366f1', background: 'rgba(99,102,241,0.2)', padding: '1px 6px', borderRadius: '4px' }}>{item.status}</span>
-                      )}
-                    </span>
-                    <span>{item.progress}%</span>
-                  </div>
-                  <div style={{ background: t.bgInput, borderRadius: '3px', height: '4px' }}>
-                    <div style={{ width: `${item.progress}%`, height: '100%', background: item.status?.includes('Mux') || item.status?.includes('Processing') ? '#22c55e' : '#6366f1', borderRadius: '3px', transition: 'width 0.3s ease' }} />
-                  </div>
+            <div style={{ 
+              position: 'fixed', 
+              bottom: '20px', 
+              right: '20px', 
+              width: '320px', 
+              maxHeight: '400px',
+              background: t.bgCard, 
+              borderRadius: '12px', 
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              border: `1px solid ${t.border}`,
+              zIndex: 1000,
+              overflow: 'hidden'
+            }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '600', fontSize: '12px' }}>⬆️ Uploading {Object.keys(uploadProgress).length} files...</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div className="spinner" style={{ width: '14px', height: '14px', border: '2px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                 </div>
-              ))}
+              </div>
+              <div style={{ maxHeight: '340px', overflow: 'auto', padding: '8px 12px' }}>
+                {Object.entries(uploadProgress).map(([id, item]) => (
+                  <div key={id} style={{ marginBottom: '10px', padding: '8px', background: t.bgInput, borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '4px' }}>
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '8px' }}>{item.name}</span>
+                      <span style={{ fontWeight: '600', color: item.progress === 100 ? '#22c55e' : '#6366f1' }}>{item.progress}%</span>
+                    </div>
+                    {item.status && typeof item.status === 'string' && item.status !== 'uploading' && (
+                      <div style={{ fontSize: '9px', color: '#6366f1', marginBottom: '4px' }}>{item.status}</div>
+                    )}
+                    <div style={{ background: t.bgCard, borderRadius: '3px', height: '3px' }}>
+                      <div style={{ width: `${item.progress}%`, height: '100%', background: item.progress === 100 ? '#22c55e' : '#6366f1', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -5589,7 +5693,7 @@ export default function MainApp() {
                       const isDimmed = selectedProject.type === 'photoshoot' && selectedProject.workflowPhase === 'review' && !a.isSelected;
                       
                       return (
-                        <div key={a.id} style={{ 
+                        <div key={a.id} className="asset-card" style={{ 
                           background: t.bgTertiary, 
                           borderRadius: '10px', 
                           overflow: 'hidden', 
@@ -5599,6 +5703,21 @@ export default function MainApp() {
                           transition: 'opacity 0.2s'
                         }}>
                           <div onClick={e => { e.stopPropagation(); setSelectedAssets(s => { const n = new Set(s); n.has(a.id) ? n.delete(a.id) : n.add(a.id); return n; }); }} style={{ position: 'absolute', top: '10px', left: '10px', width: '22px', height: '22px', borderRadius: '6px', background: selectedAssets.has(a.id) ? '#6366f1' : 'rgba(0,0,0,0.6)', border: '2px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}>{selectedAssets.has(a.id) && <span style={{ color: '#fff', fontSize: '12px' }}>✓</span>}</div>
+                          {/* Quick delete button - shows on hover */}
+                          {isProducer && (
+                            <button 
+                              className="card-delete-btn"
+                              onClick={async (e) => { 
+                                e.stopPropagation(); 
+                                if (!confirm(`Delete "${a.name}"?`)) return; 
+                                const updated = (selectedProject.assets || []).map(x => x.id === a.id ? { ...x, deleted: true, deletedAt: new Date().toISOString() } : x); 
+                                await updateProject(selectedProject.id, { assets: updated }); 
+                                await refreshProject(); 
+                                showToast('Deleted', 'success'); 
+                              }} 
+                              style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(239,68,68,0.9)', border: 'none', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}
+                            >🗑️</button>
+                          )}
                           {a.isSelected && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#22c55e', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', zIndex: 5, fontWeight: '600' }}>⭐</div>}
                           {hasNewVersion && <div style={{ position: 'absolute', top: a.isSelected ? '38px' : '10px', right: '10px', background: '#f97316', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>🆕 v{a.currentVersion}</div>}
                           {a.revisionRound > 0 && <div style={{ position: 'absolute', top: a.isSelected ? (hasNewVersion ? '66px' : '38px') : (hasNewVersion ? '38px' : '10px'), left: '10px', background: a.revisionRound >= (selectedProject.maxRevisions || 999) ? '#ef4444' : '#8b5cf6', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>R{a.revisionRound}</div>}
@@ -5653,136 +5772,91 @@ export default function MainApp() {
 
             {tab === 'team' && (
               <div>
-                {/* Smart Alerts for Producer */}
-                {isProducer && (() => {
-                  const projectAssets = (selectedProject.assets || []).filter(a => !a.deleted);
-                  const unassigned = projectAssets.filter(a => !a.assignedTo && a.status !== 'delivered' && a.status !== 'approved');
-                  const today = new Date(); today.setHours(0,0,0,0);
-                  const overdue = projectAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered' && a.status !== 'approved');
-                  const pendingReview = projectAssets.filter(a => a.status === 'review-ready');
-                  const noEditor = cats.some(c => c.id === 'videos') && !team.some(m => ['video-editor', 'motion-designer'].includes(m.role));
-                  const noCGI = cats.some(c => c.id === 'cgi') && !team.some(m => ['cgi-artist', '3d-artist'].includes(m.role));
-                  const hasAlerts = unassigned.length > 0 || overdue.length > 0 || pendingReview.length > 0 || noEditor || noCGI;
-                  
-                  if (!hasAlerts) return null;
-                  
-                  return (
-                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
-                      <h3 style={{ margin: '0 0 12px', fontSize: '14px', color: '#ef4444' }}>⚠️ Alerts</h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {unassigned.length > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' }}>
-                            <span>📋</span>
-                            <span style={{ fontSize: '12px', flex: 1 }}><strong>{unassigned.length}</strong> assets need assignment</span>
-                            <button onClick={() => setTab('assets')} style={{ padding: '4px 10px', background: '#ef4444', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Assign</button>
-                          </div>
-                        )}
-                        {overdue.length > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' }}>
-                            <span>🚨</span>
-                            <span style={{ fontSize: '12px', flex: 1 }}><strong>{overdue.length}</strong> assets overdue</span>
-                          </div>
-                        )}
-                        {pendingReview.length > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(168,85,247,0.1)', borderRadius: '8px' }}>
-                            <span>👁️</span>
-                            <span style={{ fontSize: '12px', flex: 1 }}><strong>{pendingReview.length}</strong> assets pending your review</span>
-                            <button onClick={() => setTab('assets')} style={{ padding: '4px 10px', background: '#a855f7', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Review</button>
-                          </div>
-                        )}
-                        {noEditor && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(249,115,22,0.1)', borderRadius: '8px' }}>
-                            <span>🎬</span>
-                            <span style={{ fontSize: '12px', flex: 1 }}>No Video Editor assigned to this project</span>
-                            <button onClick={() => setShowAddTeam(true)} style={{ padding: '4px 10px', background: '#f97316', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Add</button>
-                          </div>
-                        )}
-                        {noCGI && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(59,130,246,0.1)', borderRadius: '8px' }}>
-                            <span>🌐</span>
-                            <span style={{ fontSize: '12px', flex: 1 }}>No CGI Artist assigned to this project</span>
-                            <button onClick={() => setShowAddTeam(true)} style={{ padding: '4px 10px', background: '#3b82f6', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Add</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-                
-                {/* Team Members */}
+                {/* Project Team - Project Level Assignment */}
                 <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
                   <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '14px' }}>👥 Team ({team.length})</h3>
+                    <h3 style={{ margin: 0, fontSize: '14px' }}>👥 Project Team ({team.length})</h3>
                     {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Member</Btn>}
                   </div>
                   <div style={{ padding: '14px' }}>
                     {team.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted }}>
                         <div style={{ fontSize: '40px', marginBottom: '10px' }}>👥</div>
-                        <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members yet</div>
+                        <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members assigned to this project</div>
                         {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Team Member</Btn>}
                       </div>
                     ) : (
-                      team.map(m => {
-                        const memberAssets = (selectedProject.assets || []).filter(a => !a.deleted && (a.assignedTo === m.id || a.assignedTo === m.email));
-                        const activeAssets = memberAssets.filter(a => a.status !== 'delivered' && a.status !== 'approved');
-                        const overdueAssets = activeAssets.filter(a => {
-                          if (!a.dueDate) return false;
-                          const today = new Date(); today.setHours(0,0,0,0);
-                          return new Date(a.dueDate) < today;
-                        });
-                        
-                        return (
-                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', background: t.bgInput, borderRadius: '10px', marginBottom: '10px' }}>
-                            <Avatar user={m} size={42} />
-                            <div style={{ flex: 1 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                        {team.map(m => (
+                          <div key={m.id} style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '14px', 
+                            padding: '14px', 
+                            background: t.bgInput, 
+                            borderRadius: '10px',
+                            border: m.isOwner ? '1px solid rgba(249,115,22,0.3)' : `1px solid ${t.border}`
+                          }}>
+                            <Avatar user={m} size={44} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {m.name} 
-                                {m.isOwner && <span style={{ fontSize: '10px', color: '#f97316' }}>👑</span>}
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
+                                {m.isOwner && <span style={{ fontSize: '10px', color: '#f97316', flexShrink: 0 }}>👑 Owner</span>}
                               </div>
-                              <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px' }}>{m.email}</div>
+                              <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</div>
                               <div style={{ marginTop: '6px' }}><RoleBadge role={m.role} /></div>
                             </div>
-                            <div style={{ textAlign: 'right' }}>
-                              {activeAssets.length > 0 && (
-                                <>
-                                  <div style={{ fontSize: '18px', fontWeight: '700', color: overdueAssets.length > 0 ? '#ef4444' : '#6366f1' }}>
-                                    {activeAssets.length}
-                                  </div>
-                                  <div style={{ fontSize: '9px', color: overdueAssets.length > 0 ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>
-                                    {overdueAssets.length > 0 ? `${overdueAssets.length} overdue` : 'active'}
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                            {isProducer && !m.isOwner && (
+                              <button 
+                                onClick={async () => {
+                                  if (!confirm(`Remove ${m.name} from this project?`)) return;
+                                  const updatedTeam = (selectedProject.assignedTeam || []).filter(t => t.odId !== m.id);
+                                  await updateProject(selectedProject.id, { assignedTeam: updatedTeam });
+                                  await refreshProject();
+                                  showToast(`${m.name} removed`, 'success');
+                                }}
+                                style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}
+                              >✕</button>
+                            )}
                           </div>
-                        );
-                      })
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
                 
-                {/* Suggested Roles Based on Categories */}
+                {/* Suggested Roles Based on Project Type */}
                 {isProducer && availableTeam.length > 0 && (() => {
                   const suggestedRoles = [];
-                  if (cats.some(c => c.id === 'videos') && !team.some(m => ['video-editor', 'motion-designer'].includes(m.role))) {
-                    suggestedRoles.push({ role: 'video-editor', reason: 'Videos category needs editor' });
+                  const projectType = selectedProject.type || 'photoshoot';
+                  
+                  // Role suggestions based on project type
+                  if (['video-production', 'ad-film', 'social-content'].includes(projectType)) {
+                    if (!team.some(m => ['video-editor', 'editor'].includes(m.role))) {
+                      suggestedRoles.push({ roles: ['video-editor', 'editor'], reason: 'Video project needs an editor' });
+                    }
+                    if (!team.some(m => ['colorist', 'color-grader'].includes(m.role))) {
+                      suggestedRoles.push({ roles: ['colorist', 'color-grader'], reason: 'Video project needs colorist' });
+                    }
                   }
-                  if (cats.some(c => c.id === 'cgi') && !team.some(m => ['cgi-artist', '3d-artist'].includes(m.role))) {
-                    suggestedRoles.push({ role: 'cgi-artist', reason: 'CGI category needs artist' });
+                  if (['cgi-animation', 'motion-graphics'].includes(projectType)) {
+                    if (!team.some(m => ['cgi-artist', '3d-artist', 'motion-designer'].includes(m.role))) {
+                      suggestedRoles.push({ roles: ['cgi-artist', '3d-artist', 'motion-designer'], reason: 'CGI/Motion project needs artist' });
+                    }
                   }
-                  if (cats.some(c => c.id === 'animation') && !team.some(m => ['motion-designer', 'animator'].includes(m.role))) {
-                    suggestedRoles.push({ role: 'motion-designer', reason: 'Animation category needs designer' });
+                  if (['photoshoot', 'product-photography', 'retouch-only'].includes(projectType)) {
+                    if (!team.some(m => ['retoucher', 'photo-editor'].includes(m.role))) {
+                      suggestedRoles.push({ roles: ['retoucher', 'photo-editor'], reason: 'Photo project needs retoucher' });
+                    }
                   }
-                  if (cats.some(c => c.id === 'vfx') && !team.some(m => ['vfx-artist'].includes(m.role))) {
-                    suggestedRoles.push({ role: 'vfx-artist', reason: 'VFX category needs artist' });
-                  }
-                  if (cats.some(c => c.id === 'audio') && !team.some(m => ['sound-engineer', 'audio-editor'].includes(m.role))) {
-                    suggestedRoles.push({ role: 'sound-engineer', reason: 'Audio category needs engineer' });
+                  if (['post-production', 'ad-film'].includes(projectType)) {
+                    if (!team.some(m => ['sound-engineer', 'audio-editor', 'sound'].includes(m.role))) {
+                      suggestedRoles.push({ roles: ['sound-engineer', 'audio-editor', 'sound'], reason: 'Post-production needs sound engineer' });
+                    }
                   }
                   
                   const suggestedMembers = suggestedRoles.map(sr => {
-                    const member = availableTeam.find(t => t.role === sr.role);
+                    const member = availableTeam.find(t => sr.roles.includes(t.role));
                     return member ? { ...member, reason: sr.reason } : null;
                   }).filter(Boolean);
                   
@@ -5791,7 +5865,7 @@ export default function MainApp() {
                   return (
                     <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginTop: '16px' }}>
                       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}` }}>
-                        <h3 style={{ margin: 0, fontSize: '14px' }}>💡 Suggested Team Members</h3>
+                        <h3 style={{ margin: 0, fontSize: '14px' }}>💡 Suggested for {projectType.replace('-', ' ')}</h3>
                       </div>
                       <div style={{ padding: '14px' }}>
                         {suggestedMembers.map(m => (
@@ -5805,7 +5879,7 @@ export default function MainApp() {
                               const updatedTeam = [...(selectedProject.assignedTeam || []), { odId: m.id, isOwner: false }];
                               await updateProject(selectedProject.id, { assignedTeam: updatedTeam });
                               await refreshProject();
-                              showToast(`${m.name} added to team`, 'success');
+                              showToast(`${m.name} added to project`, 'success');
                             }} small>+ Add</Btn>
                           </div>
                         ))}
@@ -5813,6 +5887,32 @@ export default function MainApp() {
                     </div>
                   );
                 })()}
+                
+                {/* Client Contacts */}
+                {isProducer && (
+                  <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginTop: '16px' }}>
+                    <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}` }}>
+                      <h3 style={{ margin: 0, fontSize: '14px' }}>👔 Client Contacts ({(selectedProject.clientContacts || []).length})</h3>
+                    </div>
+                    <div style={{ padding: '14px' }}>
+                      {(selectedProject.clientContacts || []).length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px', color: t.textMuted, fontSize: '12px' }}>
+                          No client contacts added yet
+                        </div>
+                      ) : (
+                        (selectedProject.clientContacts || []).map((c, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '20px' }}>👔</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '12px', fontWeight: '500' }}>{c.name || 'Client'}</div>
+                              <div style={{ fontSize: '10px', color: t.textMuted }}>{c.email}</div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -6212,8 +6312,8 @@ export default function MainApp() {
           const hasPrev = currentIndex > 0;
           const hasNext = currentIndex < sortedAssets.length - 1;
           
-          const goToPrev = () => hasPrev && setSelectedAsset(sortedAssets[currentIndex - 1]);
-          const goToNext = () => hasNext && setSelectedAsset(sortedAssets[currentIndex + 1]);
+          const goToPrev = () => { if (hasPrev) { setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex - 1]); } };
+          const goToNext = () => { if (hasNext) { setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex + 1]); } };
           
           // Touch swipe handling
           const minSwipeDistance = 50;
@@ -6341,7 +6441,21 @@ export default function MainApp() {
                         assetTab === 'annotate' ? (
                           <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
                         ) : (
-                          <img src={selectedAsset.url} alt={selectedAsset.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '4px' }} draggable={false} />
+                          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {imageLoading && (
+                              <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                <span style={{ fontSize: '11px', color: t.textMuted }}>Loading...</span>
+                              </div>
+                            )}
+                            <img 
+                              src={selectedAsset.preview || selectedAsset.thumbnail || selectedAsset.url} 
+                              alt={selectedAsset.name} 
+                              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '4px', opacity: imageLoading ? 0 : 1, transition: 'opacity 0.2s' }} 
+                              draggable={false}
+                              onLoad={() => setImageLoading(false)}
+                            />
+                          </div>
                         )
                       ) : (
                         <div style={{ textAlign: 'center', fontSize: '60px' }}>📄</div>
@@ -7362,7 +7476,11 @@ export default function MainApp() {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
         .fade-in { animation: fadeIn 0.3s ease-out; }
+        .asset-card:hover .card-delete-btn { opacity: 1 !important; }
       `}</style>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <GlobalSearch />
