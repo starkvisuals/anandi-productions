@@ -4599,6 +4599,9 @@ export default function MainApp() {
     const feedbackInputRef = useRef(null);
     const [videoTime, setVideoTime] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const hlsRef = useRef(null);
 
     // HLS.js initialization for Mux videos (Chrome/Firefox)
@@ -5266,6 +5269,14 @@ export default function MainApp() {
                             {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px' }}>{a.feedback.length}💬</div>}
                             {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px' }}>{new Date(a.dueDate) < new Date() ? '⚠️' : '📅'}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
+                            {/* Always visible star rating overlay */}
+                            {!appearance.showInfo && (
+                              <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', borderRadius: '12px', padding: '3px 8px', display: 'flex', gap: '2px' }}>
+                                {[1,2,3,4,5].map(star => (
+                                  <span key={star} onClick={(e) => { e.stopPropagation(); handleRate(a.id, star); }} style={{ cursor: 'pointer', fontSize: isMobile ? '12px' : '14px', color: star <= (a.rating || 0) ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>★</span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           {appearance.showInfo && (
                             <div style={{ padding: '10px' }}>
@@ -5630,354 +5641,332 @@ export default function MainApp() {
           </Modal>
         )}
 
-        {/* ASSET PREVIEW MODAL - FIXED IMAGE SIZING */}
-        {selectedAsset && (
-          <Modal theme={theme} title={selectedAsset.name} onClose={() => setSelectedAsset(null)} wide>
-            {/* Asset Tabs */}
-            <div style={{ display: 'flex', gap: '6px', padding: '12px 20px', borderBottom: `1px solid ${t.border}`, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {[{ id: 'preview', icon: '👁️', label: 'Preview' }, { id: 'compare', icon: '📊', label: 'Compare' }].map(t => (
-                  <button key={t.id} onClick={() => setAssetTab(t.id)} style={{ padding: '8px 14px', background: assetTab === t.id ? '#6366f1' : 'transparent', border: assetTab === t.id ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>{t.icon} {!isMobile && t.label}</button>
+        {/* ASSET PREVIEW MODAL - FULL FEATURED LIGHTBOX WITH NAVIGATION */}
+        {selectedAsset && (() => {
+          // Get sorted assets for navigation
+          const allAssets = (selectedProject.assets || []).filter(x => !x.deleted);
+          const filteredAssets = selectedCat ? allAssets.filter(x => x.category === selectedCat) : allAssets;
+          const typeOrder = { image: 0, video: 1, audio: 2, other: 3 };
+          const sortedAssets = filteredAssets.sort((x, y) => (typeOrder[x.type] || 3) - (typeOrder[y.type] || 3));
+          const currentIndex = sortedAssets.findIndex(a => a.id === selectedAsset.id);
+          const hasPrev = currentIndex > 0;
+          const hasNext = currentIndex < sortedAssets.length - 1;
+          
+          const goToPrev = () => hasPrev && setSelectedAsset(sortedAssets[currentIndex - 1]);
+          const goToNext = () => hasNext && setSelectedAsset(sortedAssets[currentIndex + 1]);
+          
+          // Touch swipe handling
+          const minSwipeDistance = 50;
+          const onTouchStartHandler = (e) => {
+            setTouchEnd(null);
+            setTouchStart(e.targetTouches[0].clientX);
+          };
+          const onTouchMoveHandler = (e) => setTouchEnd(e.targetTouches[0].clientX);
+          const onTouchEndHandler = () => {
+            if (!touchStart || !touchEnd) return;
+            const distance = touchStart - touchEnd;
+            if (Math.abs(distance) > minSwipeDistance) {
+              if (distance > 0 && hasNext) goToNext();
+              if (distance < 0 && hasPrev) goToPrev();
+            }
+          };
+          
+          return (
+          <div 
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 1000, display: 'flex', flexDirection: 'column' }}
+            onTouchStart={onTouchStartHandler}
+            onTouchMove={onTouchMoveHandler}
+            onTouchEnd={onTouchEndHandler}
+          >
+            {/* Top Bar */}
+            {!isFullscreen && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'rgba(0,0,0,0.6)', flexShrink: 0, borderBottom: `1px solid ${t.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button onClick={() => setSelectedAsset(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px 12px', color: '#fff', cursor: 'pointer', fontSize: '14px' }}>✕</button>
+                <div>
+                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#fff' }}>{selectedAsset.name}</div>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{currentIndex + 1} of {sortedAssets.length} • v{selectedAsset.currentVersion}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                {/* Quick Rating in header */}
+                <div style={{ display: 'flex', gap: '2px', marginRight: '8px' }}>
+                  {[1,2,3,4,5].map(star => (
+                    <span key={star} onClick={() => { handleRate(selectedAsset.id, star); setSelectedAsset({ ...selectedAsset, rating: star }); }} style={{ cursor: 'pointer', fontSize: '16px', color: star <= (selectedAsset.rating || 0) ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>★</span>
+                  ))}
+                </div>
+                {/* Fullscreen toggle */}
+                <button onClick={() => setIsFullscreen(true)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>⛶ {!isMobile && 'Fullscreen'}</button>
+                {/* Tab buttons */}
+                {[{ id: 'preview', icon: '👁️', label: 'Preview' }, { id: 'annotate', icon: '✏️', label: 'Annotate' }, { id: 'compare', icon: '📊', label: 'Compare' }].map(tb => (
+                  <button key={tb.id} onClick={() => setAssetTab(tb.id)} style={{ padding: '6px 10px', background: assetTab === tb.id ? '#6366f1' : 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>{tb.icon} {!isMobile && tb.label}</button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {selectedAsset.annotations?.length > 0 && <span style={{ padding: '4px 10px', background: '#ec4899', borderRadius: '6px', fontSize: '10px', fontWeight: '600' }}>✏️ {selectedAsset.annotations.length}</span>}
-                {selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) && <span style={{ padding: '4px 10px', background: '#f97316', borderRadius: '6px', fontSize: '10px', fontWeight: '600' }}>🆕 v{selectedAsset.currentVersion}</span>}
-              </div>
             </div>
-
-            {/* Preview Tab */}
-            {assetTab === 'preview' && (
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(85vh - 120px)', overflow: 'hidden' }}>
-                {/* LEFT: Preview Area */}
-                <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: t.bg, minWidth: 0, overflow: 'hidden' }}>
-                  {/* Content Area */}
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', overflow: 'hidden' }}>
-                    {selectedAsset.type === 'video' ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', maxHeight: isMobile ? '300px' : 'calc(85vh - 200px)' }}>
-                        {selectedAsset.muxPlaybackId ? (
-                          /* Mux HLS Video - uses native controls for scrubbing */
-                          <video 
-                            ref={videoRef}
-                            controls 
-                            playsInline
-                            poster={selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`}
-                            onTimeUpdate={(e) => setVideoTime(e.target.currentTime)}
-                            onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
-                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', background: '#000', borderRadius: '8px' }}
-                          >
-                            {/* HLS source for Safari */}
-                            <source src={`https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`} type="application/x-mpegURL" />
-                          </video>
-                        ) : selectedAsset.muxUploadId && !selectedAsset.url ? (
-                          /* Video is processing on Mux */
-                          <div style={{ textAlign: 'center', padding: '40px' }}>
-                            <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-                            <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video for streaming...</div>
-                            <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '16px' }}>Usually takes 30-60 seconds</div>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`);
-                                  const data = await res.json();
-                                  if (data.asset?.playbackId) {
-                                    const updatedAssets = selectedProject.assets.map(a => 
-                                      a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a
-                                    );
-                                    await updateProject(selectedProject.id, { assets: updatedAssets });
-                                    await refreshProject();
-                                    showToast('Ready to play!', 'success');
-                                  } else {
-                                    showToast('Still processing...', 'info');
-                                  }
-                                } catch (e) { showToast('Check failed', 'error'); }
-                              }}
-                              style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}
-                            >
-                              🔄 Check Status
-                            </button>
-                            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            )}
+            
+            {/* Fullscreen Mode Exit Button */}
+            {isFullscreen && (
+              <button onClick={() => setIsFullscreen(false)} style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 20, padding: '10px 16px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>✕ Exit Fullscreen</button>
+            )}
+            
+            {/* Fullscreen Rating + Selection */}
+            {isFullscreen && (
+              <div style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                {/* Big Stars */}
+                <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.8)', borderRadius: '16px', padding: '12px 20px' }}>
+                  {[1,2,3,4,5].map(star => (
+                    <span key={star} onClick={() => { handleRate(selectedAsset.id, star); setSelectedAsset({ ...selectedAsset, rating: star }); }} style={{ cursor: 'pointer', fontSize: '32px', color: star <= (selectedAsset.rating || 0) ? '#fbbf24' : 'rgba(255,255,255,0.3)', transition: 'transform 0.1s' }} onMouseEnter={(e) => e.target.style.transform = 'scale(1.2)'} onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}>★</span>
+                  ))}
+                </div>
+                {/* Selection Info */}
+                <div style={{ fontSize: '14px', color: selectedAsset.isSelected ? '#22c55e' : 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
+                  {selectedAsset.isSelected ? '⭐ Selected' : 'Not Selected'}
+                </div>
+              </div>
+            )}
+            
+            {/* Main Content Area */}
+            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+              {/* Left Navigation Arrow */}
+              {hasPrev && (
+                <button onClick={goToPrev} style={{ position: 'absolute', left: isMobile ? '4px' : '16px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '36px' : '44px', height: isMobile ? '36px' : '44px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: isMobile ? '16px' : '20px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+              )}
+              
+              {/* Right Navigation Arrow */}
+              {hasNext && (
+                <button onClick={goToNext} style={{ position: 'absolute', right: isMobile || isFullscreen ? '16px' : '320px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '36px' : '44px', height: isMobile ? '36px' : '44px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: isMobile ? '16px' : '20px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+              )}
+              
+              {/* Preview/Annotate Tab */}
+              {(assetTab === 'preview' || assetTab === 'annotate') && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden' }}>
+                  {/* LEFT: Preview/Annotation Area */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a0f', minWidth: 0, overflow: 'hidden' }}>
+                    {/* Content Area */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '8px 40px' : '16px 70px', overflow: 'hidden' }}>
+                      {selectedAsset.type === 'video' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                          {selectedAsset.muxPlaybackId ? (
+                            <video ref={videoRef} controls playsInline poster={selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`} onTimeUpdate={(e) => setVideoTime(e.target.currentTime)} onLoadedMetadata={(e) => setVideoDuration(e.target.duration)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', background: '#000', borderRadius: '8px' }}>
+                              <source src={`https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`} type="application/x-mpegURL" />
+                            </video>
+                          ) : selectedAsset.muxUploadId && !selectedAsset.url ? (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                              <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                              <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video...</div>
+                              <button onClick={async () => { try { const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`); const data = await res.json(); if (data.asset?.playbackId) { const updatedAssets = selectedProject.assets.map(a => a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a); await updateProject(selectedProject.id, { assets: updatedAssets }); await refreshProject(); showToast('Ready!', 'success'); } else { showToast('Still processing...', 'info'); } } catch (e) { showToast('Check failed', 'error'); } }} style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>🔄 Check</button>
+                              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                            </div>
+                          ) : (
+                            <video ref={videoRef} src={selectedAsset.url} controls playsInline onTimeUpdate={(e) => setVideoTime(e.target.currentTime)} onLoadedMetadata={(e) => setVideoDuration(e.target.duration)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                          )}
+                          {/* Timecode */}
+                          <div style={{ marginTop: '10px', padding: '6px 12px', background: 'rgba(0,0,0,0.7)', borderRadius: '6px', fontSize: '12px', fontFamily: 'monospace', color: '#22c55e' }}>
+                            {formatTimecode(videoTime)} / {formatTimecode(videoDuration)}
                           </div>
+                        </div>
+                      ) : selectedAsset.type === 'audio' ? (
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
+                          <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
+                        </div>
+                      ) : selectedAsset.type === 'image' ? (
+                        assetTab === 'annotate' ? (
+                          <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
                         ) : (
-                          /* Fallback to regular video */
-                          <video 
-                            ref={videoRef} 
-                            src={selectedAsset.url} 
-                            controls 
-                            playsInline 
-                            onTimeUpdate={(e) => setVideoTime(e.target.currentTime)}
-                            onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
-                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', background: '#000', borderRadius: '8px' }} 
-                          />
+                          <img src={selectedAsset.url} alt={selectedAsset.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '4px' }} draggable={false} />
+                        )
+                      ) : (
+                        <div style={{ textAlign: 'center', fontSize: '60px' }}>📄</div>
+                      )}
+                    </div>
+                    
+                    {/* Feedback Section */}
+                    {!isFullscreen && (
+                    <div style={{ padding: '12px 16px', borderTop: `1px solid ${t.border}`, background: t.bgSecondary, flexShrink: 0, maxHeight: isMobile ? '180px' : '200px', overflow: 'auto' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>💬 Feedback ({selectedAsset.feedback?.length || 0})</span>
+                        {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
+                          <span style={{ fontSize: '10px', padding: '2px 8px', background: '#ef4444', borderRadius: '10px' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
                         )}
-                        {/* Timecode Display */}
-                        <div style={{ marginTop: '12px', padding: '8px 16px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px', fontSize: '13px', fontFamily: 'monospace', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ color: '#22c55e' }}>
-                            {Math.floor(videoTime / 60).toString().padStart(2, '0')}:{Math.floor(videoTime % 60).toString().padStart(2, '0')}
-                          </span>
-                          <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span>
-                          <span style={{ color: t.textSecondary }}>
-                            {Math.floor(videoDuration / 60).toString().padStart(2, '0')}:{Math.floor(videoDuration % 60).toString().padStart(2, '0')}
-                          </span>
-                          {selectedAsset.muxPlaybackId && (
-                            <span style={{ fontSize: '9px', color: '#22c55e', background: 'rgba(34,197,94,0.2)', padding: '3px 8px', borderRadius: '4px' }}>HLS</span>
+                      </div>
+                      <div style={{ maxHeight: '80px', overflow: 'auto', marginBottom: '8px' }}>
+                        {(selectedAsset.feedback || []).length === 0 ? (
+                          <div style={{ fontSize: '11px', color: t.textMuted }}>No feedback yet</div>
+                        ) : (selectedAsset.feedback || []).map(fb => (
+                          <div key={fb.id} style={{ padding: '8px', background: fb.isDone ? 'rgba(34,197,94,0.1)' : t.bgInput, borderRadius: '6px', marginBottom: '6px', borderLeft: fb.isDone ? '3px solid #22c55e' : '3px solid #ef4444', opacity: fb.isDone ? 0.7 : 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                              <div style={{ flex: 1 }}>
+                                <span style={{ fontSize: '10px', fontWeight: '600' }}>{fb.userName}</span>
+                                <span style={{ fontSize: '9px', color: t.textMuted, marginLeft: '8px' }}>{formatTimeAgo(fb.timestamp)}</span>
+                                {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
+                                  <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }} style={{ fontSize: '9px', color: '#6366f1', marginLeft: '8px', cursor: 'pointer', background: 'rgba(99,102,241,0.2)', padding: '1px 6px', borderRadius: '4px' }}>▶ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}</span>
+                                )}
+                              </div>
+                              <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1px solid ${fb.isDone ? '#22c55e' : t.border}`, borderRadius: '4px', padding: '2px 6px', fontSize: '9px', color: fb.isDone ? '#22c55e' : t.textMuted, cursor: 'pointer' }}>{fb.isDone ? '✓' : 'Done'}</button>
+                            </div>
+                            <div style={{ fontSize: '11px' }}>{fb.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', position: 'relative' }}>
+                        {selectedAsset.type === 'video' && <span style={{ fontSize: '9px', color: t.textMuted, flexShrink: 0 }}>📍{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
+                        <div style={{ flex: 1, position: 'relative' }}>
+                          <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback()} placeholder="Add feedback... (@ to mention)" style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '11px' }} />
+                          {/* Mentions Dropdown */}
+                          {showMentions && (
+                            <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', marginBottom: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 100 }}>
+                              {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5).map(member => (
+                                <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }} onMouseEnter={(e) => e.target.style.background = t.bgInput} onMouseLeave={(e) => e.target.style.background = 'transparent'}>
+                                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{member.name?.[0]}</div>
+                                  {member.name}
+                                </div>
+                              ))}
+                              {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).length === 0 && <div style={{ padding: '8px', color: t.textMuted, fontSize: '10px' }}>No matches</div>}
+                            </div>
                           )}
                         </div>
+                        <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '8px 12px', background: newFeedback.trim() ? '#6366f1' : t.bgInput, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: newFeedback.trim() ? 'pointer' : 'default' }}>Send</button>
                       </div>
-                    ) : selectedAsset.type === 'audio' ? (
-                      <div style={{ textAlign: 'center', padding: '40px' }}>
-                        <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
-                        <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
-                      </div>
-                    ) : selectedAsset.type === 'image' ? (
-                      <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
-                    ) : (
-                      <div style={{ textAlign: 'center', padding: '40px', fontSize: '60px' }}>📄</div>
+                    </div>
                     )}
                   </div>
                   
-                  {/* Feedback Section */}
-                  <div style={{ padding: '14px 20px', borderTop: `1px solid ${t.border}`, background: t.bgSecondary, flexShrink: 0 }}>
-                    <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>💬 Feedback ({selectedAsset.feedback?.length || 0})</span>
-                      {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
-                        <span style={{ fontSize: '10px', padding: '2px 8px', background: '#ef4444', borderRadius: '10px' }}>
-                          {(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ maxHeight: '120px', overflow: 'auto', marginBottom: '8px' }}>
-                      {(selectedAsset.feedback || []).length === 0 ? (
-                        <div style={{ fontSize: '11px', color: t.textMuted }}>No feedback yet</div>
-                      ) : (selectedAsset.feedback || []).map(fb => (
-                        <div key={fb.id} style={{ padding: '10px', background: fb.isDone ? 'rgba(34,197,94,0.1)' : t.bgInput, borderRadius: '6px', marginBottom: '6px', borderLeft: fb.isDone ? `3px solid ${t.success}` : `3px solid ${t.danger}`, opacity: fb.isDone ? 0.7 : 1 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                            <div style={{ flex: 1 }}>
-                              <span style={{ fontSize: '10px', fontWeight: '600' }}>{fb.userName}</span>
-                              <span style={{ fontSize: '9px', color: t.textMuted, marginLeft: '8px' }}>{formatTimeAgo(fb.timestamp)}</span>
-                              {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
-                                <span 
-                                  onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }}
-                                  style={{ fontSize: '9px', color: '#6366f1', marginLeft: '8px', cursor: 'pointer', background: 'rgba(99,102,241,0.2)', padding: '1px 6px', borderRadius: '4px' }}
-                                >
-                                  ▶ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}
-                                </span>
-                              )}
-                            </div>
-                            {canMarkFeedbackDone && (
-                              <button 
-                                onClick={(e) => handleToggleFeedbackDone(fb.id, e)}
-                                style={{ background: fb.isDone ? '#22c55e' : '#3a3a4a', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '9px', color: '#fff', cursor: 'pointer', marginLeft: '8px', flexShrink: 0 }}
-                              >
-                                {fb.isDone ? '✓ Done' : '○ Pending'}
-                              </button>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '11px', textDecoration: fb.isDone ? 'line-through' : 'none', color: fb.isDone ? 'rgba(255,255,255,0.5)' : '#fff' }}>{fb.text}</div>
+                  {/* RIGHT: Details Sidebar */}
+                  {!isMobile && !isFullscreen && (
+                    <div style={{ width: '300px', background: t.bgTertiary, borderLeft: `1px solid ${t.border}`, overflow: 'auto', padding: '14px', flexShrink: 0 }}>
+                      {/* Selection Toggle - Prominent */}
+                      <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? '#22c55e' : t.bgCard, border: `1px solid ${selectedAsset.isSelected ? '#22c55e' : t.border}`, borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '12px' }}>
+                        {selectedAsset.isSelected ? '⭐ Selected' : '☆ Mark as Selected'}
+                      </button>
+                      
+                      {/* Tags */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>🏷️ Tags</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {PREDEFINED_TAGS.map(tag => {
+                            const isActive = (selectedAsset.tags || []).includes(tag.id);
+                            return (
+                              <button key={tag.id} onClick={async () => { const newTags = isActive ? (selectedAsset.tags || []).filter(t => t !== tag.id) : [...(selectedAsset.tags || []), tag.id]; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, tags: newTags } : a); setSelectedAsset({ ...selectedAsset, tags: newTags }); await updateProject(selectedProject.id, { assets: updated }); }} style={{ padding: '3px 8px', background: isActive ? `${tag.color}30` : t.bgInput, border: `1px solid ${isActive ? tag.color : t.border}`, borderRadius: '10px', color: isActive ? tag.color : t.textMuted, fontSize: '9px', cursor: 'pointer', fontWeight: '500' }}>{tag.label}</button>
+                            );
+                          })}
                         </div>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
-                      {selectedAsset.type === 'video' && (
-                        <span style={{ fontSize: '9px', color: t.textMuted, flexShrink: 0 }}>📍 at current time</span>
-                      )}
-                      <div style={{ flex: 1, position: 'relative' }}>
-                        <input 
-                          ref={feedbackInputRef}
-                          value={newFeedback} 
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setNewFeedback(val);
-                            // Check for @ mentions
-                            const lastAt = val.lastIndexOf('@');
-                            if (lastAt !== -1 && lastAt === val.length - 1) {
-                              setShowMentions(true);
-                              setMentionSearch('');
-                            } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) {
-                              setShowMentions(true);
-                              setMentionSearch(val.substring(lastAt + 1).toLowerCase());
-                            } else {
-                              setShowMentions(false);
-                            }
-                          }}
-                          placeholder="Add feedback... (@ to mention)"
-                          style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                        />
-                        {/* Mentions Dropdown */}
-                        {showMentions && (
-                          <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100 }}>
-                            {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5).map(member => (
-                              <div key={member.id} onClick={() => {
-                                const lastAt = newFeedback.lastIndexOf('@');
-                                const newVal = newFeedback.substring(0, lastAt) + `@${member.name} `;
-                                setNewFeedback(newVal);
-                                setShowMentions(false);
-                                feedbackInputRef.current?.focus();
-                              }} style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.target.style.background = '#2a2a3e'}
-                              onMouseLeave={(e) => e.target.style.background = 'transparent'}>
-                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>{member.name?.[0]}</div>
-                                {member.name}
-                              </div>
-                            ))}
-                            {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).length === 0 && (
-                              <div style={{ padding: '8px 12px', color: t.textMuted, fontSize: '11px' }}>No team members found</div>
-                            )}
-                          </div>
-                        )}
                       </div>
-                      <Btn theme={theme} onClick={handleAddFeedback} disabled={!newFeedback.trim()} small>Send</Btn>
+                      
+                      {/* Status */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Status</label>
+                        <Select theme={theme} value={selectedAsset.status} onChange={v => handleUpdateStatus(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
+                          {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+                        </Select>
+                      </div>
+                      
+                      {/* Assign */}
+                      {isProducer && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Assign To</label>
+                          <Select theme={theme} value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
+                            <option value="">-- Unassigned --</option>
+                            {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                          </Select>
+                        </div>
+                      )}
+                      
+                      {/* Due Date */}
+                      {isProducer && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📅 Due Date</label>
+                          <input type="date" value={selectedAsset.dueDate?.split('T')[0] || ''} onChange={async (e) => { const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a); setSelectedAsset({ ...selectedAsset, dueDate }); await updateProject(selectedProject.id, { assets: updated }); if (selectedAsset.assignedTo && dueDate) { const assignee = editors.find(e => e.id === selectedAsset.assignedTo); if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`); } }} style={{ width: '100%', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '11px' }} />
+                          {selectedAsset.dueDate && <div style={{ marginTop: '4px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>{new Date(selectedAsset.dueDate) < new Date() ? '⚠️ Overdue!' : `⏳ ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days`}</div>}
+                        </div>
+                      )}
+                      
+                      {/* Version Upload */}
+                      <div style={{ marginBottom: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>📦 Versions</span>
+                          <span style={{ padding: '2px 6px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.bgCard, borderRadius: '4px', fontSize: '9px' }}>v{selectedAsset.currentVersion}</span>
+                        </div>
+                        <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '6px' }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
+                          <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '6px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '9px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
+                          {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '6px 10px', background: '#6366f1', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>{uploadingVersion ? '⏳' : '⬆️'}</button>}
+                        </div>
+                      </div>
+                      
+                      {/* GDrive Link */}
+                      {selectedAsset.status === 'approved' && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📁 GDrive Link</label>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <Input theme={theme} value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '6px', fontSize: '10px' }} />
+                            <button onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} style={{ padding: '6px 10px', background: '#22c55e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>✓</button>
+                          </div>
+                        </div>
+                      )}
+                      {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '8px', background: 'rgba(34,197,94,0.15)', borderRadius: '6px', color: '#22c55e', fontSize: '10px', textAlign: 'center', textDecoration: 'none', marginBottom: '12px', fontWeight: '600' }}>📁 Open High-Res</a>}
+                      
+                      {/* File Details */}
+                      <div style={{ background: t.bgInput, borderRadius: '6px', padding: '10px', marginBottom: '12px', fontSize: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span style={{ color: t.textMuted }}>Size</span><span>{formatFileSize(selectedAsset.fileSize)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span style={{ color: t.textMuted }}>Type</span><span>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: t.textMuted }}>Uploaded</span><span>{formatDate(selectedAsset.uploadedAt)}</span></div>
+                      </div>
+                      
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                        <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none' }}>⬇️ Download</a>
+                      </div>
+                      
+                      {/* Delete */}
+                      {isProducer && (
+                        <button onClick={async () => { if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAsset.name}`, timestamp: new Date().toISOString() }; await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ width: '100%', padding: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>🗑️ Delete</button>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
-
-                {/* RIGHT: Details Sidebar - Fixed width */}
-                <div style={{ width: isMobile ? '100%' : '280px', background: t.bgTertiary, borderLeft: isMobile ? 'none' : '1px solid #1e1e2e', overflow: 'auto', padding: '16px', flexShrink: 0 }}>
-                  {/* Rating */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '8px' }}>Rating</label>
-                    <StarRating rating={selectedAsset.rating} onChange={r => { handleRate(selectedAsset.id, r); setSelectedAsset({ ...selectedAsset, rating: r }); }} size={24} />
-                  </div>
-
-                  {/* Tags */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '8px' }}>🏷️ Tags</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {PREDEFINED_TAGS.map(tag => {
-                        const isActive = (selectedAsset.tags || []).includes(tag.id);
-                        return (
-                          <button key={tag.id} onClick={async () => {
-                            const newTags = isActive 
-                              ? (selectedAsset.tags || []).filter(t => t !== tag.id)
-                              : [...(selectedAsset.tags || []), tag.id];
-                            const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, tags: newTags } : a);
-                            setSelectedAsset({ ...selectedAsset, tags: newTags });
-                            await updateProject(selectedProject.id, { assets: updated });
-                          }} style={{ padding: '4px 10px', background: isActive ? `${tag.color}30` : t.bgInput, border: `1px solid ${isActive ? tag.color : t.border}`, borderRadius: '12px', color: isActive ? tag.color : t.textMuted, fontSize: '10px', cursor: 'pointer', fontWeight: '500' }}>
-                            {tag.label}
-                          </button>
-                        );
-                      })}
+              )}
+              
+              {/* Compare Tab */}
+              {assetTab === 'compare' && (
+                <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
+                  <CompareView asset={selectedAsset} />
+                </div>
+              )}
+            </div>
+            
+            {/* Bottom Thumbnail Strip */}
+            {sortedAssets.length > 1 && !isFullscreen && (
+              <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.7)', overflowX: 'auto', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                  {sortedAssets.map((asset) => (
+                    <div key={asset.id} onClick={() => setSelectedAsset(asset)} style={{ width: '44px', height: '44px', borderRadius: '6px', overflow: 'hidden', border: asset.id === selectedAsset.id ? '2px solid #6366f1' : '2px solid transparent', cursor: 'pointer', flexShrink: 0, opacity: asset.id === selectedAsset.id ? 1 : 0.5, position: 'relative' }}>
+                      {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : asset.type === 'video' ? <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{asset.thumbnail ? <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '14px' }}>🎬</span>}</div> : <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{asset.type === 'audio' ? '🔊' : '📄'}</div>}
+                      {asset.rating > 0 && <div style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}>{'★'.repeat(asset.rating)}</div>}
+                      {asset.isSelected && <div style={{ position: 'absolute', top: '2px', right: '2px', background: '#22c55e', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}>⭐</div>}
                     </div>
-                  </div>
-
-                  {/* Selection Toggle */}
-                  <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? t.success : t.bgCard, border: `1px solid ${selectedAsset.isSelected ? t.success : t.border}`, borderRadius: '8px', color: selectedAsset.isSelected ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px' }}>
-                    {selectedAsset.isSelected ? '⭐ Selected' : '☆ Mark as Selected'}
-                  </button>
-
-                  {/* Status */}
-                  <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Status</label>
-                    <Select theme={theme} value={selectedAsset.status} onChange={v => handleUpdateStatus(selectedAsset.id, v)} style={{ padding: '8px 10px', fontSize: '12px' }}>
-                      {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                    </Select>
-                  </div>
-
-                  {/* Assign */}
-                  {isProducer && (
-                    <div style={{ marginBottom: '14px' }}>
-                      <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Assign To</label>
-                      <Select theme={theme} value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ padding: '8px 10px', fontSize: '12px' }}>
-                        <option value="">-- Unassigned --</option>
-                        {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                      </Select>
-                    </div>
-                  )}
-
-                  {/* Due Date */}
-                  {isProducer && (
-                    <div style={{ marginBottom: '14px' }}>
-                      <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📅 Due Date</label>
-                      <input 
-                        type="date" 
-                        value={selectedAsset.dueDate?.split('T')[0] || ''} 
-                        onChange={async (e) => {
-                          const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null;
-                          const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a);
-                          setSelectedAsset({ ...selectedAsset, dueDate });
-                          await updateProject(selectedProject.id, { assets: updated });
-                          // Notify assigned person
-                          if (selectedAsset.assignedTo && dueDate) {
-                            const assignee = editors.find(e => e.id === selectedAsset.assignedTo);
-                            if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`);
-                          }
-                        }}
-                        style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                      />
-                      {selectedAsset.dueDate && (
-                        <div style={{ marginTop: '6px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>
-                          {new Date(selectedAsset.dueDate) < new Date() ? '⚠️ Overdue!' : `⏳ ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days left`}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Version Upload */}
-                  <div style={{ marginBottom: '14px', padding: '12px', background: t.bgInput, borderRadius: '8px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>📦 Versions</span>
-                      <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? t.warning : t.bgInput, borderRadius: '4px', fontSize: '10px', color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#fff' : t.textSecondary }}>v{selectedAsset.currentVersion}</span>
-                    </div>
-                    <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '8px' }}>
-                      {(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
-                      <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 12) + '...' : '+ New Version'}</button>
-                      {versionFile && <Btn theme={theme} onClick={handleUploadVersion} small disabled={uploadingVersion}>{uploadingVersion ? '⏳' : '⬆️'}</Btn>}
-                    </div>
-                  </div>
-
-                  {/* GDrive Link */}
-                  {selectedAsset.status === 'approved' && (
-                    <div style={{ marginBottom: '14px' }}>
-                      <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📁 GDrive Link</label>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <Input theme={theme} value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '8px', fontSize: '11px' }} />
-                        <Btn theme={theme} onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} small>Save</Btn>
-                      </div>
-                    </div>
-                  )}
-                  {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '10px', background: 'rgba(34,197,94,0.15)', borderRadius: '8px', color: '#22c55e', fontSize: '11px', textAlign: 'center', textDecoration: 'none', marginBottom: '14px', fontWeight: '600' }}>📁 Open High-Res</a>}
-
-                  {/* File Details */}
-                  <div style={{ background: t.bgInput, borderRadius: '8px', padding: '12px', marginBottom: '14px', fontSize: '11px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Size</span><span>{formatFileSize(selectedAsset.fileSize)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Type</span><span>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: t.textMuted }}>Uploaded</span><span>{formatDate(selectedAsset.uploadedAt)}</span></div>
-                  </div>
-
-                  {/* Download */}
-                  <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '12px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: '600', textAlign: 'center', textDecoration: 'none', marginBottom: '10px' }}>⬇️ Download</a>
-                  
-                  {/* Delete Asset (Soft Delete) */}
-                  {isProducer && (
-                    <button onClick={async () => {
-                      if (!confirm(`Delete "${selectedAsset.name}"? It will be permanently removed after 30 days.`)) return;
-                      const deletedAt = new Date().toISOString();
-                      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a);
-                      const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAsset.name}`, timestamp: new Date().toISOString() };
-                      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] });
-                      setSelectedAsset(null);
-                      await refreshProject();
-                      showToast('Asset moved to trash', 'success');
-                    }} style={{ width: '100%', padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#ef4444', fontSize: '11px', cursor: 'pointer', fontWeight: '500' }}>
-                      🗑️ Delete Asset
-                    </button>
-                  )}
+                  ))}
                 </div>
               </div>
             )}
-
-            {/* Compare Tab */}
-            {assetTab === 'compare' && (
-              <div style={{ padding: '20px', overflow: 'auto', flex: 1 }}>
-                <VersionComparison versions={selectedAsset.versions || []} currentVersion={selectedAsset.currentVersion} />
+            
+            {/* Mobile Bottom Actions */}
+            {isMobile && !isFullscreen && (
+              <div style={{ padding: '10px 16px', background: t.bgTertiary, borderTop: `1px solid ${t.border}`, display: 'flex', gap: '8px', flexShrink: 0 }}>
+                <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected }); }} style={{ flex: 1, padding: '10px', background: selectedAsset.isSelected ? '#22c55e' : t.bgInput, border: `1px solid ${selectedAsset.isSelected ? '#22c55e' : t.border}`, borderRadius: '8px', color: '#fff', fontSize: '11px' }}>{selectedAsset.isSelected ? '⭐ Selected' : '☆ Select'}</button>
+                <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '11px', textAlign: 'center', textDecoration: 'none' }}>⬇️ Download</a>
               </div>
             )}
-          </Modal>
-        )}
+            
+            {/* Mobile Swipe Hint */}
+            {isMobile && sortedAssets.length > 1 && !isFullscreen && (
+              <div style={{ textAlign: 'center', padding: '6px', fontSize: '10px', color: 'rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.5)' }}>← Swipe or use arrows →</div>
+            )}
+          </div>
+          );
+        })()}
 
       </div>
     );
