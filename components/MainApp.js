@@ -202,6 +202,20 @@ const getFileType = f => { if (f.type?.startsWith('video/')) return 'video'; if 
 const isNewVersion = (uploadedAt) => { if (!uploadedAt) return false; const hours = (Date.now() - new Date(uploadedAt).getTime()) / (1000 * 60 * 60); return hours < 24; };
 const isRecent = (timestamp, hours = 24) => { if (!timestamp) return false; return (Date.now() - new Date(timestamp).getTime()) / (1000 * 60 * 60) < hours; };
 
+// Get base name without extension and version suffix for auto-matching
+const getBaseName = (filename) => {
+  // Remove extension
+  const withoutExt = filename.replace(/\.[^/.]+$/, '');
+  // Remove common version suffixes like _v2, -v3, _final, _edit, etc.
+  return withoutExt.replace(/[-_](v\d+|final|edit|edited|revised|rev\d*|r\d+)$/i, '').toLowerCase().trim();
+};
+
+// Find matching asset by filename
+const findMatchingAsset = (filename, assets) => {
+  const baseName = getBaseName(filename);
+  return assets.find(a => !a.deleted && getBaseName(a.name) === baseName);
+};
+
 // Generate thumbnail from image file (400px max)
 const generateThumbnail = (file, maxSize = 400) => {
   return new Promise((resolve) => {
@@ -412,6 +426,49 @@ const PREDEFINED_TAGS = [
   { id: 'lifestyle', label: 'Lifestyle', color: '#ec4899' },
   { id: 'final', label: 'Final', color: '#10b981' },
 ];
+
+// File Format Requirements
+const FILE_FORMATS = {
+  photo: [
+    { id: 'jpg-web', label: 'JPG Web (sRGB)', ext: 'jpg', category: 'web' },
+    { id: 'jpg-print', label: 'JPG Print (CMYK)', ext: 'jpg', category: 'print' },
+    { id: 'png', label: 'PNG (Transparent)', ext: 'png', category: 'web' },
+    { id: 'tiff', label: 'TIFF (Print Ready)', ext: 'tiff', category: 'print' },
+    { id: 'psd', label: 'PSD (Layered)', ext: 'psd', category: 'source' },
+    { id: 'raw', label: 'RAW Original', ext: 'raw', category: 'source' },
+    { id: 'dng', label: 'DNG', ext: 'dng', category: 'source' },
+  ],
+  video: [
+    { id: 'mp4-web', label: 'MP4 H.264 (Web)', ext: 'mp4', category: 'web' },
+    { id: 'mp4-hq', label: 'MP4 H.265 (High Quality)', ext: 'mp4', category: 'delivery' },
+    { id: 'mov-prores', label: 'MOV ProRes', ext: 'mov', category: 'source' },
+    { id: 'mov-raw', label: 'MOV RAW', ext: 'mov', category: 'source' },
+  ]
+};
+
+// Size/Adapt Requirements
+const SIZE_PRESETS = {
+  photo: [
+    { id: 'original', label: 'Original Size', width: null, height: null },
+    { id: '4k', label: '4K (3840px)', width: 3840, height: null },
+    { id: 'web-large', label: 'Web Large (2400px)', width: 2400, height: null },
+    { id: 'web-medium', label: 'Web Medium (1920px)', width: 1920, height: null },
+    { id: 'web-small', label: 'Web Small (1200px)', width: 1200, height: null },
+    { id: 'social-square', label: 'Social 1:1 (1080x1080)', width: 1080, height: 1080, ratio: '1:1' },
+    { id: 'social-portrait', label: 'Social 4:5 (1080x1350)', width: 1080, height: 1350, ratio: '4:5' },
+    { id: 'social-story', label: 'Stories 9:16 (1080x1920)', width: 1080, height: 1920, ratio: '9:16' },
+    { id: 'thumbnail', label: 'Thumbnail (400px)', width: 400, height: null },
+  ],
+  video: [
+    { id: '4k', label: '4K (3840x2160)', width: 3840, height: 2160 },
+    { id: '2k', label: '2K (2560x1440)', width: 2560, height: 1440 },
+    { id: '1080p', label: 'Full HD (1920x1080)', width: 1920, height: 1080 },
+    { id: '720p', label: 'HD (1280x720)', width: 1280, height: 720 },
+    { id: 'square', label: 'Square 1:1 (1080x1080)', width: 1080, height: 1080, ratio: '1:1' },
+    { id: 'portrait', label: 'Portrait 4:5 (1080x1350)', width: 1080, height: 1350, ratio: '4:5' },
+    { id: 'vertical', label: 'Vertical 9:16 (1080x1920)', width: 1080, height: 1920, ratio: '9:16' },
+  ]
+};
 
 // Task Templates
 const TASK_TEMPLATES = {
@@ -1968,6 +2025,7 @@ export default function MainApp() {
       { id: 'tasks', icon: 'tasks', label: 'My Tasks' }, 
       { id: 'projects', icon: 'folder', label: 'Projects' },
       { id: 'calendar', icon: 'calendar', label: 'Calendar' },
+      ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads' }] : []),
       ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team' }] : [])
     ];
     
@@ -4334,6 +4392,137 @@ export default function MainApp() {
     );
   };
 
+  // Downloads View - Client download center
+  const DownloadsView = () => {
+    // Get all approved assets from projects where user is assigned
+    const myProjects = projects.filter(p => 
+      (p.assignedTeam || []).some(m => m.id === userProfile?.id) || 
+      (p.clientContacts || []).some(c => c.id === userProfile?.id) ||
+      p.client === userProfile?.name
+    );
+    
+    const approvedAssets = myProjects.flatMap(project => 
+      (project.assets || [])
+        .filter(a => !a.deleted && ['approved', 'delivered'].includes(a.status))
+        .map(a => ({ ...a, projectName: project.name, projectId: project.id }))
+    );
+    
+    const [selectedForDownload, setSelectedForDownload] = useState(new Set());
+    
+    const toggleSelect = (assetId) => {
+      setSelectedForDownload(prev => {
+        const next = new Set(prev);
+        if (next.has(assetId)) next.delete(assetId);
+        else next.add(assetId);
+        return next;
+      });
+    };
+    
+    const selectAll = () => {
+      if (selectedForDownload.size === approvedAssets.length) {
+        setSelectedForDownload(new Set());
+      } else {
+        setSelectedForDownload(new Set(approvedAssets.map(a => a.id)));
+      }
+    };
+    
+    // Group by project
+    const byProject = {};
+    approvedAssets.forEach(a => {
+      if (!byProject[a.projectId]) byProject[a.projectId] = { name: a.projectName, assets: [] };
+      byProject[a.projectId].assets.push(a);
+    });
+    
+    return (
+      <div>
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>📥 Download Center</h1>
+            <p style={{ fontSize: '12px', color: t.textMuted, margin: '4px 0 0' }}>{approvedAssets.length} approved assets ready for download</p>
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={selectAll} style={{ padding: '8px 16px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '12px', cursor: 'pointer' }}>
+              {selectedForDownload.size === approvedAssets.length ? '☐ Deselect All' : '☑️ Select All'}
+            </button>
+            {selectedForDownload.size > 0 && (
+              <button onClick={() => {
+                // Download selected files
+                const assetsToDownload = approvedAssets.filter(a => selectedForDownload.has(a.id));
+                assetsToDownload.forEach(asset => {
+                  const link = document.createElement('a');
+                  link.href = asset.url;
+                  link.download = asset.name;
+                  link.target = '_blank';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                });
+                showToast(`Downloading ${assetsToDownload.length} files...`, 'success');
+              }} style={{ padding: '8px 16px', background: '#22c55e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
+                ⬇️ Download ({selectedForDownload.size})
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {Object.keys(byProject).length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
+            <p style={{ margin: 0 }}>No approved assets available yet</p>
+          </div>
+        ) : (
+          Object.entries(byProject).map(([projectId, data]) => (
+            <div key={projectId} style={{ background: t.bgCard, borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>{data.name}</h3>
+                <span style={{ fontSize: '11px', color: t.textMuted }}>{data.assets.length} files</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
+                {data.assets.map(asset => (
+                  <div key={asset.id} onClick={() => toggleSelect(asset.id)} style={{ 
+                    background: t.bgInput, 
+                    borderRadius: '10px', 
+                    overflow: 'hidden', 
+                    cursor: 'pointer',
+                    border: selectedForDownload.has(asset.id) ? '2px solid #22c55e' : '1px solid transparent',
+                    transition: 'border 0.2s'
+                  }}>
+                    <div style={{ aspectRatio: '4/3', background: t.bgTertiary, position: 'relative' }}>
+                      {asset.type === 'image' ? (
+                        <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px' }}>{asset.type === 'video' ? '🎬' : '📄'}</div>
+                      )}
+                      {selectedForDownload.has(asset.id) && (
+                        <div style={{ position: 'absolute', top: '6px', right: '6px', width: '20px', height: '20px', borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✓</div>
+                      )}
+                      {asset.highResFiles?.length > 0 && (
+                        <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: '#22c55e', borderRadius: '4px', padding: '2px 6px', fontSize: '8px', fontWeight: '600' }}>HD</div>
+                      )}
+                    </div>
+                    <div style={{ padding: '8px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</div>
+                      <div style={{ fontSize: '9px', color: t.textMuted, marginTop: '2px' }}>v{asset.currentVersion} • {formatFileSize(asset.fileSize)}</div>
+                      {asset.highResFiles?.length > 0 && (
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                          {asset.highResFiles.map((f, i) => (
+                            <a key={i} href={f.url} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: '2px 6px', background: 'rgba(34,197,94,0.2)', borderRadius: '4px', fontSize: '8px', color: '#22c55e', textDecoration: 'none' }}>
+                              {f.formatLabel?.split(' ')[0] || f.format}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  };
+
   // Project Decks Tab - Upload decks, embed Google Slides
   const ProjectDecksTab = ({ project, onUpdate }) => {
     const [showAddDeck, setShowAddDeck] = useState(false);
@@ -4579,12 +4768,14 @@ export default function MainApp() {
     const [showAppearance, setShowAppearance] = useState(false);
     const [showAddTeam, setShowAddTeam] = useState(false);
     const [showEditProject, setShowEditProject] = useState(false);
-    const [editProjectData, setEditProjectData] = useState({ name: '', client: '', categories: [] });
+    const [editProjectData, setEditProjectData] = useState({ name: '', client: '', categories: [], requiredFormats: [], requiredSizes: [], maxRevisions: 0 });
     const [selectedAsset, setSelectedAsset] = useState(null);
     const [assetTab, setAssetTab] = useState('preview');
     const [selectedAssets, setSelectedAssets] = useState(new Set());
     const [uploadFiles, setUploadFiles] = useState([]);
     const [uploadProgress, setUploadProgress] = useState({});
+    const [unmatchedFiles, setUnmatchedFiles] = useState([]); // Files that need manual matching
+    const [showMatchModal, setShowMatchModal] = useState(false);
     const [newFeedback, setNewFeedback] = useState('');
     const [showMentions, setShowMentions] = useState(false);
     const [mentionSearch, setMentionSearch] = useState('');
@@ -4602,6 +4793,7 @@ export default function MainApp() {
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showSelectionOverview, setShowSelectionOverview] = useState(false);
     const hlsRef = useRef(null);
 
     // HLS.js initialization for Mux videos (Chrome/Firefox)
@@ -4935,14 +5127,62 @@ export default function MainApp() {
         const sRef = ref(storage, path);
         await uploadBytesResumable(sRef, versionFile);
         const url = await getDownloadURL(sRef);
-        const newVersion = { version: selectedAsset.currentVersion + 1, url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name };
-        const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, url, thumbnail: a.type === 'image' ? url : a.thumbnail, versions: [...(a.versions || []), newVersion], currentVersion: selectedAsset.currentVersion + 1, status: 'review-ready' } : a);
-        const activity = { id: generateId(), type: 'version', message: `${userProfile.name} uploaded v${selectedAsset.currentVersion + 1} of ${selectedAsset.name}`, timestamp: new Date().toISOString() };
+        
+        // Check if there's pending feedback (indicates a revision cycle)
+        const hasPendingFeedback = (selectedAsset.feedback || []).some(f => !f.isDone);
+        const currentRound = selectedAsset.revisionRound || 0;
+        const newRound = hasPendingFeedback ? currentRound + 1 : currentRound;
+        
+        // Check max revisions limit
+        const maxRevisions = selectedProject.maxRevisions || 0;
+        if (maxRevisions > 0 && newRound > maxRevisions) {
+          showToast(`Max revisions (${maxRevisions}) reached!`, 'error');
+          setUploadingVersion(false);
+          return;
+        }
+        
+        const newVersion = { 
+          version: selectedAsset.currentVersion + 1, 
+          url, 
+          uploadedAt: new Date().toISOString(), 
+          uploadedBy: userProfile.name,
+          revisionRound: newRound 
+        };
+        
+        // Mark all pending feedback as done when new version is uploaded
+        const updatedFeedback = (selectedAsset.feedback || []).map(f => f.isDone ? f : { ...f, resolvedInVersion: selectedAsset.currentVersion + 1 });
+        
+        const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { 
+          ...a, 
+          url, 
+          thumbnail: a.type === 'image' ? url : a.thumbnail, 
+          versions: [...(a.versions || []), newVersion], 
+          currentVersion: selectedAsset.currentVersion + 1, 
+          status: 'review-ready',
+          revisionRound: newRound,
+          feedback: updatedFeedback
+        } : a);
+        
+        const activity = { 
+          id: generateId(), 
+          type: 'version', 
+          message: `${userProfile.name} uploaded v${selectedAsset.currentVersion + 1} of ${selectedAsset.name}${newRound > currentRound ? ` (Revision R${newRound})` : ''}`, 
+          timestamp: new Date().toISOString() 
+        };
+        
         await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] });
         await refreshProject();
-        setSelectedAsset({ ...selectedAsset, url, versions: [...(selectedAsset.versions || []), newVersion], currentVersion: selectedAsset.currentVersion + 1, status: 'review-ready' });
+        setSelectedAsset({ ...selectedAsset, url, versions: [...(selectedAsset.versions || []), newVersion], currentVersion: selectedAsset.currentVersion + 1, status: 'review-ready', revisionRound: newRound, feedback: updatedFeedback });
         setVersionFile(null);
-        showToast('New version uploaded!', 'success');
+        showToast(`v${selectedAsset.currentVersion + 1} uploaded!${newRound > currentRound ? ` Round ${newRound}` : ''}`, 'success');
+        
+        // Notify client/producer when new version is ready
+        const clientsToNotify = team.filter(m => ['producer', 'client', 'admin'].includes(m.role));
+        for (const client of clientsToNotify) {
+          if (client.email && client.id !== userProfile.id) {
+            sendEmailNotification(client.email, `New version ready: ${selectedAsset.name}`, `${userProfile.name} uploaded v${selectedAsset.currentVersion + 1} of "${selectedAsset.name}" and it's ready for review.`);
+          }
+        }
       } catch (e) { showToast('Failed to upload version', 'error'); }
       setUploadingVersion(false);
     };
@@ -4950,7 +5190,76 @@ export default function MainApp() {
     const handleRate = async (assetId, rating) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, rating } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
     const handleToggleSelect = async (assetId) => { const asset = (selectedProject.assets || []).find(a => a.id === assetId); const newSelected = !asset?.isSelected; const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
     const handleBulkSelect = async (select) => { const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAssets(new Set()); showToast(`${selectedAssets.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
-    const handleConfirmSelection = async () => { const activity = { id: generateId(), type: 'selection', message: `Selection confirmed by ${userProfile.name}`, timestamp: new Date().toISOString() }; await updateProject(selectedProject.id, { selectionConfirmed: true, activityLog: [...(selectedProject.activityLog || []), activity] }); await refreshProject(); showToast('Selection confirmed! 🎉', 'success'); };
+    
+    // Enhanced selection confirmation with notifications
+    const handleConfirmSelection = async () => {
+      const selectedAssetsList = (selectedProject.assets || []).filter(a => !a.deleted && (a.isSelected || a.rating === 5));
+      if (selectedAssetsList.length === 0) {
+        showToast('No assets selected!', 'error');
+        return;
+      }
+      
+      const activity = { 
+        id: generateId(), 
+        type: 'selection', 
+        message: `Selection confirmed by ${userProfile.name} (${selectedAssetsList.length} assets)`, 
+        timestamp: new Date().toISOString(),
+        userId: userProfile.id
+      };
+      
+      // Update project
+      await updateProject(selectedProject.id, { 
+        selectionConfirmed: true, 
+        selectionConfirmedAt: new Date().toISOString(),
+        selectionConfirmedBy: userProfile.id,
+        selectionConfirmedByName: userProfile.name,
+        workflowPhase: 'editing',
+        activityLog: [...(selectedProject.activityLog || []), activity] 
+      });
+      
+      // Get editors and team members to notify
+      const editorsToNotify = team.filter(m => ['editor', 'video-editor', 'colorist', 'retoucher', 'photo-editor'].includes(m.role));
+      const producersToNotify = team.filter(m => ['producer', 'admin', 'team-lead'].includes(m.role));
+      
+      // Create in-app notifications
+      const notifications = [];
+      [...editorsToNotify, ...producersToNotify].forEach(member => {
+        if (member.id !== userProfile.id) {
+          notifications.push({
+            id: generateId(),
+            type: 'selection',
+            title: 'Selection Confirmed',
+            message: `${userProfile.name} confirmed selection for ${selectedProject.name} (${selectedAssetsList.length} assets ready for editing)`,
+            projectId: selectedProject.id,
+            projectName: selectedProject.name,
+            userId: member.id,
+            timestamp: new Date().toISOString(),
+            read: false
+          });
+        }
+      });
+      
+      // Save notifications (merge with existing)
+      if (notifications.length > 0) {
+        const existingNotifs = JSON.parse(localStorage.getItem('anandi-notifications') || '[]');
+        localStorage.setItem('anandi-notifications', JSON.stringify([...notifications, ...existingNotifs].slice(0, 100)));
+      }
+      
+      // Send email notifications to editors
+      for (const editor of editorsToNotify) {
+        if (editor.email) {
+          await sendEmailNotification(
+            editor.email,
+            `🎯 Selection Confirmed: ${selectedProject.name}`,
+            `${userProfile.name} has confirmed the selection for "${selectedProject.name}".\n\n${selectedAssetsList.length} assets are ready for editing.\n\nPlease log in to start working on the selected assets.`
+          );
+        }
+      }
+      
+      await refreshProject();
+      setShowSelectionOverview(false);
+      showToast(`Selection confirmed! ${editorsToNotify.length} editor(s) notified 🎉`, 'success');
+    };
     const handleUpdateStatus = async (assetId, status) => { 
       const asset = (selectedProject.assets || []).find(a => a.id === assetId);
       const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, status } : a); 
@@ -5067,7 +5376,10 @@ export default function MainApp() {
                       name: selectedProject.name, 
                       client: selectedProject.client || '', 
                       categories: selectedProject.categories || [],
-                      status: selectedProject.status || 'active'
+                      status: selectedProject.status || 'active',
+                      requiredFormats: selectedProject.requiredFormats || [],
+                      requiredSizes: selectedProject.requiredSizes || [],
+                      maxRevisions: selectedProject.maxRevisions || 0
                     });
                     setShowEditProject(true);
                   }} 
@@ -5167,7 +5479,8 @@ export default function MainApp() {
                 <Btn theme={theme} onClick={() => handleBulkSelect(false)} small outline>✗</Btn>
               </div>
             )}
-            {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && isProducer && !isMobile && <Btn theme={theme} onClick={handleConfirmSelection} small color="#f59e0b">🎯 Confirm ({selectedCount})</Btn>}
+            {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && (isProducer || userProfile?.role === 'client') && !isMobile && <Btn theme={theme} onClick={() => setShowSelectionOverview(true)} small color="#f59e0b">🎯 Confirm ({selectedCount})</Btn>}
+            {tab === 'assets' && unmatchedFiles.length > 0 && <Btn theme={theme} onClick={() => setShowMatchModal(true)} small color="#ef4444">🔗 Match Files ({unmatchedFiles.length})</Btn>}
             
             {/* View Mode Toggle */}
             {tab === 'assets' && assets.length > 0 && (
@@ -5253,6 +5566,7 @@ export default function MainApp() {
                           <div onClick={e => { e.stopPropagation(); setSelectedAssets(s => { const n = new Set(s); n.has(a.id) ? n.delete(a.id) : n.add(a.id); return n; }); }} style={{ position: 'absolute', top: '10px', left: '10px', width: '22px', height: '22px', borderRadius: '6px', background: selectedAssets.has(a.id) ? '#6366f1' : 'rgba(0,0,0,0.6)', border: '2px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}>{selectedAssets.has(a.id) && <span style={{ color: '#fff', fontSize: '12px' }}>✓</span>}</div>
                           {a.isSelected && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#22c55e', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', zIndex: 5, fontWeight: '600' }}>⭐</div>}
                           {hasNewVersion && <div style={{ position: 'absolute', top: a.isSelected ? '38px' : '10px', right: '10px', background: '#f97316', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>🆕 v{a.currentVersion}</div>}
+                          {a.revisionRound > 0 && <div style={{ position: 'absolute', top: a.isSelected ? (hasNewVersion ? '66px' : '38px') : (hasNewVersion ? '38px' : '10px'), left: '10px', background: a.revisionRound >= (selectedProject.maxRevisions || 999) ? '#ef4444' : '#8b5cf6', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>R{a.revisionRound}</div>}
                           {(a.annotations?.length > 0) && <div style={{ position: 'absolute', bottom: appearance.showInfo ? '80px' : '10px', right: '10px', background: '#ec4899', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>✏️ {a.annotations.length}</div>}
                           {/* Tags display */}
                           {a.tags?.length > 0 && (
@@ -5558,7 +5872,7 @@ export default function MainApp() {
         {/* Edit Project Modal */}
         {showEditProject && (
           <Modal theme={theme} title="Edit Project" onClose={() => setShowEditProject(false)}>
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '70vh', overflow: 'auto' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Project Name</label>
                 <Input 
@@ -5619,6 +5933,88 @@ export default function MainApp() {
                   })}
                 </div>
               </div>
+              
+              {/* Deliverables Section */}
+              <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: '16px', marginTop: '8px' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>📦 Deliverables Requirements</h4>
+                
+                {/* Required Formats */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Required File Formats (Photo)</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {FILE_FORMATS.photo.map(fmt => {
+                      const isActive = (editProjectData.requiredFormats || []).includes(fmt.id);
+                      return (
+                        <button key={fmt.id} onClick={() => {
+                          const updated = isActive 
+                            ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id)
+                            : [...(editProjectData.requiredFormats || []), fmt.id];
+                          setEditProjectData({ ...editProjectData, requiredFormats: updated });
+                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(99,102,241,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '6px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{fmt.label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Required File Formats (Video)</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {FILE_FORMATS.video.map(fmt => {
+                      const isActive = (editProjectData.requiredFormats || []).includes(fmt.id);
+                      return (
+                        <button key={fmt.id} onClick={() => {
+                          const updated = isActive 
+                            ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id)
+                            : [...(editProjectData.requiredFormats || []), fmt.id];
+                          setEditProjectData({ ...editProjectData, requiredFormats: updated });
+                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(99,102,241,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '6px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{fmt.label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Required Sizes */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Required Sizes/Adapts (Photo)</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {SIZE_PRESETS.photo.map(size => {
+                      const isActive = (editProjectData.requiredSizes || []).includes(size.id);
+                      return (
+                        <button key={size.id} onClick={() => {
+                          const updated = isActive 
+                            ? (editProjectData.requiredSizes || []).filter(s => s !== size.id)
+                            : [...(editProjectData.requiredSizes || []), size.id];
+                          setEditProjectData({ ...editProjectData, requiredSizes: updated });
+                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(34,197,94,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#22c55e' : t.border}`, borderRadius: '6px', color: isActive ? '#22c55e' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{size.label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Required Sizes (Video)</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {SIZE_PRESETS.video.map(size => {
+                      const isActive = (editProjectData.requiredSizes || []).includes(size.id);
+                      return (
+                        <button key={size.id} onClick={() => {
+                          const updated = isActive 
+                            ? (editProjectData.requiredSizes || []).filter(s => s !== size.id)
+                            : [...(editProjectData.requiredSizes || []), size.id];
+                          setEditProjectData({ ...editProjectData, requiredSizes: updated });
+                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(34,197,94,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#22c55e' : t.border}`, borderRadius: '6px', color: isActive ? '#22c55e' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{size.label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Max Revisions */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Max Revision Rounds (0 = unlimited)</label>
+                  <input type="number" min="0" max="20" value={editProjectData.maxRevisions || 0} onChange={(e) => setEditProjectData({ ...editProjectData, maxRevisions: parseInt(e.target.value) || 0 })} style={{ width: '80px', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '12px' }} />
+                </div>
+              </div>
+              
               <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
                 <Btn 
                   onClick={async () => {
@@ -5626,7 +6022,10 @@ export default function MainApp() {
                       name: editProjectData.name, 
                       client: editProjectData.client,
                       status: editProjectData.status,
-                      categories: editProjectData.categories 
+                      categories: editProjectData.categories,
+                      requiredFormats: editProjectData.requiredFormats,
+                      requiredSizes: editProjectData.requiredSizes,
+                      maxRevisions: editProjectData.maxRevisions
                     });
                     await refreshProject();
                     setShowEditProject(false);
@@ -5712,17 +6111,23 @@ export default function MainApp() {
             
             {/* Fullscreen Rating + Selection */}
             {isFullscreen && (
-              <div style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <div style={{ position: 'absolute', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                 {/* Big Stars */}
                 <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.8)', borderRadius: '16px', padding: '12px 20px' }}>
                   {[1,2,3,4,5].map(star => (
                     <span key={star} onClick={() => { handleRate(selectedAsset.id, star); setSelectedAsset({ ...selectedAsset, rating: star }); }} style={{ cursor: 'pointer', fontSize: '32px', color: star <= (selectedAsset.rating || 0) ? '#fbbf24' : 'rgba(255,255,255,0.3)', transition: 'transform 0.1s' }} onMouseEnter={(e) => e.target.style.transform = 'scale(1.2)'} onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}>★</span>
                   ))}
                 </div>
-                {/* Selection Info */}
-                <div style={{ fontSize: '14px', color: selectedAsset.isSelected ? '#22c55e' : 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
-                  {selectedAsset.isSelected ? '⭐ Selected' : 'Not Selected'}
-                </div>
+                {/* Selection Toggle Button */}
+                <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected }); }} style={{ padding: '12px 24px', background: selectedAsset.isSelected ? '#22c55e' : 'rgba(255,255,255,0.15)', border: selectedAsset.isSelected ? 'none' : '1px solid rgba(255,255,255,0.3)', borderRadius: '12px', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                  {selectedAsset.isSelected ? '⭐ Selected' : '☆ Mark as Selected'}
+                </button>
+                {/* Confirm Selection Button - only show if there are selections */}
+                {!selectedProject.selectionConfirmed && selectedCount > 0 && (isProducer || userProfile?.role === 'client') && (
+                  <button onClick={() => { setIsFullscreen(false); setShowSelectionOverview(true); }} style={{ padding: '10px 20px', background: '#f59e0b', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                    🎯 Confirm Selection ({selectedCount})
+                  </button>
+                )}
               </div>
             )}
             
@@ -5915,9 +6320,135 @@ export default function MainApp() {
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: t.textMuted }}>Uploaded</span><span>{formatDate(selectedAsset.uploadedAt)}</span></div>
                       </div>
                       
+                      {/* Deliverables Checklist */}
+                      {((selectedProject.requiredFormats?.length > 0) || (selectedProject.requiredSizes?.length > 0)) && (
+                        <div style={{ background: t.bgInput, borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
+                          <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            📦 Required Deliverables
+                            {selectedAsset.revisionRound > 0 && <span style={{ padding: '2px 6px', background: '#f97316', borderRadius: '4px', fontSize: '8px' }}>R{selectedAsset.revisionRound}</span>}
+                          </div>
+                          {/* Required Formats */}
+                          {selectedProject.requiredFormats?.length > 0 && (
+                            <div style={{ marginBottom: '8px' }}>
+                              <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '4px' }}>Formats:</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                {selectedProject.requiredFormats.map(fmtId => {
+                                  const fmt = [...FILE_FORMATS.photo, ...FILE_FORMATS.video].find(f => f.id === fmtId);
+                                  const isUploaded = (selectedAsset.uploadedFormats || []).includes(fmtId);
+                                  return fmt ? (
+                                    <span key={fmtId} style={{ padding: '2px 6px', background: isUploaded ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.1)', border: `1px solid ${isUploaded ? '#22c55e' : '#ef4444'}`, borderRadius: '4px', fontSize: '8px', color: isUploaded ? '#22c55e' : '#ef4444' }}>
+                                      {isUploaded ? '✓' : '○'} {fmt.label.split(' ')[0]}
+                                    </span>
+                                  ) : null;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {/* Required Sizes */}
+                          {selectedProject.requiredSizes?.length > 0 && (
+                            <div>
+                              <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '4px' }}>Sizes:</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                {selectedProject.requiredSizes.map(sizeId => {
+                                  const size = [...SIZE_PRESETS.photo, ...SIZE_PRESETS.video].find(s => s.id === sizeId);
+                                  const isUploaded = (selectedAsset.uploadedSizes || []).includes(sizeId);
+                                  return size ? (
+                                    <span key={sizeId} style={{ padding: '2px 6px', background: isUploaded ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.1)', border: `1px solid ${isUploaded ? '#22c55e' : '#ef4444'}`, borderRadius: '4px', fontSize: '8px', color: isUploaded ? '#22c55e' : '#ef4444' }}>
+                                      {isUploaded ? '✓' : '○'} {size.label.split(' ')[0]}
+                                    </span>
+                                  ) : null;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {/* Max Revisions Info */}
+                          {selectedProject.maxRevisions > 0 && (
+                            <div style={{ marginTop: '8px', fontSize: '9px', color: (selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions ? '#ef4444' : t.textMuted }}>
+                              Revisions: {selectedAsset.revisionRound || 0} / {selectedProject.maxRevisions}
+                              {(selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions && ' ⚠️ Limit reached'}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* High-Res Downloads Section */}
+                      {selectedAsset.status === 'approved' && (selectedAsset.highResFiles?.length > 0 || isProducer) && (
+                        <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
+                          <div style={{ fontSize: '10px', fontWeight: '600', color: '#22c55e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            📦 High-Res Downloads
+                            {!selectedAsset.highResFiles?.length && <span style={{ color: '#ef4444', fontWeight: 'normal' }}>Not uploaded yet</span>}
+                          </div>
+                          {selectedAsset.highResFiles?.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {selectedAsset.highResFiles.map((file, idx) => (
+                                <a key={idx} href={file.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', background: t.bgCard, borderRadius: '4px', textDecoration: 'none', color: t.text, fontSize: '10px' }}>
+                                  <span>{file.formatLabel || file.format}</span>
+                                  <span style={{ color: '#22c55e' }}>⬇️</span>
+                                </a>
+                              ))}
+                            </div>
+                          ) : isProducer ? (
+                            <div style={{ fontSize: '9px', color: t.textMuted }}>Waiting for editor to upload high-res files</div>
+                          ) : null}
+                        </div>
+                      )}
+                      
+                      {/* Editor: Upload High-Res Files */}
+                      {selectedAsset.status === 'approved' && !isProducer && userProfile?.role !== 'client' && (
+                        <div style={{ background: t.bgInput, borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
+                          <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px' }}>📤 Upload High-Res Files</div>
+                          {(selectedProject.requiredFormats || []).length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                              {selectedProject.requiredFormats.map(fmtId => {
+                                const fmt = [...FILE_FORMATS.photo, ...FILE_FORMATS.video].find(f => f.id === fmtId);
+                                const isUploaded = selectedAsset.highResFiles?.some(f => f.format === fmtId);
+                                return fmt ? (
+                                  <label key={fmtId} style={{ padding: '4px 8px', background: isUploaded ? 'rgba(34,197,94,0.2)' : t.bgCard, border: `1px solid ${isUploaded ? '#22c55e' : t.border}`, borderRadius: '6px', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <input type="file" style={{ display: 'none' }} onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      try {
+                                        showToast('Uploading...', 'info');
+                                        const path = `projects/${selectedProject.id}/highres/${selectedAsset.id}/${fmtId}-${file.name}`;
+                                        const sRef = ref(storage, path);
+                                        await uploadBytesResumable(sRef, file);
+                                        const url = await getDownloadURL(sRef);
+                                        const highResFile = { format: fmtId, formatLabel: fmt.label, url, fileName: file.name, uploadedAt: new Date().toISOString() };
+                                        const existingFiles = (selectedAsset.highResFiles || []).filter(f => f.format !== fmtId);
+                                        const updatedAsset = { ...selectedAsset, highResFiles: [...existingFiles, highResFile] };
+                                        const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? updatedAsset : a);
+                                        await updateProject(selectedProject.id, { assets: updated });
+                                        setSelectedAsset(updatedAsset);
+                                        await refreshProject();
+                                        showToast(`${fmt.label} uploaded!`, 'success');
+                                        
+                                        // Check if all required formats are uploaded
+                                        const allUploaded = selectedProject.requiredFormats.every(f => [...existingFiles, highResFile].some(h => h.format === f));
+                                        if (allUploaded) {
+                                          // Notify client
+                                          const clientsToNotify = team.filter(m => ['client', 'producer'].includes(m.role));
+                                          for (const client of clientsToNotify) {
+                                            if (client.email) {
+                                              sendEmailNotification(client.email, `High-res files ready: ${selectedAsset.name}`, `All required formats for "${selectedAsset.name}" have been uploaded and are ready for download.`);
+                                            }
+                                          }
+                                        }
+                                      } catch (err) { showToast('Upload failed', 'error'); }
+                                    }} />
+                                    {isUploaded ? '✓' : '+'} {fmt.label.split(' ')[0]}
+                                  </label>
+                                ) : null;
+                              })}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '9px', color: t.textMuted }}>No specific formats required</div>
+                          )}
+                        </div>
+                      )}
+                      
                       {/* Actions */}
                       <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                        <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none' }}>⬇️ Download</a>
+                        <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none' }}>⬇️ Preview</a>
                       </div>
                       
                       {/* Delete */}
@@ -5967,6 +6498,268 @@ export default function MainApp() {
           </div>
           );
         })()}
+
+        {/* SELECTION OVERVIEW MODAL */}
+        {showSelectionOverview && (() => {
+          const selectedAssetsList = (selectedProject.assets || []).filter(a => !a.deleted && (a.isSelected || a.rating === 5));
+          const fiveStarAssets = selectedAssetsList.filter(a => a.rating === 5);
+          const otherSelected = selectedAssetsList.filter(a => a.rating !== 5 && a.isSelected);
+          const editorsOnProject = team.filter(m => ['editor', 'video-editor', 'colorist', 'retoucher', 'photo-editor'].includes(m.role));
+          
+          return (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+              <div style={{ background: t.bgCard, borderRadius: '16px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {/* Header */}
+                <div style={{ padding: '20px 24px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>🎯 Confirm Selection</h2>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: t.textMuted }}>Review selected assets before confirming</p>
+                  </div>
+                  <button onClick={() => setShowSelectionOverview(false)} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: t.textMuted }}>✕</button>
+                </div>
+                
+                {/* Content */}
+                <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+                  {/* Summary Stats */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '28px', fontWeight: '700', color: '#fbbf24' }}>{fiveStarAssets.length}</div>
+                      <div style={{ fontSize: '11px', color: t.textMuted }}>⭐⭐⭐⭐⭐ Final Picks</div>
+                    </div>
+                    <div style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '28px', fontWeight: '700', color: '#22c55e' }}>{otherSelected.length}</div>
+                      <div style={{ fontSize: '11px', color: t.textMuted }}>Other Selected</div>
+                    </div>
+                    <div style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '28px', fontWeight: '700', color: '#6366f1' }}>{selectedAssetsList.length}</div>
+                      <div style={{ fontSize: '11px', color: t.textMuted }}>Total to Edit</div>
+                    </div>
+                  </div>
+                  
+                  {/* 5-Star Assets Grid */}
+                  {fiveStarAssets.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#fbbf24' }}>★★★★★</span> Final Picks ({fiveStarAssets.length})
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px' }}>
+                        {fiveStarAssets.map(asset => (
+                          <div key={asset.id} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', border: '2px solid #fbbf24', position: 'relative' }}>
+                            {asset.type === 'image' ? (
+                              <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>{asset.type === 'video' ? '🎬' : '📄'}</div>
+                            )}
+                            <div style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Other Selected Assets */}
+                  {otherSelected.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', color: t.textSecondary' }}>Other Selected ({otherSelected.length})</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '6px' }}>
+                        {otherSelected.slice(0, 20).map(asset => (
+                          <div key={asset.id} style={{ aspectRatio: '1', borderRadius: '6px', overflow: 'hidden', border: '1px solid #22c55e', position: 'relative' }}>
+                            {asset.type === 'image' ? (
+                              <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{asset.type === 'video' ? '🎬' : '📄'}</div>
+                            )}
+                            {asset.rating > 0 && <div style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 4px', fontSize: '8px', color: '#fbbf24' }}>{'★'.repeat(asset.rating)}</div>}
+                          </div>
+                        ))}
+                        {otherSelected.length > 20 && <div style={{ aspectRatio: '1', borderRadius: '6px', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: t.textMuted }}>+{otherSelected.length - 20}</div>}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Notification Preview */}
+                  <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '10px', padding: '14px' }}>
+                    <h4 style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '600', color: '#6366f1' }}>📧 Notifications will be sent to:</h4>
+                    {editorsOnProject.length > 0 ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {editorsOnProject.map(editor => (
+                          <div key={editor.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: t.bgInput, padding: '6px 10px', borderRadius: '20px', fontSize: '11px' }}>
+                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{editor.name?.[0]}</div>
+                            {editor.name}
+                            <span style={{ color: t.textMuted }}>({ROLES.find(r => r.id === editor.role)?.label || editor.role})</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ margin: 0, fontSize: '11px', color: t.textMuted }}>⚠️ No editors assigned to this project. Add team members first.</p>
+                    )}
+                  </div>
+                  
+                  {selectedAssetsList.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', color: t.textMuted }}>
+                      <div style={{ fontSize: '48px', marginBottom: '12px' }}>🤷</div>
+                      <p style={{ margin: 0 }}>No assets selected yet. Rate assets with 5 stars or mark them as selected.</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Footer */}
+                <div style={{ padding: '16px 24px', borderTop: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: t.bgTertiary }}>
+                  <button onClick={() => setShowSelectionOverview(false)} style={{ padding: '10px 20px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={handleConfirmSelection} disabled={selectedAssetsList.length === 0} style={{ padding: '12px 28px', background: selectedAssetsList.length > 0 ? '#22c55e' : t.bgInput, border: 'none', borderRadius: '8px', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: selectedAssetsList.length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    ✓ Confirm Selection ({selectedAssetsList.length})
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* MANUAL MATCH MODAL */}
+        {showMatchModal && unmatchedFiles.length > 0 && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div style={{ background: t.bgCard, borderRadius: '16px', width: '100%', maxWidth: '900px', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {/* Header */}
+              <div style={{ padding: '20px 24px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>🔗 Match Uploaded Files</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: t.textMuted }}>{unmatchedFiles.length} files need to be matched to existing assets</p>
+                </div>
+                <button onClick={() => setShowMatchModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: t.textMuted }}>✕</button>
+              </div>
+              
+              {/* Content */}
+              <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+                {unmatchedFiles.map((file, idx) => {
+                  const existingAssets = (selectedProject?.assets || []).filter(a => !a.deleted);
+                  return (
+                    <div key={idx} style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                        {/* Uploaded File Preview */}
+                        <div style={{ flexShrink: 0 }}>
+                          <div style={{ width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: `2px solid #6366f1`, background: t.bgCard }}>
+                            {file.preview ? (
+                              <img src={file.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>📄</div>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px', textAlign: 'center' }}>New</div>
+                        </div>
+                        
+                        {/* Arrow */}
+                        <div style={{ display: 'flex', alignItems: 'center', fontSize: '20px', color: t.textMuted, paddingTop: '25px' }}>→</div>
+                        
+                        {/* Match Selection */}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>{file.name}</div>
+                          <div style={{ fontSize: '10px', color: t.textMuted, marginBottom: '10px' }}>Select an existing asset to add this as a new version:</div>
+                          
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '150px', overflow: 'auto' }}>
+                            {existingAssets.map(asset => (
+                              <div 
+                                key={asset.id} 
+                                onClick={() => {
+                                  const updated = unmatchedFiles.map((f, i) => i === idx ? { ...f, matchedTo: asset.id } : f);
+                                  setUnmatchedFiles(updated);
+                                }}
+                                style={{ 
+                                  width: '60px', textAlign: 'center', cursor: 'pointer',
+                                  padding: '6px', borderRadius: '8px',
+                                  border: file.matchedTo === asset.id ? '2px solid #22c55e' : `1px solid ${t.border}`,
+                                  background: file.matchedTo === asset.id ? 'rgba(34,197,94,0.1)' : 'transparent'
+                                }}
+                              >
+                                <div style={{ width: '48px', height: '48px', borderRadius: '6px', overflow: 'hidden', margin: '0 auto 4px', background: t.bgCard }}>
+                                  {asset.thumbnail || asset.url ? (
+                                    <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>{asset.type === 'video' ? '🎬' : '📄'}</div>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name.substring(0, 10)}...</div>
+                                <div style={{ fontSize: '8px', color: t.textMuted }}>v{asset.currentVersion}</div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Option to create new */}
+                          <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                            <button onClick={() => {
+                              const updated = unmatchedFiles.map((f, i) => i === idx ? { ...f, matchedTo: null, createNew: true } : f);
+                              setUnmatchedFiles(updated);
+                            }} style={{ padding: '6px 12px', background: file.createNew ? 'rgba(99,102,241,0.2)' : 'transparent', border: `1px solid ${file.createNew ? '#6366f1' : t.border}`, borderRadius: '6px', color: file.createNew ? '#6366f1' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>
+                              + Create as New Asset
+                            </button>
+                            {file.matchedTo && (
+                              <span style={{ fontSize: '10px', color: '#22c55e', alignSelf: 'center' }}>✓ Matched to {existingAssets.find(a => a.id === file.matchedTo)?.name.substring(0, 15)}...</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Footer */}
+              <div style={{ padding: '16px 24px', borderTop: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: t.bgTertiary }}>
+                <div style={{ fontSize: '11px', color: t.textMuted }}>
+                  {unmatchedFiles.filter(f => f.matchedTo || f.createNew).length} / {unmatchedFiles.length} files assigned
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => { setShowMatchModal(false); setUnmatchedFiles([]); }} style={{ padding: '10px 20px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={async () => {
+                    // Process matched files
+                    for (const file of unmatchedFiles) {
+                      if (file.matchedTo) {
+                        // Add as version to matched asset
+                        const asset = (selectedProject.assets || []).find(a => a.id === file.matchedTo);
+                        if (asset) {
+                          const newVersion = asset.currentVersion + 1;
+                          const newVersionEntry = { version: newVersion, url: file.url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name };
+                          const updatedAsset = { ...asset, currentVersion: newVersion, versions: [...(asset.versions || []), newVersionEntry], url: file.url, thumbnail: file.thumbnail || asset.thumbnail };
+                          const updatedAssets = (selectedProject.assets || []).map(a => a.id === asset.id ? updatedAsset : a);
+                          await updateProject(selectedProject.id, { assets: updatedAssets });
+                        }
+                      } else if (file.createNew) {
+                        // Create as new asset - already uploaded, just need to add to assets
+                        const newAsset = {
+                          id: file.assetId || generateId(),
+                          name: file.name,
+                          type: file.type,
+                          category: file.category || (selectedProject.categories?.[0]?.id),
+                          url: file.url,
+                          thumbnail: file.thumbnail,
+                          fileSize: file.size,
+                          mimeType: file.mimeType,
+                          status: 'pending',
+                          rating: 0,
+                          isSelected: false,
+                          uploadedBy: userProfile.id,
+                          uploadedByName: userProfile.name,
+                          uploadedAt: new Date().toISOString(),
+                          versions: [{ version: 1, url: file.url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }],
+                          currentVersion: 1,
+                          feedback: [],
+                          annotations: []
+                        };
+                        const updatedAssets = [...(selectedProject.assets || []), newAsset];
+                        await updateProject(selectedProject.id, { assets: updatedAssets });
+                      }
+                    }
+                    await refreshProject();
+                    setShowMatchModal(false);
+                    setUnmatchedFiles([]);
+                    showToast('Files processed!', 'success');
+                  }} disabled={unmatchedFiles.filter(f => f.matchedTo || f.createNew).length === 0} style={{ padding: '10px 24px', background: unmatchedFiles.filter(f => f.matchedTo || f.createNew).length > 0 ? '#22c55e' : t.bgInput, border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: unmatchedFiles.filter(f => f.matchedTo || f.createNew).length > 0 ? 'pointer' : 'default' }}>
+                    ✓ Process Files
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     );
@@ -6510,6 +7303,7 @@ export default function MainApp() {
         {view === 'projects' && selectedProjectId && <ProjectDetail />}
         {view === 'calendar' && <CalendarView />}
         {view === 'team' && <TeamManagement />}
+        {view === 'downloads' && <DownloadsView />}
       </div>
     </div>
   );
