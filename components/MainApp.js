@@ -1482,6 +1482,16 @@ export default function MainApp() {
                         if (notif.projectId) {
                           setSelectedProjectId(notif.projectId);
                           setView('projects');
+                          // If it's an assignment notification, go to team tab
+                          if (notif.type === 'alert' && notif.title?.includes('Unassigned')) {
+                            setTimeout(() => {
+                              // Try to find and click team tab
+                              const teamTab = document.querySelector('[data-tab="team"]');
+                              if (teamTab) teamTab.click();
+                            }, 100);
+                          }
+                        } else if (notif.type === 'team' || notif.title?.includes('Team') || notif.title?.includes('Editor')) {
+                          setView('team');
                         }
                         setShowNotifications(false);
                       }}
@@ -5043,10 +5053,15 @@ export default function MainApp() {
               gdriveLink: ''
             };
             
-            const updatedAssets = [...(selectedProject.assets || []), newAsset];
+            // Fetch fresh project data before updating to avoid race conditions
+            const freshProjects = await getProjects();
+            const freshProject = freshProjects.find(p => p.id === selectedProject.id);
+            const currentAssets = freshProject?.assets || [];
+            
+            const updatedAssets = [...currentAssets, newAsset];
             const catName = cats.find(c => c.id === cat)?.name || cat;
             const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
-            await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(selectedProject.activityLog || []), activity] });
+            await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(freshProject?.activityLog || []), activity] });
             await refreshProject();
             setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
             showToast(useMux ? `Video uploaded! HLS ready in ~30s` : `Video uploaded!`, 'success');
@@ -5057,58 +5072,71 @@ export default function MainApp() {
             const sRef = ref(storage, path);
             const task = uploadBytesResumable(sRef, file);
             
-            task.on('state_changed', 
-              snap => setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: Math.round((snap.bytesTransferred / snap.totalBytes) * 100) } })), 
-              () => { showToast(`Failed: ${file.name}`, 'error'); setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; }); },
-              async () => {
-                const url = await getDownloadURL(task.snapshot.ref);
-                
-                // Generate thumbnail for images
-                let thumbnailUrl = null;
-                try {
-                  if (fileType === 'image') {
-                    const thumbBlob = await generateThumbnail(file);
-                    if (thumbBlob) {
-                      const thumbPath = `projects/${selectedProject.id}/${cat}/thumbs/${Date.now()}-thumb.jpg`;
-                      const thumbRef = ref(storage, thumbPath);
-                      await uploadBytesResumable(thumbRef, thumbBlob);
-                      thumbnailUrl = await getDownloadURL(thumbRef);
-                    }
+            // Wrap in Promise to properly await
+            await new Promise((resolve, reject) => {
+              task.on('state_changed', 
+                snap => setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: Math.round((snap.bytesTransferred / snap.totalBytes) * 100) } })), 
+                (error) => { showToast(`Failed: ${file.name}`, 'error'); setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; }); reject(error); },
+                async () => {
+                  try {
+                    const url = await getDownloadURL(task.snapshot.ref);
+                    
+                    // Generate thumbnail for images
+                    let thumbnailUrl = null;
+                    try {
+                      if (fileType === 'image') {
+                        const thumbBlob = await generateThumbnail(file);
+                        if (thumbBlob) {
+                          const thumbPath = `projects/${selectedProject.id}/${cat}/thumbs/${Date.now()}-thumb.jpg`;
+                          const thumbRef = ref(storage, thumbPath);
+                          await uploadBytesResumable(thumbRef, thumbBlob);
+                          thumbnailUrl = await getDownloadURL(thumbRef);
+                        }
+                      }
+                    } catch (e) { console.log('Thumb generation failed:', e); }
+                    
+                    const newAsset = { 
+                      id: assetId, 
+                      name: file.name, 
+                      type: fileType, 
+                      category: cat, 
+                      url, 
+                      path, 
+                      thumbnail: thumbnailUrl || (fileType === 'image' ? url : null), 
+                      fileSize: file.size, 
+                      mimeType: file.type, 
+                      status: 'pending', 
+                      rating: 0, 
+                      isSelected: false, 
+                      assignedTo: null, 
+                      uploadedBy: userProfile.id, 
+                      uploadedByName: userProfile.name, 
+                      uploadedAt: new Date().toISOString(), 
+                      versions: [{ version: 1, url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }], 
+                      currentVersion: 1, 
+                      feedback: [], 
+                      annotations: [], 
+                      gdriveLink: '' 
+                    };
+                    
+                    // Fetch fresh project data before updating to avoid race conditions
+                    const freshProjects = await getProjects();
+                    const freshProject = freshProjects.find(p => p.id === selectedProject.id);
+                    const currentAssets = freshProject?.assets || [];
+                    
+                    const updatedAssets = [...currentAssets, newAsset];
+                    const catName = cats.find(c => c.id === cat)?.name || cat;
+                    const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
+                    await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(freshProject?.activityLog || []), activity] });
+                    await refreshProject();
+                    setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
+                    resolve();
+                  } catch (e) {
+                    reject(e);
                   }
-                } catch (e) { console.log('Thumb generation failed:', e); }
-                
-                const newAsset = { 
-                  id: assetId, 
-                  name: file.name, 
-                  type: fileType, 
-                  category: cat, 
-                  url, 
-                  path, 
-                  thumbnail: thumbnailUrl || (fileType === 'image' ? url : null), 
-                  fileSize: file.size, 
-                  mimeType: file.type, 
-                  status: 'pending', 
-                  rating: 0, 
-                  isSelected: false, 
-                  assignedTo: null, 
-                  uploadedBy: userProfile.id, 
-                  uploadedByName: userProfile.name, 
-                  uploadedAt: new Date().toISOString(), 
-                  versions: [{ version: 1, url, uploadedAt: new Date().toISOString(), uploadedBy: userProfile.name }], 
-                  currentVersion: 1, 
-                  feedback: [], 
-                  annotations: [], 
-                  gdriveLink: '' 
-                };
-                
-                const updatedAssets = [...(selectedProject.assets || []), newAsset];
-                const catName = cats.find(c => c.id === cat)?.name || cat;
-                const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
-                await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(selectedProject.activityLog || []), activity] });
-                await refreshProject();
-                setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
-              }
-            );
+                }
+              );
+            });
           }
         } catch (e) { 
           console.error('Upload error:', e);
@@ -5377,9 +5405,16 @@ export default function MainApp() {
                       client: selectedProject.client || '', 
                       categories: selectedProject.categories || [],
                       status: selectedProject.status || 'active',
+                      type: selectedProject.type || 'photoshoot',
                       requiredFormats: selectedProject.requiredFormats || [],
                       requiredSizes: selectedProject.requiredSizes || [],
-                      maxRevisions: selectedProject.maxRevisions || 0
+                      maxRevisions: selectedProject.maxRevisions || 0,
+                      versionUploadRoles: selectedProject.versionUploadRoles || ['producer', 'editor'],
+                      approvalWorkflow: selectedProject.approvalWorkflow || 'producer',
+                      notifyOnUpload: selectedProject.notifyOnUpload ?? true,
+                      notifyOnVersion: selectedProject.notifyOnVersion ?? true,
+                      notifyOnApproval: selectedProject.notifyOnApproval ?? true,
+                      notifyOnDeadline: selectedProject.notifyOnDeadline ?? true
                     });
                     setShowEditProject(true);
                   }} 
@@ -5451,7 +5486,7 @@ export default function MainApp() {
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? '📑 Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
+              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? '📑 Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
               {/* Photoshoot Workflow Phase Indicator */}
               {selectedProject.type === 'photoshoot' && (
                 <div style={{ marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: t.bgInput, padding: '6px 12px', borderRadius: '8px' }}>
@@ -6015,6 +6050,125 @@ export default function MainApp() {
                 </div>
               </div>
               
+              {/* Workflow Settings */}
+              <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: '16px', marginTop: '8px' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>⚙️ Workflow Settings</h4>
+                
+                {/* Who can upload versions */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Who can upload new versions?</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {[
+                      { id: 'producer', label: '👑 Producer' },
+                      { id: 'editor', label: '✂️ Editor' },
+                      { id: 'colorist', label: '🎨 Colorist' },
+                      { id: 'vfx', label: '✨ VFX Artist' },
+                      { id: 'retoucher', label: '🖼️ Retoucher' },
+                      { id: 'sound', label: '🎵 Sound' },
+                    ].map(role => {
+                      const isActive = (editProjectData.versionUploadRoles || ['producer', 'editor']).includes(role.id);
+                      return (
+                        <button key={role.id} onClick={() => {
+                          const current = editProjectData.versionUploadRoles || ['producer', 'editor'];
+                          const updated = isActive ? current.filter(r => r !== role.id) : [...current, role.id];
+                          setEditProjectData({ ...editProjectData, versionUploadRoles: updated });
+                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(99,102,241,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '6px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{role.label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Approval workflow */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Approval Workflow</label>
+                  <Select theme={theme} value={editProjectData.approvalWorkflow || 'producer'} onChange={(v) => setEditProjectData({ ...editProjectData, approvalWorkflow: v })} style={{ width: '100%' }}>
+                    <option value="producer">Producer Only</option>
+                    <option value="client">Client Approval Required</option>
+                    <option value="both">Producer + Client</option>
+                  </Select>
+                </div>
+                
+                {/* Auto-notifications */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '8px' }}>Auto-Notifications</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {[
+                      { id: 'notifyOnUpload', label: 'Notify client when assets uploaded' },
+                      { id: 'notifyOnVersion', label: 'Notify on new version' },
+                      { id: 'notifyOnApproval', label: 'Notify team on approval' },
+                      { id: 'notifyOnDeadline', label: 'Send deadline reminders' },
+                    ].map(opt => (
+                      <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px' }}>
+                        <input type="checkbox" checked={editProjectData[opt.id] ?? true} onChange={(e) => setEditProjectData({ ...editProjectData, [opt.id]: e.target.checked })} style={{ accentColor: '#6366f1' }} />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Project Type Specific Settings */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Project Type</label>
+                  <Select theme={theme} value={editProjectData.type || selectedProject.type || 'photoshoot'} onChange={(v) => setEditProjectData({ ...editProjectData, type: v })} style={{ width: '100%' }}>
+                    <option value="photoshoot">📸 Photoshoot</option>
+                    <option value="video-production">🎬 Video Production</option>
+                    <option value="ad-film">🎥 Ad Film</option>
+                    <option value="toolkit">🧰 Toolkit</option>
+                    <option value="cgi-animation">✨ CGI/Animation</option>
+                    <option value="social-content">📱 Social Content</option>
+                    <option value="product-photography">📦 Product Photography</option>
+                    <option value="event-coverage">🎉 Event Coverage</option>
+                    <option value="retouch-only">🖼️ Retouch Only</option>
+                    <option value="color-grade">🎨 Color Grade Only</option>
+                    <option value="post-production">🎞️ Post Production</option>
+                    <option value="motion-graphics">🌀 Motion Graphics</option>
+                  </Select>
+                </div>
+                
+                {/* Quick Presets based on project type */}
+                <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px', color: '#6366f1' }}>💡 Quick Presets</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    <button onClick={() => setEditProjectData({ 
+                      ...editProjectData, 
+                      requiredFormats: ['jpg-web', 'psd', 'tiff'],
+                      requiredSizes: ['original', 'web-large', 'social-square', 'social-portrait'],
+                      maxRevisions: 3,
+                      versionUploadRoles: ['producer', 'editor', 'retoucher']
+                    })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
+                      📸 Standard Photo
+                    </button>
+                    <button onClick={() => setEditProjectData({ 
+                      ...editProjectData, 
+                      requiredFormats: ['mp4-web', 'mp4-hq', 'mov-prores'],
+                      requiredSizes: ['1080p', '4k', 'square', 'vertical'],
+                      maxRevisions: 5,
+                      versionUploadRoles: ['producer', 'editor', 'colorist', 'vfx', 'sound']
+                    })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
+                      🎬 Video Project
+                    </button>
+                    <button onClick={() => setEditProjectData({ 
+                      ...editProjectData, 
+                      requiredFormats: ['jpg-web', 'png'],
+                      requiredSizes: ['social-square', 'social-portrait', 'social-story'],
+                      maxRevisions: 2,
+                      versionUploadRoles: ['producer', 'editor']
+                    })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
+                      📱 Social Only
+                    </button>
+                    <button onClick={() => setEditProjectData({ 
+                      ...editProjectData, 
+                      requiredFormats: ['jpg-web', 'jpg-print', 'psd', 'tiff', 'png'],
+                      requiredSizes: ['original', '4k', 'web-large', 'social-square', 'social-portrait', 'social-story'],
+                      maxRevisions: 5,
+                      versionUploadRoles: ['producer', 'editor', 'retoucher', 'colorist']
+                    })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
+                      🧰 Full Toolkit
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
               <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
                 <Btn 
                   onClick={async () => {
@@ -6022,10 +6176,17 @@ export default function MainApp() {
                       name: editProjectData.name, 
                       client: editProjectData.client,
                       status: editProjectData.status,
+                      type: editProjectData.type,
                       categories: editProjectData.categories,
                       requiredFormats: editProjectData.requiredFormats,
                       requiredSizes: editProjectData.requiredSizes,
-                      maxRevisions: editProjectData.maxRevisions
+                      maxRevisions: editProjectData.maxRevisions,
+                      versionUploadRoles: editProjectData.versionUploadRoles,
+                      approvalWorkflow: editProjectData.approvalWorkflow,
+                      notifyOnUpload: editProjectData.notifyOnUpload,
+                      notifyOnVersion: editProjectData.notifyOnVersion,
+                      notifyOnApproval: editProjectData.notifyOnApproval,
+                      notifyOnDeadline: editProjectData.notifyOnDeadline
                     });
                     await refreshProject();
                     setShowEditProject(false);
@@ -6287,19 +6448,43 @@ export default function MainApp() {
                         </div>
                       )}
                       
-                      {/* Version Upload */}
-                      <div style={{ marginBottom: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>📦 Versions</span>
-                          <span style={{ padding: '2px 6px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.bgCard, borderRadius: '4px', fontSize: '9px' }}>v{selectedAsset.currentVersion}</span>
-                        </div>
-                        <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '6px' }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
-                          <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '6px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '9px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
-                          {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '6px 10px', background: '#6366f1', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>{uploadingVersion ? '⏳' : '⬆️'}</button>}
-                        </div>
-                      </div>
+                      {/* Version Upload - permission based */}
+                      {(() => {
+                        const allowedRoles = selectedProject.versionUploadRoles || ['producer', 'editor'];
+                        const roleMap = { 
+                          'producer': ['producer', 'admin', 'team-lead'],
+                          'editor': ['editor', 'photo-editor', 'video-editor'],
+                          'colorist': ['colorist', 'color-grader'],
+                          'vfx': ['vfx', 'vfx-artist', 'motion-graphics'],
+                          'retoucher': ['retoucher'],
+                          'sound': ['sound', 'sound-designer', 'audio-engineer']
+                        };
+                        const userRoles = Object.entries(roleMap).filter(([, mapped]) => mapped.includes(userProfile?.role)).map(([key]) => key);
+                        const canUploadVersion = isProducer || userRoles.some(r => allowedRoles.includes(r));
+                        
+                        return canUploadVersion ? (
+                          <div style={{ marginBottom: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px' }}>
+                            <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>📦 Versions</span>
+                              <span style={{ padding: '2px 6px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.bgCard, borderRadius: '4px', fontSize: '9px' }}>v{selectedAsset.currentVersion}</span>
+                            </div>
+                            <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '6px' }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
+                              <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '6px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '9px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
+                              {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '6px 10px', background: '#6366f1', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>{uploadingVersion ? '⏳' : '⬆️'}</button>}
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ marginBottom: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px' }}>
+                            <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>📦 Versions</span>
+                              <span style={{ padding: '2px 6px', background: t.bgCard, borderRadius: '4px', fontSize: '9px' }}>v{selectedAsset.currentVersion}</span>
+                            </div>
+                            <div style={{ fontSize: '9px', color: t.textMuted }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
+                          </div>
+                        );
+                      })()}
                       
                       {/* GDrive Link */}
                       {selectedAsset.status === 'approved' && (
