@@ -4943,17 +4943,53 @@ export default function MainApp() {
       const typeOrder = { image: 0, video: 1, audio: 2, other: 3 };
       const sortedAssets = filteredAssets.sort((x, y) => (typeOrder[x.type] || 3) - (typeOrder[y.type] || 3));
       const currentIndex = sortedAssets.findIndex(a => a.id === selectedAsset.id);
-      const handleKeyNav = (e) => {
+      const handleKeyNav = async (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        
+        // Arrow navigation
         if (e.key === 'ArrowLeft' && currentIndex > 0) {
           setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex - 1]);
         } else if (e.key === 'ArrowRight' && currentIndex < sortedAssets.length - 1) {
           setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex + 1]);
         }
+        
+        // 1-5 for ratings
+        if (['1', '2', '3', '4', '5'].includes(e.key)) {
+          e.preventDefault();
+          const rating = parseInt(e.key);
+          const newRating = selectedAsset.rating === rating ? 0 : rating; // Toggle if same
+          const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, rating: newRating } : a);
+          setSelectedAsset({ ...selectedAsset, rating: newRating });
+          await updateProject(selectedProject.id, { assets: updated });
+          await refreshProject();
+          showToast(`Rated ${newRating > 0 ? '★'.repeat(newRating) : 'cleared'}`, 'success');
+        }
+        
+        // S for toggle select
+        if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          const newSelected = !selectedAsset.isSelected;
+          const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, isSelected: newSelected } : a);
+          setSelectedAsset({ ...selectedAsset, isSelected: newSelected });
+          await updateProject(selectedProject.id, { assets: updated });
+          await refreshProject();
+          showToast(newSelected ? '⭐ Selected' : 'Deselected', 'success');
+        }
+        
+        // Escape to close lightbox
+        if (e.key === 'Escape') {
+          setSelectedAsset(null);
+        }
+        
+        // F for fullscreen
+        if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          setIsFullscreen(!isFullscreen);
+        }
       };
       window.addEventListener('keydown', handleKeyNav);
       return () => window.removeEventListener('keydown', handleKeyNav);
-    }, [selectedAsset, selectedProject, selectedCat]);
+    }, [selectedAsset, selectedProject, selectedCat, isFullscreen]);
 
     if (!selectedProject) return null;
     const cats = selectedProject.categories || [];
@@ -5401,14 +5437,15 @@ export default function MainApp() {
       if (!newFeedback.trim() || !selectedAsset) return; 
       const videoTime = selectedAsset.type === 'video' && videoRef.current ? videoRef.current.currentTime : null;
       
-      // Extract mentions from feedback text
-      const mentionRegex = /@([A-Za-z\s]+?)(?=\s|$|@)/g;
+      // Extract mentions from feedback text - match against all available users
+      const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
+      const mentionRegex = /@([A-Za-z\s]+?)(?=\s|$|@|,|\.)/g;
       const mentions = [];
       let match;
       while ((match = mentionRegex.exec(newFeedback)) !== null) {
         const mentionedName = match[1].trim();
-        const mentionedUser = team.find(m => m.name?.toLowerCase() === mentionedName.toLowerCase());
-        if (mentionedUser) mentions.push(mentionedUser);
+        const mentionedUser = allMentionable.find(m => m.name?.toLowerCase() === mentionedName.toLowerCase());
+        if (mentionedUser && !mentions.find(m => m.id === mentionedUser.id)) mentions.push(mentionedUser);
       }
       
       const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false, mentions: mentions.map(m => m.id) }; 
@@ -6493,19 +6530,28 @@ export default function MainApp() {
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', position: 'relative' }}>
                         {selectedAsset.type === 'video' && <span style={{ fontSize: '9px', color: t.textMuted, flexShrink: 0 }}>📍{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
                         <div style={{ flex: 1, position: 'relative' }}>
-                          <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback()} placeholder="Add feedback... (@ to mention)" style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '11px' }} />
-                          {/* Mentions Dropdown */}
-                          {showMentions && (
-                            <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', marginBottom: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 100 }}>
-                              {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5).map(member => (
-                                <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }} onMouseEnter={(e) => e.target.style.background = t.bgInput} onMouseLeave={(e) => e.target.style.background = 'transparent'}>
-                                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{member.name?.[0]}</div>
-                                  {member.name}
-                                </div>
-                              ))}
-                              {team.filter(m => m.name?.toLowerCase().includes(mentionSearch)).length === 0 && <div style={{ padding: '8px', color: t.textMuted, fontSize: '10px' }}>No matches</div>}
-                            </div>
-                          )}
+                          <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }} placeholder="Add feedback... (@ to mention)" style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '11px' }} />
+                          {/* Mentions Dropdown - includes all available team members */}
+                          {showMentions && (() => {
+                            // Combine project team, freelancers, and core team for mentions
+                            const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
+                            const filtered = allMentionable.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 8);
+                            return (
+                              <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', marginBottom: '4px', maxHeight: '200px', overflow: 'auto', zIndex: 100, boxShadow: '0 -4px 20px rgba(0,0,0,0.3)' }}>
+                                <div style={{ padding: '6px 10px', borderBottom: `1px solid ${t.border}`, fontSize: '9px', color: t.textMuted, fontWeight: '600' }}>MENTION SOMEONE</div>
+                                {filtered.map(member => (
+                                  <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', borderBottom: `1px solid ${t.border}` }} onMouseEnter={(e) => e.currentTarget.style.background = t.bgInput} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: team.find(t => t.id === member.id) ? '#6366f1' : '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600' }}>{member.name?.[0]}</div>
+                                    <div>
+                                      <div style={{ fontWeight: '500' }}>{member.name}</div>
+                                      <div style={{ fontSize: '10px', color: t.textMuted }}>{member.role || 'Team Member'} {team.find(t => t.id === member.id) ? '• On this project' : ''}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                                {filtered.length === 0 && <div style={{ padding: '12px', color: t.textMuted, fontSize: '11px', textAlign: 'center' }}>No matches found<br/><span style={{ fontSize: '10px' }}>Type a name to search</span></div>}
+                              </div>
+                            );
+                          })()}
                         </div>
                         <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '8px 12px', background: newFeedback.trim() ? '#6366f1' : t.bgInput, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: newFeedback.trim() ? 'pointer' : 'default' }}>Send</button>
                       </div>
@@ -6762,7 +6808,7 @@ export default function MainApp() {
               {/* Compare Tab */}
               {assetTab === 'compare' && (
                 <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
-                  <CompareView asset={selectedAsset} />
+                  <VersionComparison versions={selectedAsset.versions || []} currentVersion={selectedAsset.currentVersion} />
                 </div>
               )}
             </div>
@@ -7081,6 +7127,8 @@ export default function MainApp() {
     const [imageLoaded, setImageLoaded] = useState(false);
     const [imageDims, setImageDims] = useState({ width: 0, height: 0 });
     const [isPinching, setIsPinching] = useState(false);
+    const [pendingAnnot, setPendingAnnot] = useState(null); // For text modal
+    const [annotText, setAnnotText] = useState('');
     const lastPinchDistRef = useRef(0);
     const containerRef = useRef(null);
     const imageContainerRef = useRef(null);
@@ -7218,29 +7266,48 @@ export default function MainApp() {
       const x = Math.min(pos.x, drawStart.x);
       const y = Math.min(pos.y, drawStart.y);
 
-      let newAnnot = null;
       const author = typeof userProfile !== 'undefined' ? userProfile?.name : 'You';
 
-      if (tool === 'freehand' && currentPath.length > 2) {
-        newAnnot = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author };
-      } else if (tool === 'text' && newText.trim()) {
-        newAnnot = { id: generateId(), type: 'text', x: drawStart.x, y: drawStart.y, text: newText, color, createdAt: new Date().toISOString(), author };
-        setNewText('');
-      } else if (width > 2 || height > 2) {
-        newAnnot = { id: generateId(), type: tool, x, y, width: Math.max(width, 5), height: Math.max(height, 5), color, text: newText || '', createdAt: new Date().toISOString(), author };
-        setNewText('');
-      }
-
-      if (newAnnot) {
+      // For text tool, show immediately if text is already entered
+      if (tool === 'text' && newText.trim()) {
+        const newAnnot = { id: generateId(), type: 'text', x: drawStart.x, y: drawStart.y, text: newText, color, createdAt: new Date().toISOString(), author };
         const updated = [...annots, newAnnot];
         setAnnots(updated);
         onChange(updated);
+        setNewText('');
+      } else if (tool === 'freehand' && currentPath.length > 2) {
+        // For freehand, show text modal to add description
+        const pending = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author };
+        setPendingAnnot(pending);
+        setAnnotText('');
+      } else if (width > 2 || height > 2) {
+        // For shapes (rect, circle, arrow), show text modal
+        const pending = { id: generateId(), type: tool, x, y, width: Math.max(width, 5), height: Math.max(height, 5), color, createdAt: new Date().toISOString(), author };
+        setPendingAnnot(pending);
+        setAnnotText('');
       }
 
       setIsDrawing(false);
       setDrawStart(null);
       setCurrentEnd(null);
       setCurrentPath([]);
+    };
+
+    // Confirm annotation with text
+    const confirmAnnotation = () => {
+      if (!pendingAnnot) return;
+      const finalAnnot = { ...pendingAnnot, text: annotText.trim() || 'No description' };
+      const updated = [...annots, finalAnnot];
+      setAnnots(updated);
+      onChange(updated);
+      setPendingAnnot(null);
+      setAnnotText('');
+    };
+
+    // Cancel pending annotation
+    const cancelAnnotation = () => {
+      setPendingAnnot(null);
+      setAnnotText('');
     };
 
     const deleteAnnot = (id, e) => { 
@@ -7256,10 +7323,17 @@ export default function MainApp() {
       
       if (a.type === 'freehand' && a.path) {
         const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        // Calculate bounding box for freehand
+        const minX = Math.min(...a.path.map(p => p.x));
+        const minY = Math.min(...a.path.map(p => p.y));
         return (
-          <svg key={a.id} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
-            <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: '3px' }} />
-          </svg>
+          <div key={a.id} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible' }}>
+              <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: '3px', pointerEvents: 'stroke', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }} />
+            </svg>
+            {a.text && <div style={{ position: 'absolute', left: `${minX}%`, top: `${Math.max(0, minY - 5)}%`, transform: 'translateY(-100%)', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '11px', whiteSpace: 'nowrap', fontWeight: '600', zIndex: 11, pointerEvents: 'auto' }}>{a.text}</div>}
+            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', left: `${minX}%`, top: `${minY}%`, transform: 'translate(-50%, -50%)', width: '24px', height: '24px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '14px', cursor: 'pointer', zIndex: 12, pointerEvents: 'auto' }}>×</button>}
+          </div>
         );
       }
 
@@ -7291,13 +7365,21 @@ export default function MainApp() {
       }
 
       if (a.type === 'arrow') {
+        const centerX = a.x + a.width / 2;
+        const centerY = a.y + a.height / 2;
         return (
-          <svg key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, overflow: 'visible', cursor: 'move', zIndex: 10 }}
+          <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, cursor: 'move', zIndex: 10 }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
-            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-            <defs><marker id={`arr-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs>
-            <line x1="0" y1="50%" x2="100%" y2="50%" stroke={a.color} strokeWidth="3" markerEnd={`url(#arr-${a.id})`} />
-          </svg>
+            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
+            onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
+            {a.text && <div style={{ position: 'absolute', top: '-28px', left: '0', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '11px', whiteSpace: 'nowrap', fontWeight: '600', zIndex: 11 }}>{a.text}</div>}
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+              <defs><marker id={`arr-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs>
+              <line x1="0" y1="50" x2="100" y2="50" stroke={a.color} strokeWidth="3" markerEnd={`url(#arr-${a.id})`} vectorEffect="non-scaling-stroke" />
+            </svg>
+            {isSelected && <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '14px', height: '14px', background: a.color, borderRadius: '3px', cursor: 'se-resize', zIndex: 12 }} />}
+            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '12px', cursor: 'pointer', zIndex: 12 }}>×</button>}
+          </div>
         );
       }
 
@@ -7427,6 +7509,27 @@ export default function MainApp() {
         </div>
         
         {annots.length > 0 && <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '6px', flexShrink: 0, textAlign: 'center' }}>{annots.length} annotation{annots.length !== 1 ? 's'  : ''} • Pinch to zoom</div>}
+        
+        {/* Text Modal for Annotation Description */}
+        {pendingAnnot && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }} onClick={cancelAnnotation}>
+            <div style={{ background: t.bgCard, borderRadius: '16px', padding: '24px', width: '90%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600' }}>✏️ Add Description</h3>
+              <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.textMuted }}>What feedback do you want to give about this area?</p>
+              <textarea 
+                value={annotText} 
+                onChange={(e) => setAnnotText(e.target.value)} 
+                placeholder="E.g., Fix the color balance here, crop tighter, remove this element..." 
+                autoFocus
+                style={{ width: '100%', minHeight: '100px', padding: '12px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: '#fff', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} 
+              />
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px', justifyContent: 'flex-end' }}>
+                <button onClick={cancelAnnotation} style={{ padding: '10px 20px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textMuted, fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={confirmAnnotation} style={{ padding: '10px 20px', background: pendingAnnot.color, border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Add Annotation</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
