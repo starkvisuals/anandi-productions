@@ -4866,6 +4866,16 @@ export default function MainApp() {
     const [imageLoading, setImageLoading] = useState(true);
     const [showSelectionOverview, setShowSelectionOverview] = useState(false);
     const hlsRef = useRef(null);
+    
+    // Zoom system state
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const [isLoadingHighRes, setIsLoadingHighRes] = useState(false);
+    const [highResLoaded, setHighResLoaded] = useState(false);
+    const imageContainerRef = useRef(null);
+    const lastPinchDistance = useRef(0);
 
     // HLS.js initialization for Mux videos (Chrome/Firefox)
     useEffect(() => {
@@ -4935,6 +4945,14 @@ export default function MainApp() {
       };
     }, [selectedAsset?.muxPlaybackId, selectedAsset?.id]);
 
+    // Reset zoom when asset changes
+    useEffect(() => {
+      setZoomLevel(1);
+      setPanPosition({ x: 0, y: 0 });
+      setHighResLoaded(false);
+      setIsLoadingHighRes(false);
+    }, [selectedAsset?.id]);
+
     // Keyboard shortcuts for navigation (must be before conditional return)
     useEffect(() => {
       if (!selectedAsset || !selectedProject) return;
@@ -4986,10 +5004,34 @@ export default function MainApp() {
           e.preventDefault();
           setIsFullscreen(!isFullscreen);
         }
+        
+        // Zoom shortcuts (for images)
+        if (selectedAsset.type === 'image' && assetTab === 'preview') {
+          // + or = for zoom in
+          if (e.key === '+' || e.key === '=') {
+            e.preventDefault();
+            setZoomLevel(z => Math.min(5, z + 0.25));
+          }
+          // - for zoom out
+          if (e.key === '-' || e.key === '_') {
+            e.preventDefault();
+            setZoomLevel(z => {
+              const newZ = Math.max(0.5, z - 0.25);
+              if (newZ <= 1) setPanPosition({ x: 0, y: 0 });
+              return newZ;
+            });
+          }
+          // 0 to reset zoom
+          if (e.key === '0') {
+            e.preventDefault();
+            setZoomLevel(1);
+            setPanPosition({ x: 0, y: 0 });
+          }
+        }
       };
       window.addEventListener('keydown', handleKeyNav);
       return () => window.removeEventListener('keydown', handleKeyNav);
-    }, [selectedAsset, selectedProject, selectedCat, isFullscreen]);
+    }, [selectedAsset, selectedProject, selectedCat, isFullscreen, assetTab, zoomLevel]);
 
     if (!selectedProject) return null;
     const cats = selectedProject.categories || [];
@@ -6478,20 +6520,204 @@ export default function MainApp() {
                         assetTab === 'annotate' ? (
                           <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
                         ) : (
-                          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {imageLoading && (
-                              <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '40px', height: '40px', border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                                <span style={{ fontSize: '11px', color: t.textMuted }}>Loading...</span>
+                          <div 
+                            ref={imageContainerRef}
+                            style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+                          >
+                            {/* Zoom Controls - Top Right */}
+                            <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 20, display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '8px', padding: '4px' }}>
+                              <button 
+                                onClick={() => { setZoomLevel(z => Math.max(0.5, z - 0.25)); setPanPosition({ x: 0, y: 0 }); }}
+                                style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Zoom out"
+                              >−</button>
+                              <button 
+                                onClick={() => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); }}
+                                style={{ padding: '0 10px', height: '32px', background: zoomLevel === 1 ? 'rgba(99,102,241,0.3)' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: '500', minWidth: '50px' }}
+                                title="Fit to screen"
+                              >{Math.round(zoomLevel * 100)}%</button>
+                              <button 
+                                onClick={() => { setZoomLevel(z => Math.min(5, z + 0.25)); }}
+                                style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Zoom in"
+                              >+</button>
+                              <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)', margin: '4px 2px' }} />
+                              <button 
+                                onClick={() => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); }}
+                                style={{ padding: '0 8px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}
+                                title="Fit"
+                              >Fit</button>
+                              <button 
+                                onClick={() => { setZoomLevel(3); setPanPosition({ x: 0, y: 0 }); }}
+                                style={{ padding: '0 8px', height: '32px', background: zoomLevel >= 3 ? 'rgba(99,102,241,0.3)' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}
+                                title="100% actual size"
+                              >100%</button>
+                            </div>
+                            
+                            {/* Loading High-Res Indicator */}
+                            {isLoadingHighRes && (
+                              <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 20, background: 'rgba(0,0,0,0.7)', borderRadius: '6px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '14px', height: '14px', border: '2px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                <span style={{ fontSize: '11px', color: '#fff' }}>Loading full resolution...</span>
                               </div>
                             )}
-                            <img 
-                              src={selectedAsset.preview || selectedAsset.thumbnail || selectedAsset.url} 
-                              alt={selectedAsset.name} 
-                              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '4px', opacity: imageLoading ? 0 : 1, transition: 'opacity 0.2s' }} 
-                              draggable={false}
-                              onLoad={() => setImageLoading(false)}
-                            />
+                            
+                            {/* High-Res Loaded Badge */}
+                            {highResLoaded && zoomLevel > 1.5 && (
+                              <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 20, background: 'rgba(34,197,94,0.9)', borderRadius: '6px', padding: '4px 10px', fontSize: '10px', color: '#fff', fontWeight: '600' }}>
+                                ✓ Full Resolution
+                              </div>
+                            )}
+                            
+                            {/* Zoomable Image Container */}
+                            <div 
+                              style={{ 
+                                flex: 1, 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                overflow: 'hidden',
+                                cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                                touchAction: 'none'
+                              }}
+                              onWheel={(e) => {
+                                e.preventDefault();
+                                const delta = e.deltaY > 0 ? -0.15 : 0.15;
+                                setZoomLevel(z => {
+                                  const newZoom = Math.max(0.5, Math.min(5, z + delta));
+                                  // Reset pan if zooming out to fit
+                                  if (newZoom <= 1) setPanPosition({ x: 0, y: 0 });
+                                  // Load high-res if zooming in past threshold
+                                  if (newZoom > 1.5 && !highResLoaded && selectedAsset.url !== selectedAsset.preview) {
+                                    setIsLoadingHighRes(true);
+                                  }
+                                  return newZoom;
+                                });
+                              }}
+                              onMouseDown={(e) => {
+                                if (zoomLevel > 1) {
+                                  e.preventDefault();
+                                  setIsDragging(true);
+                                  setDragStart({ x: e.clientX - panPosition.x, y: e.clientY - panPosition.y });
+                                }
+                              }}
+                              onMouseMove={(e) => {
+                                if (isDragging && zoomLevel > 1) {
+                                  setPanPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+                                }
+                              }}
+                              onMouseUp={() => setIsDragging(false)}
+                              onMouseLeave={() => setIsDragging(false)}
+                              onTouchStart={(e) => {
+                                if (e.touches.length === 2) {
+                                  // Pinch zoom start
+                                  const dx = e.touches[0].clientX - e.touches[1].clientX;
+                                  const dy = e.touches[0].clientY - e.touches[1].clientY;
+                                  lastPinchDistance.current = Math.sqrt(dx * dx + dy * dy);
+                                } else if (e.touches.length === 1 && zoomLevel > 1) {
+                                  // Pan start
+                                  setIsDragging(true);
+                                  setDragStart({ x: e.touches[0].clientX - panPosition.x, y: e.touches[0].clientY - panPosition.y });
+                                }
+                              }}
+                              onTouchMove={(e) => {
+                                if (e.touches.length === 2) {
+                                  // Pinch zoom
+                                  e.preventDefault();
+                                  const dx = e.touches[0].clientX - e.touches[1].clientX;
+                                  const dy = e.touches[0].clientY - e.touches[1].clientY;
+                                  const dist = Math.sqrt(dx * dx + dy * dy);
+                                  if (lastPinchDistance.current > 0) {
+                                    const scale = dist / lastPinchDistance.current;
+                                    setZoomLevel(z => {
+                                      const newZoom = Math.max(0.5, Math.min(5, z * scale));
+                                      if (newZoom > 1.5 && !highResLoaded && selectedAsset.url !== selectedAsset.preview) {
+                                        setIsLoadingHighRes(true);
+                                      }
+                                      return newZoom;
+                                    });
+                                  }
+                                  lastPinchDistance.current = dist;
+                                } else if (e.touches.length === 1 && isDragging && zoomLevel > 1) {
+                                  // Pan
+                                  setPanPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
+                                }
+                              }}
+                              onTouchEnd={(e) => {
+                                if (e.touches.length < 2) lastPinchDistance.current = 0;
+                                if (e.touches.length === 0) setIsDragging(false);
+                              }}
+                              onDoubleClick={() => {
+                                if (zoomLevel === 1) {
+                                  setZoomLevel(2.5);
+                                  if (!highResLoaded && selectedAsset.url !== selectedAsset.preview) {
+                                    setIsLoadingHighRes(true);
+                                  }
+                                } else {
+                                  setZoomLevel(1);
+                                  setPanPosition({ x: 0, y: 0 });
+                                }
+                              }}
+                            >
+                              {imageLoading && (
+                                <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                  <div style={{ width: '40px', height: '40px', border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                  <span style={{ fontSize: '11px', color: t.textMuted }}>Loading...</span>
+                                </div>
+                              )}
+                              <img 
+                                src={zoomLevel > 1.5 && highResLoaded ? selectedAsset.url : (selectedAsset.preview || selectedAsset.thumbnail || selectedAsset.url)}
+                                alt={selectedAsset.name} 
+                                style={{ 
+                                  maxWidth: zoomLevel <= 1 ? '100%' : 'none',
+                                  maxHeight: zoomLevel <= 1 ? '100%' : 'none',
+                                  width: zoomLevel > 1 ? 'auto' : undefined,
+                                  height: zoomLevel > 1 ? 'auto' : undefined,
+                                  objectFit: 'contain', 
+                                  borderRadius: '4px', 
+                                  opacity: imageLoading ? 0 : 1, 
+                                  transition: isDragging ? 'none' : 'transform 0.15s ease-out, opacity 0.2s',
+                                  transform: `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`,
+                                  transformOrigin: 'center center',
+                                  userSelect: 'none',
+                                  pointerEvents: 'none'
+                                }} 
+                                draggable={false}
+                                onLoad={() => {
+                                  setImageLoading(false);
+                                  if (isLoadingHighRes) {
+                                    setIsLoadingHighRes(false);
+                                    setHighResLoaded(true);
+                                  }
+                                }}
+                              />
+                              {/* Hidden high-res preloader */}
+                              {isLoadingHighRes && !highResLoaded && (
+                                <img 
+                                  src={selectedAsset.url}
+                                  alt=""
+                                  style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1 }}
+                                  onLoad={() => {
+                                    setIsLoadingHighRes(false);
+                                    setHighResLoaded(true);
+                                  }}
+                                />
+                              )}
+                            </div>
+                            
+                            {/* Zoom hint for desktop */}
+                            {!isMobile && zoomLevel === 1 && !imageLoading && (
+                              <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: 'rgba(255,255,255,0.7)', pointerEvents: 'none' }}>
+                                Scroll to zoom • Double-click for 250% • Drag to pan
+                              </div>
+                            )}
+                            
+                            {/* Mobile hint */}
+                            {isMobile && zoomLevel === 1 && !imageLoading && (
+                              <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: 'rgba(255,255,255,0.7)', pointerEvents: 'none' }}>
+                                Pinch to zoom • Double-tap for 250%
+                              </div>
+                            )}
                           </div>
                         )
                       ) : (
