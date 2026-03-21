@@ -4368,12 +4368,13 @@ export default function MainApp() {
     const [showCreate, setShowCreate] = useState(false);
     const [newProj, setNewProj] = useState({ name: '', client: '', type: 'photoshoot', deadline: '', selectedCats: ['statics'] });
     const [creating, setCreating] = useState(false);
-    const [projectTab, setProjectTab] = useState('active'); // 'active' or 'completed'
-    
+    const [projectTab, setProjectTab] = useState('all');
+
     // Filter by search and tab
     const activeProjects = projects.filter(p => p.status === 'active' && (!search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client?.toLowerCase().includes(search.toLowerCase())));
     const completedProjects = projects.filter(p => p.status === 'completed' && (!search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client?.toLowerCase().includes(search.toLowerCase())));
-    const displayProjects = projectTab === 'active' ? activeProjects : completedProjects;
+    const allFilteredProjects = projects.filter(p => !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client?.toLowerCase().includes(search.toLowerCase()));
+    const displayProjects = projectTab === 'all' ? allFilteredProjects : projectTab === 'active' ? activeProjects : completedProjects;
 
     const handleCreate = async () => {
       if (!newProj.name || !newProj.client) { showToast('Fill name & client', 'error'); return; }
@@ -4430,22 +4431,43 @@ export default function MainApp() {
 
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Projects</h1>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <Input theme={theme} value={search} onChange={setSearch} placeholder="🔍 Search..." style={{ width: isMobile ? '140px' : '180px' }} />
-            {isProducer && <Btn theme={theme} onClick={() => setShowCreate(true)}>+ New</Btn>}
-          </div>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>Projects</h1>
+          {isProducer && (
+            <button onClick={() => setShowCreate(true)} style={{
+              padding: '10px 20px',
+              background: `linear-gradient(135deg, ${t.primary}, ${t.accent || '#8b5cf6'})`,
+              border: 'none', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              boxShadow: `0 4px 14px ${t.primary}40`
+            }}>+ New Project</button>
+          )}
         </div>
 
-        {/* Active / Completed Tabs */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <button onClick={() => setProjectTab('active')} style={{ padding: '10px 20px', background: projectTab === 'active' ? t.primary : t.bgCard, border: `1px solid ${projectTab === 'active' ? t.primary : t.border}`, borderRadius: '8px', color: projectTab === 'active' ? '#fff' : t.textSecondary, fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            📂 Active <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px' }}>{activeProjects.length}</span>
-          </button>
-          <button onClick={() => setProjectTab('completed')} style={{ padding: '10px 20px', background: projectTab === 'completed' ? t.success : t.bgCard, border: `1px solid ${projectTab === 'completed' ? t.success : t.border}`, borderRadius: '8px', color: projectTab === 'completed' ? '#fff' : t.textSecondary, fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            ✅ Completed <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px' }}>{completedProjects.length}</span>
-          </button>
+        {/* Filter bar: tabs + search */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${t.border}`, marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '24px' }}>
+            {[
+              { id: 'all', label: 'All', count: allFilteredProjects.length },
+              { id: 'active', label: 'Active', count: activeProjects.length },
+              { id: 'completed', label: 'Completed', count: completedProjects.length },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setProjectTab(tab.id)} style={{
+                padding: '10px 0', fontSize: '13px', cursor: 'pointer',
+                background: 'none', border: 'none',
+                borderBottom: projectTab === tab.id ? '2px solid #6366f1' : '2px solid transparent',
+                color: projectTab === tab.id ? t.text : t.textMuted,
+                fontWeight: projectTab === tab.id ? '600' : '400',
+                transition: 'all 0.2s',
+              }}>
+                {tab.label} <span style={{ fontSize: '11px', color: t.textMuted, marginLeft: '4px' }}>({tab.count})</span>
+              </button>
+            ))}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <Input theme={theme} value={search} onChange={setSearch} placeholder="Search..." style={{ width: isMobile ? '140px' : '200px' }} />
+          </div>
         </div>
 
         {displayProjects.length === 0 ? (
