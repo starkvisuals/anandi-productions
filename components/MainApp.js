@@ -6147,7 +6147,7 @@ export default function MainApp() {
                       </div>
                     )}
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? (appearance.cardSize === 'L' ? '1fr' : appearance.cardSize === 'S' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)') : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
+                    <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: isMobile ? (appearance.cardSize === 'L' ? '1fr' : appearance.cardSize === 'S' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)') : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
                     {assets
                       .filter(a => {
                         if (selectedCat === '__selected__') return a.isSelected;
@@ -6161,14 +6161,16 @@ export default function MainApp() {
                       const isDimmed = selectedProject.type === 'photoshoot' && selectedProject.workflowPhase === 'review' && !a.isSelected;
                       
                       return (
-                        <div key={a.id} className="asset-card" style={{ 
-                          background: t.bgTertiary, 
-                          borderRadius: '10px', 
-                          overflow: 'hidden', 
-                          border: a.isSelected ? '2px solid #22c55e' : selectedAssets.has(a.id) ? '2px solid #6366f1' : '1px solid #1e1e2e', 
+                        <div key={a.id} className="asset-card hover-lift animate-fadeInUp" style={{
+                          background: t.bgTertiary,
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          border: a.isSelected ? '2px solid #22c55e' : selectedAssets.has(a.id) ? '2px solid #6366f1' : `1px solid ${t.border}`,
+                          boxShadow: selectedAssets.has(a.id) ? '0 0 0 3px rgba(99,102,241,0.3), 0 4px 16px rgba(99,102,241,0.15)' : hasNewVersion ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
+                          animation: hasNewVersion ? 'pulseGlow 2.5s ease-in-out infinite' : undefined,
                           position: 'relative',
                           opacity: isDimmed ? 0.5 : 1,
-                          transition: 'opacity 0.2s'
+                          transition: 'opacity 0.2s, border-color 0.2s, box-shadow 0.2s'
                         }}>
                           <div onClick={e => { e.stopPropagation(); setSelectedAssets(s => { const n = new Set(s); n.has(a.id) ? n.delete(a.id) : n.add(a.id); return n; }); }} style={{ position: 'absolute', top: '10px', left: '10px', width: '22px', height: '22px', borderRadius: '6px', background: selectedAssets.has(a.id) ? '#6366f1' : 'rgba(0,0,0,0.6)', border: '2px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}>{selectedAssets.has(a.id) && <span style={{ color: '#fff', fontSize: '12px' }}>✓</span>}</div>
                           {/* Quick delete button - shows on hover */}
@@ -6201,13 +6203,22 @@ export default function MainApp() {
                             </div>
                           )}
                           
-                          <div onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: t.bgInput, position: 'relative' }}>
+                          <div className="asset-thumb-area" onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: t.bgInput, position: 'relative', overflow: 'hidden' }}>
                             {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
-                            {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px' }}>{a.feedback.length}💬</div>}
-                            {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px' }}>{new Date(a.dueDate) < new Date() ? '⚠️' : '📅'}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
+                            {/* Version badge - top left */}
+                            {a.currentVersion > 1 && <div style={{ position: 'absolute', top: '8px', left: '40px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '10px', padding: '2px 8px', fontSize: '9px', color: '#fff', fontWeight: '600', zIndex: 4 }}>v{a.currentVersion}</div>}
+                            {/* Status dot - top right */}
+                            {a.status && (() => { const statusColors = { pending: '#fbbf24', selected: '#3b82f6', assigned: '#6366f1', 'in-progress': '#a855f7', 'review-ready': '#f59e0b', 'changes-requested': '#ef4444', approved: '#22c55e', delivered: '#06b6d4' }; return <div style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '8px', height: '8px', borderRadius: '50%', background: statusColors[a.status] || '#6b7280', border: '2px solid rgba(0,0,0,0.4)', zIndex: 4 }} title={STATUS[a.status]?.label || a.status} />; })()}
+                            {/* Frosted glass overlay on hover - asset name + type */}
+                            <div className="asset-hover-overlay" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 10px', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0, transition: 'opacity 0.2s ease', zIndex: 3 }}>
+                              <span style={{ fontSize: '12px' }}>{a.type === 'video' ? '🎬' : a.type === 'audio' ? '🔊' : a.type === 'image' ? '🖼️' : '📄'}</span>
+                              <span style={{ fontSize: '10px', color: '#fff', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{a.name}</span>
+                            </div>
+                            {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px', zIndex: 4 }}>{a.feedback.length}💬</div>}
+                            {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px', zIndex: 4 }}>{new Date(a.dueDate) < new Date() ? '⚠️' : '📅'}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
                             {/* Always visible star rating overlay */}
                             {!appearance.showInfo && (
-                              <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', borderRadius: '12px', padding: '3px 8px', display: 'flex', gap: '2px' }}>
+                              <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '12px', padding: '3px 8px', display: 'flex', gap: '2px', zIndex: 5 }}>
                                 {[1,2,3,4,5].map(star => (
                                   <span key={star} onClick={(e) => { e.stopPropagation(); handleRate(a.id, star); }} style={{ cursor: 'pointer', fontSize: isMobile ? '12px' : '14px', color: star <= (a.rating || 0) ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>★</span>
                                 ))}
@@ -6800,17 +6811,18 @@ export default function MainApp() {
           };
           
           return (
-          <div 
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 1000, display: 'flex', flexDirection: 'column' }}
+          <div
+            className="modal-backdrop"
+            style={{ position: 'fixed', inset: 0, background: 'rgba(2,2,8,0.97)', zIndex: 1000, display: 'flex', flexDirection: 'column' }}
             onTouchStart={onTouchStartHandler}
             onTouchMove={onTouchMoveHandler}
             onTouchEnd={onTouchEndHandler}
           >
             {/* Top Bar */}
             {!isFullscreen && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'rgba(0,0,0,0.6)', flexShrink: 0, borderBottom: `1px solid ${t.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <button onClick={() => setSelectedAsset(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px 12px', color: '#fff', cursor: 'pointer', fontSize: '14px' }}>✕</button>
+                <button onClick={() => setSelectedAsset(null)} style={{ width: '36px', height: '36px', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '50%', color: '#fff', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>✕</button>
                 <div>
                   <div style={{ fontWeight: '600', fontSize: '14px', color: '#fff' }}>{selectedAsset.name}</div>
                   <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{currentIndex + 1} of {sortedAssets.length} • v{selectedAsset.currentVersion}</div>
@@ -6827,7 +6839,7 @@ export default function MainApp() {
                 <button onClick={() => setIsFullscreen(true)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>⛶ {!isMobile && 'Fullscreen'}</button>
                 {/* Tab buttons */}
                 {[{ id: 'preview', icon: '👁️', label: 'Preview' }, { id: 'annotate', icon: '✏️', label: 'Annotate' }, { id: 'compare', icon: '📊', label: 'Compare' }].map(tb => (
-                  <button key={tb.id} onClick={() => setAssetTab(tb.id)} style={{ padding: '6px 10px', background: assetTab === tb.id ? '#6366f1' : 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>{tb.icon} {!isMobile && tb.label}</button>
+                  <button key={tb.id} onClick={() => setAssetTab(tb.id)} style={{ padding: '6px 12px', background: assetTab === tb.id ? 'rgba(99,102,241,0.9)' : 'rgba(255,255,255,0.06)', border: assetTab === tb.id ? 'none' : '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: assetTab === tb.id ? '#fff' : 'rgba(255,255,255,0.7)', fontSize: '11px', cursor: 'pointer', fontWeight: assetTab === tb.id ? '600' : '400', transition: 'all 0.2s' }}>{tb.icon} {!isMobile && tb.label}</button>
                 ))}
               </div>
             </div>
@@ -6835,7 +6847,7 @@ export default function MainApp() {
             
             {/* Fullscreen Mode Exit Button */}
             {isFullscreen && (
-              <button onClick={() => setIsFullscreen(false)} style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 20, padding: '10px 16px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>✕ Exit Fullscreen</button>
+              <button onClick={() => setIsFullscreen(false)} style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 20, padding: '10px 16px', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50px', color: '#fff', fontSize: '12px', cursor: 'pointer', transition: 'background 0.2s' }}>✕ Exit Fullscreen</button>
             )}
             
             {/* Fullscreen Rating + Selection */}
@@ -6864,12 +6876,12 @@ export default function MainApp() {
             <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
               {/* Left Navigation Arrow */}
               {hasPrev && (
-                <button onClick={goToPrev} style={{ position: 'absolute', left: isMobile ? '4px' : '16px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '36px' : '44px', height: isMobile ? '36px' : '44px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: isMobile ? '16px' : '20px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+                <button onClick={goToPrev} className="hover-lift" style={{ position: 'absolute', left: isMobile ? '8px' : '20px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '40px' : '52px', height: isMobile ? '40px' : '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '18px' : '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s, transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>‹</button>
               )}
-              
+
               {/* Right Navigation Arrow */}
               {hasNext && (
-                <button onClick={goToNext} style={{ position: 'absolute', right: isMobile || isFullscreen ? '16px' : '320px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '36px' : '44px', height: isMobile ? '36px' : '44px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: isMobile ? '16px' : '20px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+                <button onClick={goToNext} className="hover-lift" style={{ position: 'absolute', right: isMobile || isFullscreen ? '20px' : '324px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '40px' : '52px', height: isMobile ? '40px' : '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '18px' : '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s, transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>›</button>
               )}
               
               {/* Preview/Annotate Tab */}
@@ -7116,29 +7128,36 @@ export default function MainApp() {
                     
                     {/* Feedback Section */}
                     {!isFullscreen && (
-                    <div style={{ padding: '12px 16px', borderTop: `1px solid ${t.border}`, background: t.bgSecondary, flexShrink: 0, maxHeight: isMobile ? '180px' : '200px', overflow: 'auto' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>💬 Feedback ({selectedAsset.feedback?.length || 0})</span>
+                    <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', flexShrink: 0, maxHeight: isMobile ? '180px' : '220px', overflow: 'auto' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>💬 Feedback ({selectedAsset.feedback?.length || 0})</span>
                         {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
-                          <span style={{ fontSize: '10px', padding: '2px 8px', background: '#ef4444', borderRadius: '10px' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
+                          <span style={{ fontSize: '10px', padding: '3px 10px', background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: '10px', fontWeight: '600', border: '1px solid rgba(239,68,68,0.3)' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
                         )}
                       </div>
-                      <div style={{ maxHeight: '80px', overflow: 'auto', marginBottom: '8px' }}>
+                      <div style={{ maxHeight: '100px', overflow: 'auto', marginBottom: '8px' }}>
                         {(selectedAsset.feedback || []).length === 0 ? (
-                          <div style={{ fontSize: '11px', color: t.textMuted }}>No feedback yet</div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '12px 0' }}>No feedback yet. Be the first to comment.</div>
                         ) : (selectedAsset.feedback || []).map(fb => (
-                          <div key={fb.id} style={{ padding: '8px', background: fb.isDone ? 'rgba(34,197,94,0.1)' : t.bgInput, borderRadius: '6px', marginBottom: '6px', borderLeft: fb.isDone ? '3px solid #22c55e' : '3px solid #ef4444', opacity: fb.isDone ? 0.7 : 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                              <div style={{ flex: 1 }}>
-                                <span style={{ fontSize: '10px', fontWeight: '600' }}>{fb.userName}</span>
-                                <span style={{ fontSize: '9px', color: t.textMuted, marginLeft: '8px' }}>{formatTimeAgo(fb.timestamp)}</span>
-                                {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
-                                  <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }} style={{ fontSize: '9px', color: '#6366f1', marginLeft: '8px', cursor: 'pointer', background: 'rgba(99,102,241,0.2)', padding: '1px 6px', borderRadius: '4px' }}>▶ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}</span>
-                                )}
+                          <div key={fb.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', opacity: fb.isDone ? 0.6 : 1 }}>
+                            {/* Avatar */}
+                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: fb.isDone ? 'rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', flexShrink: 0, color: '#fff', marginTop: '2px' }}>{fb.userName?.[0] || '?'}</div>
+                            {/* Chat bubble */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ padding: '8px 10px', background: fb.isDone ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.06)', borderRadius: '2px 10px 10px 10px', border: fb.isDone ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0 }}>
+                                    <span style={{ fontSize: '10px', fontWeight: '600', color: '#fff' }}>{fb.userName}</span>
+                                    <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)' }}>{formatTimeAgo(fb.timestamp)}</span>
+                                    {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
+                                      <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }} style={{ fontSize: '9px', color: '#6366f1', cursor: 'pointer', background: 'rgba(99,102,241,0.2)', padding: '1px 6px', borderRadius: '4px' }}>▶ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}</span>
+                                    )}
+                                  </div>
+                                  <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.06)', border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', padding: '2px 8px', fontSize: '9px', color: fb.isDone ? '#22c55e' : 'rgba(255,255,255,0.5)', cursor: 'pointer', flexShrink: 0 }}>{fb.isDone ? '✓ Done' : 'Mark done'}</button>
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>{fb.text}</div>
                               </div>
-                              <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1px solid ${fb.isDone ? '#22c55e' : t.border}`, borderRadius: '4px', padding: '2px 6px', fontSize: '9px', color: fb.isDone ? '#22c55e' : t.textMuted, cursor: 'pointer' }}>{fb.isDone ? '✓' : 'Done'}</button>
                             </div>
-                            <div style={{ fontSize: '11px' }}>{fb.text}</div>
                           </div>
                         ))}
                       </div>
@@ -7168,7 +7187,7 @@ export default function MainApp() {
                             );
                           })()}
                         </div>
-                        <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '8px 12px', background: newFeedback.trim() ? '#6366f1' : t.bgInput, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: newFeedback.trim() ? 'pointer' : 'default' }}>Send</button>
+                        <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '8px 14px', background: newFeedback.trim() ? '#6366f1' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px', color: newFeedback.trim() ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: '11px', fontWeight: '600', cursor: newFeedback.trim() ? 'pointer' : 'default', transition: 'background 0.2s' }}>Send</button>
                       </div>
                     </div>
                     )}
@@ -7176,9 +7195,9 @@ export default function MainApp() {
                   
                   {/* RIGHT: Details Sidebar */}
                   {!isMobile && !isFullscreen && (
-                    <div style={{ width: '300px', background: t.bgTertiary, borderLeft: `1px solid ${t.border}`, overflow: 'auto', padding: '14px', flexShrink: 0 }}>
+                    <div style={{ width: '300px', background: 'rgba(10,10,18,0.95)', borderLeft: '1px solid rgba(255,255,255,0.06)', overflow: 'auto', padding: '16px', flexShrink: 0 }}>
                       {/* Selection Toggle - Prominent */}
-                      <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? '#22c55e' : t.bgCard, border: `1px solid ${selectedAsset.isSelected ? '#22c55e' : t.border}`, borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '12px' }}>
+                      <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'rgba(255,255,255,0.04)', border: selectedAsset.isSelected ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px', transition: 'all 0.2s', boxShadow: selectedAsset.isSelected ? '0 2px 10px rgba(34,197,94,0.3)' : 'none' }}>
                         {selectedAsset.isSelected ? '⭐ Selected' : '☆ Mark as Selected'}
                       </button>
                       
@@ -7238,25 +7257,39 @@ export default function MainApp() {
                         const canUploadVersion = isProducer || userRoles.some(r => allowedRoles.includes(r));
                         
                         return canUploadVersion ? (
-                          <div style={{ marginBottom: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span>📦 Versions</span>
-                              <span style={{ padding: '2px 6px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.bgCard, borderRadius: '4px', fontSize: '9px' }}>v{selectedAsset.currentVersion}</span>
+                          <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>📦 Versions</span>
+                              <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.06)', color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : 'rgba(255,255,255,0.7)', borderRadius: '10px', fontSize: '9px', fontWeight: '700', border: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '1px solid rgba(249,115,22,0.3)' : '1px solid rgba(255,255,255,0.08)' }}>v{selectedAsset.currentVersion}</span>
                             </div>
-                            <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '6px' }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
+                            {/* Visual version list */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                              {(selectedAsset.versions || []).map((v, i) => (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', background: v.version === selectedAsset.currentVersion ? 'rgba(99,102,241,0.12)' : 'transparent', borderRadius: '6px', border: v.version === selectedAsset.currentVersion ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent' }}>
+                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)', flexShrink: 0 }}>
+                                    {v.thumbnail ? <img src={v.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>v{v.version}</div>}
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: '10px', fontWeight: '600', color: v.version === selectedAsset.currentVersion ? '#6366f1' : 'rgba(255,255,255,0.7)' }}>Version {v.version}</div>
+                                    {v.uploadedAt && <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.35)' }}>{formatTimeAgo(v.uploadedAt)}</div>}
+                                  </div>
+                                  {v.version === selectedAsset.currentVersion && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
+                                </div>
+                              ))}
+                            </div>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
-                              <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '6px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '9px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
-                              {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '6px 10px', background: '#6366f1', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>{uploadingVersion ? '⏳' : '⬆️'}</button>}
+                              <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '7px', background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '8px', color: 'rgba(255,255,255,0.6)', fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'border-color 0.2s' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
+                              {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '7px 12px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>{uploadingVersion ? '⏳' : '⬆️ Upload'}</button>}
                             </div>
                           </div>
                         ) : (
-                          <div style={{ marginBottom: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span>📦 Versions</span>
-                              <span style={{ padding: '2px 6px', background: t.bgCard, borderRadius: '4px', fontSize: '9px' }}>v{selectedAsset.currentVersion}</span>
+                          <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>📦 Versions</span>
+                              <span style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '10px', fontSize: '9px', fontWeight: '700', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.08)' }}>v{selectedAsset.currentVersion}</span>
                             </div>
-                            <div style={{ fontSize: '9px', color: t.textMuted }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
+                            <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
                           </div>
                         );
                       })()}
@@ -7274,10 +7307,11 @@ export default function MainApp() {
                       {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '8px', background: 'rgba(34,197,94,0.15)', borderRadius: '6px', color: '#22c55e', fontSize: '10px', textAlign: 'center', textDecoration: 'none', marginBottom: '12px', fontWeight: '600' }}>📁 Open High-Res</a>}
                       
                       {/* File Details */}
-                      <div style={{ background: t.bgInput, borderRadius: '6px', padding: '10px', marginBottom: '12px', fontSize: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span style={{ color: t.textMuted }}>Size</span><span>{formatFileSize(selectedAsset.fileSize)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span style={{ color: t.textMuted }}>Type</span><span>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: t.textMuted }}>Uploaded</span><span>{formatDate(selectedAsset.uploadedAt)}</span></div>
+                      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px', marginBottom: '12px', fontSize: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fff' }}>📋 File Details</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Size</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatFileSize(selectedAsset.fileSize)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Type</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Uploaded</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatDate(selectedAsset.uploadedAt)}</span></div>
                       </div>
                       
                       {/* Deliverables Checklist */}
@@ -7408,7 +7442,7 @@ export default function MainApp() {
                       
                       {/* Actions */}
                       <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                        <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none' }}>⬇️ Preview</a>
+                        <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', borderRadius: '10px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none', transition: 'transform 0.2s, box-shadow 0.2s', boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>⬇️ Download Preview</a>
                       </div>
                       
                       {/* Delete */}
@@ -7430,10 +7464,10 @@ export default function MainApp() {
             
             {/* Bottom Thumbnail Strip */}
             {sortedAssets.length > 1 && !isFullscreen && (
-              <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.7)', overflowX: 'auto', flexShrink: 0 }}>
+              <div style={{ padding: '10px 16px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', overflowX: 'auto', flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                   {sortedAssets.map((asset) => (
-                    <div key={asset.id} onClick={() => setSelectedAsset(asset)} style={{ width: '44px', height: '44px', borderRadius: '6px', overflow: 'hidden', border: asset.id === selectedAsset.id ? '2px solid #6366f1' : '2px solid transparent', cursor: 'pointer', flexShrink: 0, opacity: asset.id === selectedAsset.id ? 1 : 0.5, position: 'relative' }}>
+                    <div key={asset.id} onClick={() => setSelectedAsset(asset)} style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', border: asset.id === selectedAsset.id ? '2px solid #6366f1' : '2px solid transparent', boxShadow: asset.id === selectedAsset.id ? '0 0 0 2px rgba(99,102,241,0.3)' : 'none', cursor: 'pointer', flexShrink: 0, opacity: asset.id === selectedAsset.id ? 1 : 0.5, position: 'relative', transition: 'opacity 0.2s, box-shadow 0.2s' }}>
                       {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : asset.type === 'video' ? <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{asset.thumbnail ? <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '14px' }}>🎬</span>}</div> : <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{asset.type === 'audio' ? '🔊' : '📄'}</div>}
                       {asset.rating > 0 && <div style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}>{'★'.repeat(asset.rating)}</div>}
                       {asset.isSelected && <div style={{ position: 'absolute', top: '2px', right: '2px', background: '#22c55e', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}>⭐</div>}
@@ -8184,6 +8218,8 @@ export default function MainApp() {
       {/* Global CSS for hover rules */}
       <style>{`
         .asset-card:hover .card-delete-btn { opacity: 1 !important; }
+        .asset-card:hover .asset-hover-overlay { opacity: 1 !important; }
+        .asset-thumb-area:hover .asset-hover-overlay { opacity: 1 !important; }
       `}</style>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <GlobalSearch />
