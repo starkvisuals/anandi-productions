@@ -2614,67 +2614,92 @@ export default function MainApp() {
           </div>
         )}
 
-        {/* 4. Two-Column Layout */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '3fr 2fr', gap: '16px' }}>
-          {/* Left Column (60%) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
-            {/* Recent Projects */}
-            <div style={{ ...glassCard({ padding: isMobile ? '14px' : '20px' }) }}>
+        {/* 4. Netflix Project Row */}
+        {(() => {
+          const typeGradients = {
+            'photoshoot': 'linear-gradient(135deg, #ec489930, #a855f720)',
+            'ad-film': 'linear-gradient(135deg, #f9731630, #ef444420)',
+            'product-video': 'linear-gradient(135deg, #3b82f630, #06b6d420)',
+            'toolkit': 'linear-gradient(135deg, #6366f130, #a855f720)',
+            'social-media': 'linear-gradient(135deg, #ec489930, #f9731620)',
+            'corporate': 'linear-gradient(135deg, #64748b30, #3b82f620)',
+            'music-video': 'linear-gradient(135deg, #a855f730, #ec489920)',
+            'brand-film': 'linear-gradient(135deg, #f97316, #ef444420)',
+            'reels': 'linear-gradient(135deg, #f43f5e30, #a855f720)',
+            'ecommerce': 'linear-gradient(135deg, #10b98130, #3b82f620)',
+            'event': 'linear-gradient(135deg, #fbbf2430, #f9731620)',
+            'documentary': 'linear-gradient(135deg, #78716c30, #a855f720)',
+          };
+          return (
+            <div style={{ marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {Icons.folder(t.textSecondary)} Recent Projects
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: t.text, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Recent Projects
                   <span style={{ fontSize: '11px', color: t.textMuted, fontWeight: '400' }}>({activeProjects.length})</span>
                 </h3>
-                {activeProjects.length > 5 && (
-                  <button onClick={() => setView('projects')} style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '11px', cursor: 'pointer', fontWeight: '500' }}>View All</button>
-                )}
+                <button onClick={() => setView('projects')} style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>View All →</button>
               </div>
-              <div className="stagger-children" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: isMobile ? '300px' : '400px', overflowY: 'auto' }}>
-                {activeProjects.slice(0, 6).map(p => {
+              <div className="netflix-row">
+                {activeProjects.slice(0, 8).map(p => {
                   const pAssets = (p.assets || []).filter(a => !a.deleted);
-                  const pOverdue = pAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered' && a.status !== 'approved').length;
                   const pApproved = pAssets.filter(a => a.status === 'approved' || a.status === 'delivered').length;
                   const progressPct = pAssets.length > 0 ? Math.round((pApproved / pAssets.length) * 100) : 0;
-                  const teamMembers = [...coreTeam, ...freelancers].filter(m => pAssets.some(a => a.assignedTo === m.id || a.assignedTo === m.email));
+                  const firstThumb = (p.assets || []).find(a => !a.deleted && a.type === 'image' && a.thumbnailUrl);
+                  const pendingCount = pAssets.filter(a => a.status === 'review-ready' || a.status === 'revision').length;
                   return (
-                    <div key={p.id} className="hover-lift hover-glow animate-fadeInUp" onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{
-                      padding: '14px', background: t.bgInput, borderRadius: '12px', cursor: 'pointer',
-                      border: pOverdue > 0 ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}`,
-                      transition: 'all 0.2s ease',
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: '600', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                          <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>{p.client} {pAssets.length > 0 && `\u2022 ${pAssets.length} assets`}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                          {pOverdue > 0 && (
-                            <span style={{ padding: '3px 8px', background: 'rgba(239,68,68,0.15)', borderRadius: '6px', fontSize: '10px', color: '#ef4444', fontWeight: '500' }}>{pOverdue} overdue</span>
-                          )}
-                          <span style={{ padding: '3px 8px', background: `${p.status === 'active' ? '#22c55e' : '#6366f1'}18`, borderRadius: '6px', fontSize: '10px', color: p.status === 'active' ? '#22c55e' : '#6366f1', fontWeight: '500', textTransform: 'capitalize' }}>{p.status}</span>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {/* Team avatar stack */}
-                        {teamMembers.length > 0 && (
-                          <div style={{ display: 'flex', marginRight: '4px' }}>
-                            {teamMembers.slice(0, 3).map((m, i) => (
-                              <div key={m.id} style={{ marginLeft: i > 0 ? '-8px' : 0, zIndex: 3 - i }}>
-                                <Avatar user={m} size={22} />
-                              </div>
-                            ))}
-                            {teamMembers.length > 3 && <div style={{ marginLeft: '-8px', width: '22px', height: '22px', borderRadius: '50%', background: t.bgTertiary, border: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: t.textMuted, fontWeight: '600' }}>+{teamMembers.length - 3}</div>}
-                          </div>
+                    <div
+                      key={p.id}
+                      onClick={() => { setSelectedProjectId(p.id); setView('projects'); }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = t.border; }}
+                      style={{
+                        width: isMobile ? '160px' : '200px',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        background: t.bgCard,
+                        border: `1px solid ${t.border}`,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {/* Thumbnail area */}
+                      <div style={{
+                        height: isMobile ? '100px' : '140px',
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : (typeGradients[p.type] || 'linear-gradient(135deg, #6366f130, #a855f720)'),
+                      }}>
+                        {!firstThumb && (
+                          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '1px' }}>{(p.type || 'project').replace(/-/g, ' ')}</span>
                         )}
-                        {/* Progress bar */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                            <span style={{ fontSize: '9px', color: t.textMuted }}>{progressPct}% complete</span>
-                          </div>
-                          <div style={{ height: '4px', background: `${t.border}`, borderRadius: '2px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${progressPct}%`, background: progressPct === 100 ? '#22c55e' : 'linear-gradient(90deg, #6366f1, #8b5cf6)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
-                          </div>
+                        {/* Status dot */}
+                        <div style={{
+                          position: 'absolute', top: '8px', right: '8px',
+                          width: '8px', height: '8px', borderRadius: '50%',
+                          background: p.status === 'active' ? '#22c55e' : '#6366f1',
+                        }} />
+                        {/* Notification badge */}
+                        {pendingCount > 0 && (
+                          <div style={{
+                            position: 'absolute', top: '6px', left: '6px',
+                            minWidth: '18px', height: '18px', borderRadius: '9px',
+                            background: '#ef4444', color: '#fff',
+                            fontSize: '10px', fontWeight: '600',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: '0 4px',
+                          }}>{pendingCount}</div>
+                        )}
+                      </div>
+                      {/* Content area */}
+                      <div style={{ padding: '12px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: '11px', color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>{p.client}</div>
+                        <div style={{ marginTop: '10px', height: '3px', background: t.border, borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${progressPct}%`, background: 'linear-gradient(90deg, #6366f1, #a855f7)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
                         </div>
+                        <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px', textAlign: 'right' }}>{progressPct}%</div>
                       </div>
                     </div>
                   );
@@ -2682,7 +2707,13 @@ export default function MainApp() {
                 {activeProjects.length === 0 && <div style={{ textAlign: 'center', padding: '32px', color: t.textMuted, fontSize: '12px' }}>No active projects</div>}
               </div>
             </div>
+          );
+        })()}
 
+        {/* 5. Two-Column Layout */}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '3fr 2fr', gap: '16px' }}>
+          {/* Left Column (60%) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
             {/* Alerts Section */}
             {(overdueAssets.length > 0 || pendingReview.length > 0) && (
               <div className="animate-fadeInUp" style={{
