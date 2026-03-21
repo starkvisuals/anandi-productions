@@ -2485,15 +2485,6 @@ export default function MainApp() {
     const pendingReview = allAssets.filter(a => a.status === 'review-ready');
     const inProgress = allAssets.filter(a => a.status === 'in-progress');
     
-    const stats = [
-      { label: 'Active Projects', value: activeProjects.length, icon: '📁', color: '#6366f1' },
-      { label: 'Due This Week', value: dueThisWeek.length, icon: '📅', color: '#f59e0b' },
-      { label: 'Overdue', value: overdueAssets.length, icon: '🚨', color: '#ef4444', alert: overdueAssets.length > 0 },
-      { label: 'Pending Review', value: pendingReview.length, icon: '👁️', color: '#a855f7' },
-      { label: 'In Progress', value: inProgress.length, icon: '⚡', color: '#22c55e' },
-      { label: 'Completed', value: completedProjects.length, icon: '✓', color: '#64748b' },
-    ];
-    
     const recentActivity = projects.flatMap(p => (p.activityLog || []).map(a => ({ ...a, projectName: p.name, projectId: p.id }))).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 8);
     
     // Team workload
@@ -2503,19 +2494,12 @@ export default function MainApp() {
       return { ...member, totalAssigned: activeAssigned.length, overdue: activeAssigned.filter(a => a.dueDate && new Date(a.dueDate) < today).length };
     }).filter(m => m.totalAssigned > 0).sort((a, b) => b.totalAssigned - a.totalAssigned);
     
-    const [showCompleted, setShowCompleted] = useState(false);
-
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-    const statsData = [
-      { label: 'Active Projects', value: activeProjects.length, icon: 'folder', color: '#6366f1' },
-      { label: 'Due This Week', value: dueThisWeek.length, icon: 'calendar', color: '#f59e0b' },
-      { label: 'Overdue', value: overdueAssets.length, icon: 'alert', color: '#ef4444', alert: overdueAssets.length > 0 },
-      { label: 'Pending Review', value: pendingReview.length, icon: 'eye', color: '#a855f7' },
-      { label: 'In Progress', value: inProgress.length, icon: 'play', color: '#22c55e' },
-      { label: 'Completed', value: completedProjects.length, icon: 'check', color: '#64748b' },
-    ];
+    const revisionAssets = allAssets.filter(a => a.status === 'revision');
+    const approvedDelivered = allAssets.filter(a => a.status === 'approved' || a.status === 'delivered');
+    const overallProgress = allAssets.length > 0 ? Math.round((approvedDelivered.length / allAssets.length) * 100) : 0;
 
     // Activity grouping helper
     const groupActivity = (items) => {
@@ -2559,31 +2543,51 @@ export default function MainApp() {
 
     return (
       <div style={{ overflow: 'auto', paddingBottom: '32px' }}>
-        {/* 1. Welcome Section (Hero) */}
-        <div className="animate-fadeInUp" style={{ marginBottom: '28px' }}>
-          <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px', fontWeight: '700', color: t.text }}>{greeting}, {userProfile?.firstName}</h1>
-          <p style={{ margin: '6px 0 0', fontSize: '13px', color: t.textMuted }}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-          <p style={{ margin: '8px 0 0', fontSize: '13px', color: t.textSecondary }}>
-            You have <span style={{ fontWeight: '600', color: dueThisWeek.length > 0 ? '#f59e0b' : t.text }}>{dueThisWeek.length} tasks due this week</span> and <span style={{ fontWeight: '600', color: pendingReview.length > 0 ? '#a855f7' : t.text }}>{pendingReview.length} pending reviews</span>
-          </p>
+        {/* 1. Command Strip */}
+        <div style={{ marginBottom: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: t.text }}>{greeting}, {userProfile?.firstName}</h1>
+            <span style={{ fontSize: '13px', color: t.textMuted }}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+            {(() => {
+              const pills = [];
+              if (overdueAssets.length > 0) pills.push({ label: `${overdueAssets.length} Overdue`, color: '#ef4444', bg: 'rgba(239,68,68,0.1)', icon: 'alert' });
+              if (pendingReview.length > 0) pills.push({ label: `${pendingReview.length} Pending Review`, color: '#a855f7', bg: 'rgba(168,85,247,0.1)', icon: 'eye' });
+              if (revisionAssets.length > 0) pills.push({ label: `${revisionAssets.length} Changes Requested`, color: '#f97316', bg: 'rgba(249,115,22,0.1)', icon: 'edit' });
+              if (pills.length === 0) pills.push({ label: 'All clear', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', icon: 'check' });
+              return pills.map(pill => (
+                <button key={pill.label} onClick={() => setView('tasks')} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 500,
+                  cursor: 'pointer', border: 'none', background: pill.bg, color: pill.color,
+                }}>
+                  {Icons[pill.icon] && Icons[pill.icon](pill.color)}
+                  {pill.label}
+                </button>
+              ));
+            })()}
+          </div>
         </div>
 
-        {/* 2. Stats Row */}
-        <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${statsData.length}, 1fr)`, gap: '10px', marginBottom: '24px' }}>
-          {statsData.map(s => (
-            <div key={s.label} className="hover-lift animate-fadeInUp" style={{
-              ...glassCard(),
-              padding: isMobile ? '14px' : '18px',
-              textAlign: 'center',
-              ...(s.alert ? { background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', animation: 'pulse 2s ease-in-out infinite' } : {}),
-            }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
-                {Icons[s.icon] && Icons[s.icon](s.color)}
-              </div>
-              <div style={{ fontSize: isMobile ? '22px' : '26px', fontWeight: '700', color: s.color, lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
+        {/* 2. Pulse Bar */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '28px', padding: '20px 0 16px', flexWrap: 'wrap' }}>
+          {[
+            { label: 'Active Projects', value: activeProjects.length, color: '#6366f1' },
+            { label: 'Due This Week', value: dueThisWeek.length, color: '#f59e0b' },
+            { label: 'Overdue', value: overdueAssets.length, color: overdueAssets.length > 0 ? '#ef4444' : '#64748b' },
+            { label: 'Pending Review', value: pendingReview.length, color: '#a855f7' },
+            { label: 'In Progress', value: inProgress.length, color: '#22c55e' },
+            { label: 'Completed', value: completedProjects.length, color: '#64748b' },
+          ].map(m => (
+            <div key={m.label} style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: 700, color: m.color, lineHeight: 1 }}>{m.value}</div>
+              <div style={{ fontSize: '10px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>{m.label}</div>
             </div>
           ))}
+        </div>
+        <div style={{ height: '3px', background: t.border, borderRadius: '2px', marginBottom: '24px', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${overallProgress}%`, background: 'linear-gradient(90deg, #6366f1, #a855f7)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
         </div>
 
         {/* 3. Quick Actions Bar (producers only) */}
@@ -2783,36 +2787,6 @@ export default function MainApp() {
           </div>
         </div>
 
-        {/* 5. Bottom: Completed Projects (collapsed by default) */}
-        {completedProjects.length > 0 && (
-          <div className="animate-fadeInUp" style={{ marginTop: '24px' }}>
-            <button onClick={() => setShowCompleted(!showCompleted)} style={{
-              display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none',
-              color: t.textSecondary, fontSize: '13px', fontWeight: '600', cursor: 'pointer', padding: '4px 0', marginBottom: showCompleted ? '12px' : 0,
-            }}>
-              {Icons.check('#64748b')}
-              Completed Projects ({completedProjects.length})
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showCompleted ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}><polyline points="6,9 12,15 18,9"/></svg>
-            </button>
-            {showCompleted && (
-              <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '10px' }}>
-                {completedProjects.map(p => (
-                  <div key={p.id} className="hover-lift animate-fadeInUp" onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{
-                    padding: '14px', borderRadius: '12px', cursor: 'pointer',
-                    background: `${t.bgTertiary}aa`, border: `1px solid ${t.border}`,
-                    opacity: 0.8, transition: 'all 0.2s ease',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      {Icons.check('#22c55e')}
-                      <span style={{ fontSize: '12px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                    </div>
-                    <div style={{ fontSize: '10px', color: t.textMuted }}>{p.client}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     );
   };
