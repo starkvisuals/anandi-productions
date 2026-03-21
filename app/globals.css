@@ -70,6 +70,17 @@ button:active {
   animation: spin 1s linear infinite;
 }
 
+.spinner-inline {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
+}
+
 /* ============================================
    Animation System & CSS Foundation
    ============================================ */
@@ -261,4 +272,31 @@ button:active {
 
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover {
   background: #a0a0a0;
+}
+
+/* ============================================
+   Mobile Responsiveness
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Faster animations on mobile - skip stagger delays */
+  .stagger-children > * {
+    animation-delay: 0s !important;
+  }
+
+  /* Ensure minimum touch targets */
+  button, [role="button"] {
+    min-height: 36px;
+  }
+
+  /* Reduce heavy animations for performance */
+  .hover-lift:hover {
+    transform: none;
+  }
+
+  /* Tighter scrollbars on mobile */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
 }

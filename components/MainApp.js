@@ -310,17 +310,17 @@ const LazyImage = ({ src, thumbnail, alt = '', style = {}, onClick }) => {
     <div ref={imgRef} style={{ ...style, position: 'relative', overflow: 'hidden' }} onClick={onClick}>
       {/* Shimmer Skeleton */}
       {!loaded && (
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
+        <div style={{
+          position: 'absolute',
+          inset: 0,
           background: 'linear-gradient(90deg, #1a1a2e 25%, #252538 50%, #1a1a2e 75%)',
           backgroundSize: '200% 100%',
           animation: 'shimmer 1.5s infinite',
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center' 
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}>
-          <span style={{ fontSize: '24px', opacity: 0.3 }}>🖼️</span>
+          {Icons.image && Icons.image('rgba(255,255,255,0.15)')}
         </div>
       )}
       {inView && (
@@ -337,38 +337,43 @@ const LazyImage = ({ src, thumbnail, alt = '', style = {}, onClick }) => {
   );
 };
 
-// Skeleton Loader Component
-const Skeleton = ({ width = '100%', height = 20, borderRadius = 4, style = {} }) => (
-  <div style={{ 
-    width, 
-    height, 
-    borderRadius,
-    background: 'linear-gradient(90deg, #1a1a2e 25%, #252538 50%, #1a1a2e 75%)',
-    backgroundSize: '200% 100%',
-    animation: 'shimmer 1.5s infinite',
-    ...style
-  }} />
-);
+// Skeleton Loader Component (theme-aware)
+const Skeleton = ({ width = '100%', height = 20, borderRadius = 4, style = {}, theme = 'dark' }) => {
+  const st = THEMES[theme] || THEMES.dark;
+  return (
+    <div style={{
+      width,
+      height,
+      borderRadius,
+      background: theme === 'light'
+        ? `linear-gradient(90deg, ${st.bgTertiary} 25%, ${st.bgHover} 50%, ${st.bgTertiary} 75%)`
+        : `linear-gradient(90deg, ${st.bgTertiary} 25%, ${st.bgHover} 50%, ${st.bgTertiary} 75%)`,
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.5s infinite',
+      ...style
+    }} />
+  );
+};
 
-// Card Skeleton for loading states
+// Card Skeleton for loading states (theme-aware)
 const CardSkeleton = ({ aspectRatio = 1, theme = 'dark' }) => {
   const t = THEMES[theme];
   return (
-  <div style={{ 
-    background: t.bgTertiary, 
-    borderRadius: '12px', 
-    overflow: 'hidden',
-    border: `1px solid ${t.border}`
-  }}>
-    <div style={{ paddingBottom: `${aspectRatio * 100}%`, position: 'relative' }}>
-      <Skeleton width="100%" height="100%" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
+    <div style={{
+      background: t.bgCard,
+      borderRadius: '12px',
+      overflow: 'hidden',
+      border: `1px solid ${t.border}`
+    }}>
+      <div style={{ paddingBottom: `${aspectRatio * 100}%`, position: 'relative' }}>
+        <Skeleton theme={theme} width="100%" height="100%" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
+      </div>
+      <div style={{ padding: '12px' }}>
+        <Skeleton theme={theme} width="70%" height={14} style={{ marginBottom: 8 }} />
+        <Skeleton theme={theme} width="40%" height={10} />
+      </div>
     </div>
-    <div style={{ padding: '12px' }}>
-      <Skeleton width="70%" height={14} style={{ marginBottom: 8 }} />
-      <Skeleton width="40%" height={10} />
-    </div>
-  </div>
-);
+  );
 };
 
 const Badge = ({ status }) => { const s = STATUS[status]; return s ? <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: s.bg, color: s.color }}>{s.label}</span> : null; };
@@ -2247,7 +2252,7 @@ export default function MainApp() {
           {isMobile && (
             <button
               onClick={() => setShowGlobalSearch(true)}
-              style={{ padding: '8px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+              style={{ padding: '10px', minHeight: '44px', minWidth: '44px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               {Icons.search(t.textSecondary)}
             </button>
@@ -2272,8 +2277,8 @@ export default function MainApp() {
                   justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                   transition: 'all 0.2s ease',
                   position: 'relative',
-                  ...(isMobile && isActive ? { borderBottom: `2px solid ${t.primary}`, borderRadius: '0' } : {}),
-                  ...(isMobile ? { padding: '8px 10px' } : {})
+                  ...(isMobile && isActive ? { borderBottom: `2px solid ${t.primary}`, borderRadius: '0', background: `${t.primary}10` } : {}),
+                  ...(isMobile ? { padding: '10px 12px', minHeight: '44px', minWidth: '44px', justifyContent: 'center' } : {})
                 }}
                 title={sidebarCollapsed ? item.label : ''}
                 onMouseEnter={e => {
@@ -3635,7 +3640,7 @@ export default function MainApp() {
             <div style={{ display: 'flex', gap: '8px' }}>
               <Btn theme={theme} onClick={() => setShowTemplates(true)} small outline>📋 Templates</Btn>
               <Btn theme={theme} onClick={() => setShowAddTask(true)} small>+ New Task</Btn>
-              {isProducer && <Btn theme={theme} onClick={() => setShowSettings(true)} small outline>⚙️</Btn>}
+              {isProducer && <Btn theme={theme} onClick={() => setShowSettings(true)} small outline>{Icons.settings(t.textSecondary)}</Btn>}
             </div>
           </div>
           
@@ -4519,7 +4524,7 @@ export default function MainApp() {
                 <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Deadline</label><Input theme={theme} type="date" value={newProj.deadline} onChange={v => setNewProj({ ...newProj, deadline: v })} /></div>
               </div>
               <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Categories</label><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{DEFAULT_CATEGORIES.map(cat => <div key={cat.id} onClick={() => setNewProj(p => ({ ...p, selectedCats: p.selectedCats.includes(cat.id) ? p.selectedCats.filter(x => x !== cat.id) : [...p.selectedCats, cat.id] }))} style={{ padding: '8px 12px', background: newProj.selectedCats.includes(cat.id) ? `${cat.color}30` : t.bgInput, border: `1px solid ${newProj.selectedCats.includes(cat.id) ? cat.color : t.border}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: newProj.selectedCats.includes(cat.id) ? cat.color : t.textSecondary }}>{cat.icon} {cat.name}</div>)}</div></div>
-              <Btn theme={theme} onClick={handleCreate} disabled={!newProj.name || !newProj.client || creating}>{creating ? '⏳...' : '🚀 Create'}</Btn>
+              <Btn theme={theme} onClick={handleCreate} disabled={!newProj.name || !newProj.client || creating}>{creating ? <><span className="spinner" style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }} /> Creating...</> : 'Create'}</Btn>
             </div>
           </Modal>
         )}
@@ -4765,7 +4770,7 @@ export default function MainApp() {
               {newUser.type !== 'client' && <Select theme={theme} value={newUser.role} onChange={v => setNewUser({ ...newUser, role: v })}>{newUser.type === 'core' ? Object.entries(CORE_ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>) : Object.entries(TEAM_ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}</Select>}
               {newUser.type === 'client' && <Input theme={theme} value={newUser.company} onChange={v => setNewUser({ ...newUser, company: v })} placeholder="Company" />}
               {error && <div style={{ padding: '10px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', color: '#ef4444', fontSize: '12px' }}>{error}</div>}
-              <Btn theme={theme} onClick={handleCreate} disabled={creating}>{creating ? '⏳...' : '✓ Add'}</Btn>
+              <Btn theme={theme} onClick={handleCreate} disabled={creating}>{creating ? <><span className="spinner" style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }} /> Adding...</> : 'Add'}</Btn>
             </div>
           </Modal>
         )}
@@ -6405,7 +6410,7 @@ export default function MainApp() {
               overflow: 'hidden'
             }}>
               <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: '600', fontSize: '12px' }}>⬆️ Uploading {Object.keys(uploadProgress).length} files...</span>
+                <span style={{ fontWeight: '600', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>{Icons.upload(t.primary)} Uploading {Object.keys(uploadProgress).length} files...</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div className="spinner" style={{ width: '14px', height: '14px', border: '2px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                 </div>
@@ -6940,7 +6945,7 @@ export default function MainApp() {
               
               {/* Workflow Settings */}
               <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: '16px', marginTop: '8px' }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>⚙️ Workflow Settings</h4>
+                <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons.settings(t.text)} Workflow Settings</h4>
                 
                 {/* Who can upload versions */}
                 <div style={{ marginBottom: '14px' }}>
@@ -7371,8 +7376,10 @@ export default function MainApp() {
                             >
                               {imageLoading && (
                                 <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                                  <div style={{ width: '40px', height: '40px', border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                                  <span style={{ fontSize: '11px', color: t.textMuted }}>Loading...</span>
+                                  <div style={{ animation: 'breathe 2s ease-in-out infinite' }}>
+                                    <Logo variant="icon" size={32} animated={false} theme={theme} />
+                                  </div>
+                                  <span style={{ fontSize: '11px', color: t.textMuted }}>Loading preview...</span>
                                 </div>
                               )}
                               <img 
@@ -7589,7 +7596,7 @@ export default function MainApp() {
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
                               <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '7px', background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '8px', color: 'rgba(255,255,255,0.6)', fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'border-color 0.2s' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
-                              {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '7px 12px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>{uploadingVersion ? '⏳' : '⬆️ Upload'}</button>}
+                              {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '7px 12px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>{uploadingVersion ? <span className="spinner" style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }} /> : 'Upload'}</button>}
                             </div>
                           </div>
                         ) : (
@@ -8418,8 +8425,9 @@ export default function MainApp() {
           
           {/* Loading spinner */}
           {!imageLoaded && (
-            <div style={{ position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.textMuted }}>
-              Loading...
+            <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: t.textMuted }}>
+              <div className="spinner" style={{ width: 20, height: 20, border: `2px solid ${t.primary}`, borderTopColor: 'transparent', borderRadius: '50%' }} />
+              <span style={{ fontSize: '11px' }}>Loading...</span>
             </div>
           )}
           
