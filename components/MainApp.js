@@ -1754,7 +1754,7 @@ export default function MainApp() {
     const month = currentMonth.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const startPad = firstDay.getDay();
+    const startPad = (firstDay.getDay() + 6) % 7;
     const totalDays = lastDay.getDate();
     
     const days = [];
@@ -1788,27 +1788,27 @@ export default function MainApp() {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>📅 Calendar</h1>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', background: t.bgCard, borderRadius: '12px', padding: '4px', border: `1px solid ${t.border}` }}>
-            <button onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} style={{ padding: '8px 12px', background: 'transparent', border: 'none', borderRadius: '8px', color: t.text, cursor: 'pointer', fontSize: '14px', transition: 'background 0.2s' }}>◀</button>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>Calendar</h1>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} style={{ padding: '8px 12px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, cursor: 'pointer', fontSize: '14px', transition: 'background 0.2s' }}>◀</button>
             <span style={{ fontSize: '14px', fontWeight: '600', color: t.text, minWidth: '160px', textAlign: 'center' }}>
               {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </span>
-            <button onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} style={{ padding: '8px 12px', background: 'transparent', border: 'none', borderRadius: '8px', color: t.text, cursor: 'pointer', fontSize: '14px', transition: 'background 0.2s' }}>▶</button>
+            <button onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} style={{ padding: '8px 12px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, cursor: 'pointer', fontSize: '14px', transition: 'background 0.2s' }}>▶</button>
             <div style={{ width: '1px', height: '20px', background: t.border, margin: '0 2px' }} />
-            <button onClick={() => setCurrentMonth(new Date())} style={{ padding: '8px 14px', background: t.primary, border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: '600', transition: 'all 0.2s' }}>Today</button>
+            <button onClick={() => setCurrentMonth(new Date())} style={{ padding: '8px 14px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '20px', color: t.text, cursor: 'pointer', fontSize: '12px', fontWeight: '600', transition: 'all 0.2s' }}>Today</button>
           </div>
         </div>
 
         {/* Day headers */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', marginBottom: '4px' }}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
             <div key={d} style={{ padding: '10px', textAlign: 'center', fontSize: '11px', fontWeight: '600', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{d}</div>
           ))}
         </div>
 
         {/* Calendar grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', background: `${t.border}40`, border: `1px solid ${t.border}`, borderRadius: '14px', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', background: `${t.border}40`, border: `1px solid ${t.border}`, borderRadius: '14px', overflow: 'hidden' }}>
           {days.map((day, idx) => {
             const dayAssets = getAssetsForDay(day);
             const isPast = day && new Date(year, month, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -1822,10 +1822,11 @@ export default function MainApp() {
                 onDragOver={e => { if (day) e.preventDefault(); }}
                 onDrop={() => handleDrop(day)}
                 style={{
-                  minHeight: '105px',
+                  minHeight: '110px',
                   padding: '8px',
-                  background: isToday(day) ? `${t.primary}12` : t.bgTertiary,
-                  opacity: day ? 1 : 0.3,
+                  background: '#0c0c14',
+                  borderLeft: isToday(day) ? '3px solid #6366f1' : 'none',
+                  opacity: day ? (isPast ? 0.5 : 1) : 0.3,
                   transition: 'all 0.2s',
                   cursor: day ? 'default' : 'auto',
                   position: 'relative'
@@ -1834,24 +1835,16 @@ export default function MainApp() {
                 {day && (
                   <>
                     <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: isToday(day) ? '28px' : 'auto',
-                      height: isToday(day) ? '28px' : 'auto',
-                      borderRadius: '50%',
-                      background: isToday(day) ? t.primary : 'transparent',
-                      color: isToday(day) ? '#fff' : isPast ? t.textMuted : t.text,
-                      fontSize: '12px',
-                      fontWeight: isToday(day) ? '700' : '500',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: isPast ? t.textMuted : t.text,
                       marginBottom: '6px',
-                      boxShadow: isToday(day) ? `0 2px 8px ${t.primary}40` : 'none',
                       transition: 'all 0.3s'
                     }}>
                       {day}
                     </div>
 
-                    {/* Event dots for compact view */}
+                    {/* Event bars */}
                     {dayAssets.length > 0 && dayAssets.length <= 2 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                         {dayAssets.map(a => (
@@ -1866,7 +1859,7 @@ export default function MainApp() {
                               background: a.status === 'approved' ? 'rgba(34,197,94,0.15)' : isPast ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)',
                               borderLeft: `2px solid ${statusColors[a.status] || t.primary}`,
                               borderRadius: '0 4px 4px 0',
-                              fontSize: '10px',
+                              fontSize: '11px',
                               cursor: 'grab',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -1894,7 +1887,7 @@ export default function MainApp() {
                               background: a.status === 'approved' ? 'rgba(34,197,94,0.15)' : isPast ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)',
                               borderLeft: `2px solid ${statusColors[a.status] || t.primary}`,
                               borderRadius: '0 4px 4px 0',
-                              fontSize: '10px',
+                              fontSize: '11px',
                               cursor: 'grab',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -1905,21 +1898,7 @@ export default function MainApp() {
                             {a.name}
                           </div>
                         ))}
-                        <div style={{ fontSize: '10px', color: t.primary, fontWeight: '500', paddingLeft: '6px' }}>+{dayAssets.length - 2} more</div>
-                      </div>
-                    )}
-
-                    {/* Color dots row for quick glance */}
-                    {dayAssets.length > 0 && (
-                      <div style={{ display: 'flex', gap: '3px', marginTop: '4px', position: 'absolute', bottom: '6px', left: '8px' }}>
-                        {dayAssets.slice(0, 5).map((a, i) => (
-                          <div key={i} style={{
-                            width: '5px',
-                            height: '5px',
-                            borderRadius: '50%',
-                            background: statusColors[a.status] || t.primary
-                          }} />
-                        ))}
+                        <div style={{ fontSize: '11px', color: t.primary, fontWeight: '500', paddingLeft: '6px' }}>+{dayAssets.length - 2} more</div>
                       </div>
                     )}
                   </>
