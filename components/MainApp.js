@@ -4427,7 +4427,7 @@ export default function MainApp() {
       'event': 'linear-gradient(135deg, #fbbf2430, #f9731620)',
       'documentary': 'linear-gradient(135deg, #78716c30, #a855f720)',
     };
-    const typeIcons = { 'photoshoot': '📸', 'ad-film': '🎬', 'toolkit': '🧰', 'product-video': '📦', 'social-media': '📱', 'corporate': '🏢', 'music-video': '🎵', 'brand-film': '🎯', 'reels': '🎞️', 'ecommerce': '🛒', 'event': '🎪', 'documentary': '📽️' };
+
 
     return (
       <div>
@@ -4493,8 +4493,8 @@ export default function MainApp() {
               return (
                 <div key={p.id} className="hover-lift hover-glow animate-fadeInUp" onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: t.bgTertiary, borderRadius: '14px', border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : `1px solid ${t.border}`, cursor: 'pointer', position: 'relative', overflow: 'hidden', transition: 'all 0.2s ease' }}>
                   {/* Gradient Top Area */}
-                  <div style={{ height: '120px', background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : (typeGradients[p.type] || typeGradients['photoshoot']), position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {!firstThumb && <span style={{ fontSize: '36px', opacity: 0.5 }}>{typeIcons[p.type] || '📁'}</span>}
+                  <div style={{ height: '90px', background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : (typeGradients[p.type] || typeGradients['photoshoot']), position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {!firstThumb && <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '500' }}>{p.type?.replace('-', ' ') || 'Project'}</span>}
                     {/* Status chip top-right */}
                     <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
                       <Badge status={p.status} />
