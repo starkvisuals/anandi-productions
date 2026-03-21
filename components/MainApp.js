@@ -2606,30 +2606,6 @@ export default function MainApp() {
           <div style={{ height: '100%', width: `${overallProgress}%`, background: 'linear-gradient(90deg, #6366f1, #a855f7)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
         </div>
 
-        {/* 3. Quick Actions Bar (producers only) */}
-        {isProducer && !isClientView && (
-          <div className="animate-fadeInUp" style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
-            {[
-              { label: 'New Project', icon: 'folder', view: 'projects', gradient: 'linear-gradient(135deg, #6366f1, #8b5cf6)' },
-              { label: 'Upload Assets', icon: 'upload', view: 'projects', gradient: undefined },
-              { label: 'Add Team Member', icon: 'users', view: 'team', gradient: undefined },
-              { label: 'Create Task', icon: 'tasks', view: 'tasks', gradient: undefined },
-            ].map(action => (
-              <button key={action.label} className="hover-lift" onClick={() => setView(action.view)} style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '10px 18px', borderRadius: '24px', border: 'none',
-                background: action.gradient || `${t.bgCard}cc`,
-                color: action.gradient ? '#fff' : t.text,
-                fontSize: '12px', fontWeight: '500', cursor: 'pointer',
-                ...(action.gradient ? {} : { border: `1px solid ${t.border}` }),
-              }}>
-                {Icons[action.icon] && Icons[action.icon](action.gradient ? '#fff' : t.textSecondary)}
-                {action.label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* 4. Netflix Project Row */}
         {(() => {
           const typeGradients = {
@@ -4363,6 +4339,25 @@ export default function MainApp() {
               <Btn theme={theme} onClick={() => setShowSettings(false)} style={{ width: '100%' }}>Done</Btn>
             </div>
           </Modal>
+        )}
+        {/* Keyboard Shortcuts */}
+        {isProducer && !isClientView && (
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', padding: '20px 0 0', marginTop: '8px', borderTop: `1px solid ${t.border}` }}>
+            {[
+              { key: 'N', label: 'New Project', action: () => setView('projects') },
+              { key: 'U', label: 'Upload', action: () => setView('projects') },
+              { key: 'T', label: 'Add Team', action: () => setView('team') },
+            ].map(s => (
+              <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: t.textMuted, cursor: 'pointer' }} onClick={s.action}>
+                <span style={{ display: 'inline-flex', width: '20px', height: '20px', alignItems: 'center', justifyContent: 'center', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '10px', fontWeight: '600', color: t.textSecondary }}>{s.key}</span>
+                {s.label}
+              </div>
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: t.textMuted }}>
+              <span style={{ display: 'inline-flex', height: '20px', alignItems: 'center', justifyContent: 'center', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '10px', fontWeight: '600', color: t.textSecondary, padding: '0 6px' }}>⌘K</span>
+              Search
+            </div>
+          </div>
         )}
       </div>
     );
