@@ -4601,7 +4601,7 @@ export default function MainApp() {
       const overdueAssets = activeAssets.filter(a => a.dueDate && new Date(a.dueDate) < today);
 
       return (
-        <div key={u.id} style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', background: t.bgCard, borderRadius: '10px', marginBottom: '6px', border: `1px solid ${t.border}`, cursor: 'pointer', transition: 'all 0.2s' }}>
+        <div key={u.id} className="team-row" style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', background: t.bgCard, borderRadius: '10px', marginBottom: '6px', border: `1px solid ${t.border}`, cursor: 'pointer', transition: 'all 0.2s' }}>
           <Avatar user={u} size={36} />
           <div style={{ flex: 1, marginLeft: '12px' }}>
             <div style={{ fontSize: '14px', fontWeight: 600, color: t.text }}>{u.name}</div>
@@ -4687,7 +4687,7 @@ export default function MainApp() {
                 background: 'none',
                 border: 'none',
                 borderBottom: tab === tabItem.id ? '2px solid #6366f1' : '2px solid transparent',
-                color: tab === tabItem.id ? '#fff' : t.textMuted,
+                color: tab === tabItem.id ? t.text : t.textMuted,
                 fontWeight: tab === tabItem.id ? 600 : 400,
                 transition: 'all 0.2s'
               }}

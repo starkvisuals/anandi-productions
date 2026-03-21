@@ -324,3 +324,6 @@ button:active {
   scroll-snap-align: start;
   flex-shrink: 0;
 }
+.team-row:hover {
+  background: #1a1a24 !important;
+}
