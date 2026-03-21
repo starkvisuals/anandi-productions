@@ -174,13 +174,13 @@ const DEFAULT_CATEGORIES = [
 
 // Project Templates
 const PROJECT_TEMPLATES = [
-  { id: 'photoshoot-basic', name: '📸 Basic Photoshoot', type: 'photoshoot', categories: ['statics'], description: 'Simple photoshoot with statics only' },
-  { id: 'photoshoot-full', name: '📸 Full Photoshoot', type: 'photoshoot', categories: ['statics', 'videos'], description: 'Photoshoot with BTS videos' },
-  { id: 'ad-film', name: '🎬 Ad Film', type: 'ad-film', categories: ['videos', 'vfx', 'audio', 'cgi'], description: 'Full ad film production' },
-  { id: 'product-video', name: '📦 Product Video', type: 'product-video', categories: ['videos', 'cgi'], description: 'Product showcase video' },
-  { id: 'social-media', name: '📱 Social Media Pack', type: 'social-media', categories: ['statics', 'videos'], description: 'Social media content package' },
-  { id: 'toolkit', name: '🧰 Brand Toolkit', type: 'toolkit', categories: ['statics', 'videos', 'cgi', 'animation'], description: 'Complete brand toolkit' },
-  { id: 'reels', name: '🎞️ Reels/Shorts', type: 'reels', categories: ['videos'], description: 'Short-form vertical content' },
+  { id: 'photoshoot-basic', name: 'Basic Photoshoot', type: 'photoshoot', categories: ['statics'], description: 'Simple photoshoot with statics only' },
+  { id: 'photoshoot-full', name: 'Full Photoshoot', type: 'photoshoot', categories: ['statics', 'videos'], description: 'Photoshoot with BTS videos' },
+  { id: 'ad-film', name: 'Ad Film', type: 'ad-film', categories: ['videos', 'vfx', 'audio', 'cgi'], description: 'Full ad film production' },
+  { id: 'product-video', name: 'Product Video', type: 'product-video', categories: ['videos', 'cgi'], description: 'Product showcase video' },
+  { id: 'social-media', name: 'Social Media Pack', type: 'social-media', categories: ['statics', 'videos'], description: 'Social media content package' },
+  { id: 'toolkit', name: 'Brand Toolkit', type: 'toolkit', categories: ['statics', 'videos', 'cgi', 'animation'], description: 'Complete brand toolkit' },
+  { id: 'reels', name: 'Reels/Shorts', type: 'reels', categories: ['videos'], description: 'Short-form vertical content' },
 ];
 
 const ASPECT_RATIOS = { landscape: 16/10, square: 1, portrait: 10/16 };
@@ -377,7 +377,7 @@ const CardSkeleton = ({ aspectRatio = 1, theme = 'dark' }) => {
 };
 
 const Badge = ({ status }) => { const s = STATUS[status]; return s ? <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: s.bg, color: s.color }}>{s.label}</span> : null; };
-const RoleBadge = ({ role }) => { const r = TEAM_ROLES[role] || CORE_ROLES[role] || { label: role, color: '#6366f1' }; return <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: `${r.color}20`, color: r.color }}>{r.icon || '👤'} {r.label}</span>; };
+const RoleBadge = ({ role }) => { const r = TEAM_ROLES[role] || CORE_ROLES[role] || { label: role, color: '#6366f1' }; return <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: `${r.color}20`, color: r.color }}>{r.icon || ''} {r.label}</span>; };
 const Avatar = ({ user, size = 32 }) => { const c = (TEAM_ROLES[user?.role] || CORE_ROLES[user?.role])?.color || '#6366f1'; return <div style={{ width: size, height: size, borderRadius: '50%', background: `linear-gradient(135deg, ${c}40, ${c}20)`, border: `2px solid ${c}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, flexShrink: 0 }}>{user?.avatar || user?.firstName?.[0] || '?'}</div>; };
 
 // Notification Badge Component
@@ -510,7 +510,7 @@ const SIZE_PRESETS = {
 const TASK_TEMPLATES = {
   'team-onboarding': {
     name: 'Team Onboarding',
-    icon: '👋',
+    icon: '',
     description: 'Checklist for onboarding new team members',
     subtasks: [
       { title: 'Send welcome email with login credentials', assignRole: 'producer' },
@@ -523,7 +523,7 @@ const TASK_TEMPLATES = {
   },
   'pre-production': {
     name: 'Pre-Production Checklist',
-    icon: '🎬',
+    icon: '',
     description: 'Preparation tasks before shoot',
     subtasks: [
       { title: 'Confirm shoot date & location', assignRole: 'producer' },
@@ -537,7 +537,7 @@ const TASK_TEMPLATES = {
   },
   'delivery-checklist': {
     name: 'Delivery Checklist',
-    icon: '📦',
+    icon: '',
     description: 'Final delivery preparation',
     subtasks: [
       { title: 'Export all approved assets in required formats', assignRole: 'editor' },
@@ -551,7 +551,7 @@ const TASK_TEMPLATES = {
   },
   'post-production': {
     name: 'Post-Production Workflow',
-    icon: '🎨',
+    icon: '',
     description: 'Standard post workflow tasks',
     subtasks: [
       { title: 'Ingest & backup raw footage', assignRole: 'editor' },
@@ -565,7 +565,7 @@ const TASK_TEMPLATES = {
   },
   'client-review': {
     name: 'Client Review Prep',
-    icon: '👔',
+    icon: '',
     description: 'Prepare for client presentation',
     subtasks: [
       { title: 'Export review-ready files (watermarked)', assignRole: 'editor' },
@@ -651,7 +651,7 @@ const sendEmailNotification = async (to, subject, body, type = 'default', data =
       body: JSON.stringify({ to, subject, body, type, data })
     });
     const result = await response.json();
-    if (result.success) console.log('📧 Email sent:', subject);
+    if (result.success) console.log('Email sent:', subject);
     return result.success;
   } catch (error) {
     console.error('Email error:', error);
@@ -738,7 +738,7 @@ const VideoThumbnail = ({ src, thumbnail, duration, style }) => {
       {thumbnail && !isLoaded && (
         <img src={thumbnail} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       )}
-      {!thumbnail && !isLoaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '24px' }}>🎬</span></div>}
+      {!thumbnail && !isLoaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '12px', color: '#888' }}>Video</span></div>}
       {inView && (
         <video 
           ref={videoRef} 
@@ -752,7 +752,7 @@ const VideoThumbnail = ({ src, thumbnail, duration, style }) => {
       )}
       {isHovering && isLoaded && <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${scrubPos * 100}%`, width: '2px', background: '#ef4444', pointerEvents: 'none' }} />}
       {duration && <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>{formatDuration(duration)}</div>}
-      {!isLoaded && <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '9px' }}>🎬</div>}
+      {!isLoaded && <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '9px' }}>Video</div>}
     </div>
   );
 };
@@ -951,7 +951,7 @@ export default function MainApp() {
           newNotifs.push({
             key: notifKey,
             type: 'deadline_overdue',
-            icon: '🚨',
+            icon: '!',
             title: 'Deadline Overdue',
             message: `"${asset.name}" is ${Math.abs(daysUntil)} day(s) overdue`,
             projectId: project.id,
@@ -963,7 +963,7 @@ export default function MainApp() {
           newNotifs.push({
             key: notifKey,
             type: 'deadline_today',
-            icon: '⚠️',
+            icon: '!',
             title: 'Due Today',
             message: `"${asset.name}" is due today`,
             projectId: project.id,
@@ -975,7 +975,7 @@ export default function MainApp() {
           newNotifs.push({
             key: notifKey,
             type: 'deadline_reminder',
-            icon: '⏰',
+            icon: '',
             title: 'Due Tomorrow',
             message: `"${asset.name}" is due tomorrow`,
             projectId: project.id,
@@ -987,7 +987,7 @@ export default function MainApp() {
           newNotifs.push({
             key: notifKey,
             type: 'deadline_reminder',
-            icon: '📅',
+            icon: '',
             title: 'Deadline in 3 Days',
             message: `"${asset.name}" is due in 3 days`,
             projectId: project.id,
@@ -1007,7 +1007,7 @@ export default function MainApp() {
             newNotifs.push({
               key: notifKey,
               type: 'alert',
-              icon: '⚠️',
+              icon: '!',
               title: 'Unassigned Assets',
               message: `${unassigned.length} asset(s) in "${project.name}" need assignment`,
               projectId: project.id,
@@ -1027,7 +1027,7 @@ export default function MainApp() {
               newNotifs.push({
                 key: notifKey,
                 type: 'alert',
-                icon: '💤',
+                icon: '',
                 title: 'Stale Project',
                 message: `"${project.name}" has no activity for ${daysSinceActivity} days`,
                 projectId: project.id,
@@ -1202,7 +1202,7 @@ export default function MainApp() {
           );
           addNotification({
             type: 'task_assigned',
-            icon: '📋',
+            icon: '',
             title: 'Task Assigned',
             message: `You've been assigned: "${task.title}"`,
             taskId: task.id
@@ -1277,7 +1277,7 @@ export default function MainApp() {
     // Check if all subtasks are done
     const task = updated.find(t => t.id === taskId);
     if (task && task.subtasks.length > 0 && task.subtasks.every(st => st.done)) {
-      showToast('All subtasks completed! 🎉', 'success');
+      showToast('All subtasks completed!', 'success');
     }
   };
   
@@ -1666,7 +1666,7 @@ export default function MainApp() {
                         onMouseEnter={e => e.currentTarget.style.background = t.bgCard}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
-                        <span style={{ fontSize: '20px' }}>📁</span>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: t.textMuted, width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${t.primary}20`, borderRadius: '4px' }}>P</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '13px', fontWeight: '500', color: t.text }}>{p.name}</div>
                           <div style={{ fontSize: '11px', color: t.textMuted }}>{p.client}</div>
@@ -1692,7 +1692,7 @@ export default function MainApp() {
                         {a.thumbnail ? (
                           <img src={a.thumbnail} alt="" style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
                         ) : (
-                          <span style={{ fontSize: '20px' }}>{a.type === 'video' ? '🎬' : a.type === 'image' ? '🖼️' : '📄'}</span>
+                          <span style={{ fontSize: '10px', fontWeight: '600', color: t.textMuted, width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.bgCard, borderRadius: '6px', border: `1px solid ${t.border}` }}>{a.type === 'video' ? 'VID' : a.type === 'image' ? 'IMG' : 'DOC'}</span>
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '13px', fontWeight: '500', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
@@ -1917,11 +1917,11 @@ export default function MainApp() {
     
     // Reduced to 5 columns to fit better
     const columns = [
-      { id: 'pending', title: 'Pending', icon: '⏳', color: '#fbbf24' },
-      { id: 'in-progress', title: 'In Progress', icon: '⚡', color: '#8b5cf6' },
-      { id: 'review-ready', title: 'Review', icon: '👁️', color: '#a855f7' },
-      { id: 'revision', title: 'Revision', icon: '🔄', color: '#f97316' },
-      { id: 'approved', title: 'Approved', icon: '✓', color: '#22c55e' },
+      { id: 'pending', title: 'Pending', color: '#fbbf24' },
+      { id: 'in-progress', title: 'In Progress', color: '#8b5cf6' },
+      { id: 'review-ready', title: 'Review', color: '#a855f7' },
+      { id: 'revision', title: 'Revision', color: '#f97316' },
+      { id: 'approved', title: 'Approved', color: '#22c55e' },
     ];
     
     const handleDrop = async (status) => {
@@ -1962,7 +1962,7 @@ export default function MainApp() {
                 alignItems: 'center',
                 gap: '4px'
               }}>
-                <span style={{ fontSize: '12px' }}>{col.icon}</span>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: col.color, flexShrink: 0 }} />
                 <span style={{ fontSize: '10px', fontWeight: '600', color: t.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{col.title}</span>
                 <span style={{ 
                   marginLeft: 'auto', 
@@ -2034,7 +2034,7 @@ export default function MainApp() {
                         {/* Rating overlay */}
                         {a.rating > 0 && (
                           <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '2px 4px', fontSize: '9px' }}>
-                            {'⭐'.repeat(a.rating)}
+                            {a.rating}/5 ★
                           </div>
                         )}
                       </div>
@@ -2859,15 +2859,15 @@ export default function MainApp() {
     
     // Kanban columns
     const COLUMNS = [
-      { id: 'pending', title: 'To Do', icon: '📋', color: '#6366f1' },
-      { id: 'in-progress', title: 'In Progress', icon: '⚡', color: '#f59e0b' },
-      { id: 'review', title: 'Review', icon: '👀', color: '#8b5cf6' },
-      { id: 'done', title: 'Done', icon: '✅', color: '#22c55e' }
+      { id: 'pending', title: 'To Do', color: '#6366f1' },
+      { id: 'in-progress', title: 'In Progress', color: '#f59e0b' },
+      { id: 'review', title: 'Review', color: '#8b5cf6' },
+      { id: 'done', title: 'Done', color: '#22c55e' }
     ];
     
     // Priority colors and icons
     const priorityColors = { urgent: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
-    const priorityIcons = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+    const priorityIcons = { urgent: '!!', high: '!', medium: '--', low: '' };
     
     // Get intelligent subtask suggestions based on task title
     const getSubtaskSuggestions = (title) => {
@@ -3206,8 +3206,8 @@ export default function MainApp() {
                     WebkitBoxOrient: 'vertical'
                   }}
                 >
-                  {task.type === 'feedback' && '🔄 '}
-                  {task.type === 'auto' && '📁 '}
+                  {task.type === 'feedback' && 'Feedback: '}
+                  {task.type === 'auto' && 'Auto: '}
                   {task.title}
                 </div>
               )}
@@ -3243,7 +3243,7 @@ export default function MainApp() {
                   alignItems: 'center',
                   gap: '3px'
                 }}>
-                  📅 {new Date(task.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                  Due: {new Date(task.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
                 </span>
               )}
               {totalSubtasks > 0 && (
@@ -3278,7 +3278,7 @@ export default function MainApp() {
                 </span>
               )}
               {(task.attachments || []).length > 0 && (
-                <span style={{ fontSize: '10px', color: t.textMuted }}>📎 {task.attachments.length}</span>
+                <span style={{ fontSize: '10px', color: t.textMuted }}>Att: {task.attachments.length}</span>
               )}
               
               {/* Assignees - push to right */}
@@ -3447,7 +3447,7 @@ export default function MainApp() {
                             gap: '4px'
                           }}
                         >
-                          📎 {att.name}
+                          Att: {att.name}
                         </a>
                       ))}
                     </div>
@@ -3468,7 +3468,7 @@ export default function MainApp() {
                       alignItems: 'center',
                       gap: '4px'
                     }}>
-                      📎 Add File
+                      Att: Add File
                       <input
                         type="file"
                         style={{ display: 'none' }}
@@ -3496,7 +3496,7 @@ export default function MainApp() {
                         color: '#ef4444',
                         cursor: 'pointer'
                       }}
-                    >🗑️ Delete</button>
+                    >Delete</button>
                   </div>
                 )}
               </div>
@@ -3557,7 +3557,7 @@ export default function MainApp() {
             alignItems: 'center',
             gap: '8px'
           }}>
-            <span style={{ fontSize: '16px' }}>{column.icon}</span>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: column.color, flexShrink: 0 }} />
             <span style={{ fontWeight: '600', fontSize: '13px', color: t.text }}>{column.title}</span>
             <span style={{
               marginLeft: 'auto',
@@ -3587,7 +3587,7 @@ export default function MainApp() {
                 border: isDropTarget ? 'none' : `1px dashed ${t.border}`,
                 borderRadius: '10px'
               }}>
-                {isDropTarget ? '⬇ Drop here' : 'No tasks'}
+                {isDropTarget ? 'Drop here' : 'No tasks'}
               </div>
             ) : (
               columnTasks.map(task => (
@@ -3630,7 +3630,7 @@ export default function MainApp() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: t.text }}>Tasks</h1>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <Btn theme={theme} onClick={() => setShowTemplates(true)} small outline>📋 Templates</Btn>
+              <Btn theme={theme} onClick={() => setShowTemplates(true)} small outline>Templates</Btn>
               <Btn theme={theme} onClick={() => setShowAddTask(true)} small>+ New Task</Btn>
               {isProducer && <Btn theme={theme} onClick={() => setShowSettings(true)} small outline>{Icons.settings(t.textSecondary)}</Btn>}
             </div>
@@ -3806,7 +3806,7 @@ export default function MainApp() {
                 {suggestedSubtasks.length > 0 && (
                   <div style={{ width: '100%', marginTop: '8px' }}>
                     <label style={{ display: 'block', fontSize: '10px', color: t.accent, marginBottom: '6px' }}>
-                      ✨ Suggested subtasks (click to add)
+                      AI Suggested subtasks (click to add)
                     </label>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {suggestedSubtasks.map((suggestion, i) => (
@@ -4033,9 +4033,9 @@ export default function MainApp() {
                 <div>
                   <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label>
                   <Select theme={theme} value={newTask.type} onChange={(v) => setNewTask({ ...newTask, type: v })}>
-                    <option value="personal">👤 Personal</option>
-                    <option value="team">👥 Team</option>
-                    <option value="project">📁 Project</option>
+                    <option value="personal">Personal</option>
+                    <option value="team">Team</option>
+                    <option value="project">Project</option>
                   </Select>
                 </div>
                 <div>
@@ -4106,7 +4106,7 @@ export default function MainApp() {
               {suggestedSubtasks.length > 0 && (
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', fontSize: '11px', color: t.accent, marginBottom: '6px' }}>
-                    ✨ AI Suggested Subtasks
+                    AI AI Suggested Subtasks
                   </label>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {suggestedSubtasks.map((s, i) => {
@@ -4162,7 +4162,7 @@ export default function MainApp() {
               {/* Recurring */}
               <div style={{ marginBottom: '20px', padding: '14px', background: t.bgInput, borderRadius: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: newTask.recurring.enabled ? '12px' : 0 }}>
-                  <span style={{ fontSize: '12px', color: t.text }}>🔁 Recurring task</span>
+                  <span style={{ fontSize: '12px', color: t.text }}>Recurring task</span>
                   <button onClick={() => setNewTask({ ...newTask, recurring: { ...newTask.recurring, enabled: !newTask.recurring.enabled } })} style={{ width: '44px', height: '24px', borderRadius: '12px', border: 'none', background: newTask.recurring.enabled ? t.primary : t.bgTertiary, cursor: 'pointer', position: 'relative' }}>
                     <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: newTask.recurring.enabled ? '22px' : '2px', transition: 'left 0.2s' }} />
                   </button>
@@ -4553,7 +4553,7 @@ export default function MainApp() {
               <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Name *</label><Input theme={theme} value={newProj.name} onChange={v => setNewProj({ ...newProj, name: v })} placeholder="e.g., RasikaD Photoshoot" /></div>
               <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Client *</label><Input theme={theme} value={newProj.client} onChange={v => setNewProj({ ...newProj, client: v })} placeholder="e.g., Client Name" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label><Select theme={theme} value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">📸 Photoshoot</option><option value="ad-film">🎬 Ad Film</option><option value="toolkit">🧰 Toolkit</option><option value="product-video">📦 Product Video</option><option value="social-media">📱 Social Media</option><option value="corporate">🏢 Corporate Video</option><option value="music-video">🎵 Music Video</option><option value="brand-film">🎯 Brand Film</option><option value="reels">🎞️ Reels/Shorts</option><option value="ecommerce">🛒 E-Commerce</option><option value="event">🎪 Event Coverage</option><option value="documentary">📽️ Documentary</option></Select></div>
+                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label><Select theme={theme} value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">Photoshoot</option><option value="ad-film">Ad Film</option><option value="toolkit">Toolkit</option><option value="product-video">Product Video</option><option value="social-media">Social Media</option><option value="corporate">Corporate Video</option><option value="music-video">Music Video</option><option value="brand-film">Brand Film</option><option value="reels">Reels/Shorts</option><option value="ecommerce">E-Commerce</option><option value="event">Event Coverage</option><option value="documentary">Documentary</option></Select></div>
                 <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Deadline</label><Input theme={theme} type="date" value={newProj.deadline} onChange={v => setNewProj({ ...newProj, deadline: v })} /></div>
               </div>
               <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Categories</label><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{DEFAULT_CATEGORIES.map(cat => <div key={cat.id} onClick={() => setNewProj(p => ({ ...p, selectedCats: p.selectedCats.includes(cat.id) ? p.selectedCats.filter(x => x !== cat.id) : [...p.selectedCats, cat.id] }))} style={{ padding: '8px 12px', background: newProj.selectedCats.includes(cat.id) ? `${cat.color}30` : t.bgInput, border: `1px solid ${newProj.selectedCats.includes(cat.id) ? cat.color : t.border}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: newProj.selectedCats.includes(cat.id) ? cat.color : t.textSecondary }}>{cat.icon} {cat.name}</div>)}</div></div>
@@ -4580,7 +4580,7 @@ export default function MainApp() {
       try {
         const cred = await createUserWithEmailAndPassword(auth, newUser.email, newUser.password);
         await updateProfile(cred.user, { displayName: newUser.name });
-        await createUser(cred.user.uid, { email: newUser.email, name: newUser.name, firstName: newUser.name.split(' ')[0], role: newUser.type === 'client' ? 'client' : newUser.role, phone: newUser.phone, avatar: newUser.type === 'client' ? '👔' : (TEAM_ROLES[newUser.role]?.icon || '👤'), isCore: newUser.type === 'core', isFreelancer: newUser.type === 'freelancer', isClient: newUser.type === 'client', company: newUser.company, createdBy: userProfile.id });
+        await createUser(cred.user.uid, { email: newUser.email, name: newUser.name, firstName: newUser.name.split(' ')[0], role: newUser.type === 'client' ? 'client' : newUser.role, phone: newUser.phone, avatar: newUser.type === 'client' ? '' : (TEAM_ROLES[newUser.role]?.icon || ''), isCore: newUser.type === 'core', isFreelancer: newUser.type === 'freelancer', isClient: newUser.type === 'client', company: newUser.company, createdBy: userProfile.id });
         await loadData();
         setNewUser({ name: '', email: '', password: '', phone: '', role: 'photo-editor', type: 'freelancer', company: '' });
         setShowAdd(false);
@@ -4716,7 +4716,7 @@ export default function MainApp() {
         {showAdd && (
           <Modal theme={theme} title="Add Team Member" onClose={() => { setShowAdd(false); setError(''); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'auto' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>{['core', 'freelancer', 'client'].map(type => <button key={type} onClick={() => setNewUser({ ...newUser, type, role: type === 'core' ? 'producer' : type === 'client' ? 'client' : 'photo-editor' })} style={{ flex: 1, padding: '12px', background: newUser.type === type ? t.primary : t.bgCard, border: `1px solid ${newUser.type === type ? t.primary : t.border}`, borderRadius: '8px', color: newUser.type === type ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>{type === 'core' ? '👑 Core' : type === 'freelancer' ? '🎨 Freelancer' : '👔 Client'}</button>)}</div>
+              <div style={{ display: 'flex', gap: '8px' }}>{['core', 'freelancer', 'client'].map(type => <button key={type} onClick={() => setNewUser({ ...newUser, type, role: type === 'core' ? 'producer' : type === 'client' ? 'client' : 'photo-editor' })} style={{ flex: 1, padding: '12px', background: newUser.type === type ? t.primary : t.bgCard, border: `1px solid ${newUser.type === type ? t.primary : t.border}`, borderRadius: '8px', color: newUser.type === type ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>{type === 'core' ? 'Core' : type === 'freelancer' ? 'Freelancer' : 'Client'}</button>)}</div>
               <Input theme={theme} value={newUser.name} onChange={v => setNewUser({ ...newUser, name: v })} placeholder="Name *" />
               <Input theme={theme} value={newUser.email} onChange={v => setNewUser({ ...newUser, email: v })} placeholder="Email *" type="email" />
               <Input theme={theme} value={newUser.password} onChange={v => setNewUser({ ...newUser, password: v })} placeholder="Password *" type="password" />
@@ -4742,7 +4742,7 @@ export default function MainApp() {
     const projectTasks = globalTasks.filter(t => t.projectId === project.id);
     
     const priorityColors = { urgent: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
-    const priorityIcons = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+    const priorityIcons = { urgent: '!!', high: '!', medium: '--', low: '' };
     const allTeam = [...coreTeam, ...freelancers, ...users].filter(u => 
       (project.assignedTeam || []).some(t => t.odId === u.id) || u.role === 'producer'
     );
@@ -4803,7 +4803,7 @@ export default function MainApp() {
         <div style={{ padding: '14px' }}>
           {activeTasks.length === 0 && completedTasks.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: t.textMuted }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>📋</div>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}></div>
               <div style={{ fontSize: '13px' }}>No tasks yet</div>
               <div style={{ fontSize: '11px', marginTop: '4px' }}>Tasks created here sync with the Tasks tab</div>
             </div>
@@ -4843,17 +4843,17 @@ export default function MainApp() {
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '4px', color: t.text }}>
-                          {task.type === 'feedback' && '🔄 '}{task.title}
+                          {task.type === 'feedback' && 'Feedback: '}{task.title}
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                           {task.dueDate && (
                             <span style={{ fontSize: '11px', color: isOverdue ? '#ef4444' : t.textMuted }}>
-                              📅 {formatDate(task.dueDate)}
+                              Due: {formatDate(task.dueDate)}
                             </span>
                           )}
                           {totalSubs > 0 && (
                             <span style={{ fontSize: '11px', color: completedSubs === totalSubs ? t.success : t.textMuted }}>
-                              ☑️ {completedSubs}/{totalSubs}
+                              Subs: {completedSubs}/{totalSubs}
                             </span>
                           )}
                           <span style={{ fontSize: '10px' }}>{priorityIcons[task.priority]}</span>
@@ -4919,7 +4919,7 @@ export default function MainApp() {
                             placeholder="Add subtask..."
                             style={{ flex: 1, padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px', outline: 'none' }}
                           />
-                          <button onClick={() => deleteTask(task.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>
+                          <button onClick={() => deleteTask(task.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}></button>
                         </div>
                       </div>
                     )}
@@ -4956,7 +4956,7 @@ export default function MainApp() {
               
               {suggestions.length > 0 && (
                 <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '11px', color: t.accent, marginBottom: '6px' }}>✨ Suggested subtasks</label>
+                  <label style={{ display: 'block', fontSize: '11px', color: t.accent, marginBottom: '6px' }}>AI Suggested subtasks</label>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {suggestions.map((s, i) => {
                       const added = (newTask.subtasks || []).some(st => st.title === s);
@@ -5074,13 +5074,13 @@ export default function MainApp() {
       byProject[a.projectId].assets.push(a);
     });
     
-    const fileTypeIcon = (type) => type === 'image' ? '🖼️' : type === 'video' ? '🎬' : '📄';
+    const fileTypeIcon = (type) => type === 'image' ? 'IMG' : type === 'video' ? 'VID' : 'DOC';
 
     return (
       <div>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h1 style={{ fontSize: '24px', fontWeight: '700', margin: 0, color: t.text }}>📥 Download Center</h1>
+            <h1 style={{ fontSize: '24px', fontWeight: '700', margin: 0, color: t.text }}>Download Center</h1>
             <p style={{ fontSize: '13px', color: t.textMuted, margin: '6px 0 0' }}>{approvedAssets.length} approved assets ready for download</p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -5095,7 +5095,7 @@ export default function MainApp() {
               fontWeight: '500',
               transition: 'all 0.2s'
             }}>
-              {selectedForDownload.size === approvedAssets.length ? '☐ Deselect All' : '☑️ Select All'}
+              {selectedForDownload.size === approvedAssets.length ? 'Deselect All' : 'Subs: Select All'}
             </button>
             {selectedForDownload.size > 0 && (
               <button onClick={() => {
@@ -5124,7 +5124,7 @@ export default function MainApp() {
                 alignItems: 'center',
                 gap: '6px'
               }}>
-                ⬇️ Download ({selectedForDownload.size})
+                Download ({selectedForDownload.size})
               </button>
             )}
           </div>
@@ -5132,7 +5132,7 @@ export default function MainApp() {
 
         {Object.keys(byProject).length === 0 ? (
           <div className="animate-fadeInUp" style={{ textAlign: 'center', padding: '80px 20px', color: t.textMuted, background: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}` }}>
-            <div style={{ fontSize: '56px', marginBottom: '16px', opacity: 0.5 }}>📭</div>
+            <div style={{ fontSize: '56px', marginBottom: '16px', opacity: 0.5 }}></div>
             <div style={{ fontSize: '16px', fontWeight: '500', color: t.textSecondary, marginBottom: '6px' }}>No approved assets available yet</div>
             <div style={{ fontSize: '12px', color: t.textMuted }}>Assets will appear here once they are approved</div>
           </div>
@@ -5195,7 +5195,7 @@ export default function MainApp() {
                               fontWeight: '500',
                               transition: 'background 0.2s'
                             }}>
-                              ⬇ {f.formatLabel?.split(' ')[0] || f.format}
+                              {f.formatLabel?.split(' ')[0] || f.format}
                             </a>
                           ))}
                         </div>
@@ -5320,7 +5320,7 @@ export default function MainApp() {
           <div style={{ background: t.bgCard, borderRadius: '10px', border: `1px solid ${t.border}`, overflow: 'hidden', marginBottom: '10px' }}>
             <div style={{ padding: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '44px', height: '44px', borderRadius: '8px', background: deck.type === 'embed' ? 'rgba(234,179,8,0.2)' : 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
-                {deck.type === 'embed' ? '📊' : '📄'}
+                {deck.type === 'embed' ? '' : 'DOC'}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: '500', fontSize: '13px', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deck.name}</div>
@@ -5335,7 +5335,7 @@ export default function MainApp() {
                   <a href={deck.url} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 10px', background: t.primary, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', textDecoration: 'none' }}>Open</a>
                 )}
                 {isProducer && (
-                  <button onClick={() => handleDeleteDeck(deck.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>🗑️</button>
+                  <button onClick={() => handleDeleteDeck(deck.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}></button>
                 )}
               </div>
             </div>
@@ -5380,16 +5380,16 @@ export default function MainApp() {
       <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '14px' }}>📑 Decks & Presentations</h3>
+            <h3 style={{ margin: 0, fontSize: '14px' }}>Decks & Presentations</h3>
             <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>Upload PDFs, PPTs or embed Google Slides</div>
           </div>
           {isProducer && <Btn theme={theme} onClick={() => setShowAddDeck(true)} small>+ Add Deck</Btn>}
         </div>
         
         <div style={{ padding: '16px' }}>
-          <PhaseSection title="Pre-Production" icon="🎬" phaseName="pre-production" items={preProduction} />
-          <PhaseSection title="Production" icon="🎥" phaseName="production" items={production} />
-          <PhaseSection title="Delivery" icon="📦" phaseName="delivery" items={delivery} />
+          <PhaseSection title="Pre-Production" icon="" phaseName="pre-production" items={preProduction} />
+          <PhaseSection title="Production" icon="" phaseName="production" items={production} />
+          <PhaseSection title="Delivery" icon="" phaseName="delivery" items={delivery} />
         </div>
         
         {/* Add Deck Modal */}
@@ -5400,8 +5400,8 @@ export default function MainApp() {
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => setDeckType('upload')} style={{ flex: 1, padding: '10px', background: deckType === 'upload' ? t.primary : t.bgInput, border: `1px solid ${deckType === 'upload' ? t.primary : t.border}`, borderRadius: '8px', color: deckType === 'upload' ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>📄 Upload File</button>
-                  <button onClick={() => setDeckType('embed')} style={{ flex: 1, padding: '10px', background: deckType === 'embed' ? t.primary : t.bgInput, border: `1px solid ${deckType === 'embed' ? t.primary : t.border}`, borderRadius: '8px', color: deckType === 'embed' ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>📊 Google Slides</button>
+                  <button onClick={() => setDeckType('upload')} style={{ flex: 1, padding: '10px', background: deckType === 'upload' ? t.primary : t.bgInput, border: `1px solid ${deckType === 'upload' ? t.primary : t.border}`, borderRadius: '8px', color: deckType === 'upload' ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>DOC Upload File</button>
+                  <button onClick={() => setDeckType('embed')} style={{ flex: 1, padding: '10px', background: deckType === 'embed' ? t.primary : t.bgInput, border: `1px solid ${deckType === 'embed' ? t.primary : t.border}`, borderRadius: '8px', color: deckType === 'embed' ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>Google Slides</button>
                 </div>
               </div>
               
@@ -5409,9 +5409,9 @@ export default function MainApp() {
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Phase</label>
                 <Select theme={theme} value={deckPhase} onChange={setDeckPhase}>
-                  <option value="pre-production">🎬 Pre-Production</option>
-                  <option value="production">🎥 Production</option>
-                  <option value="delivery">📦 Delivery</option>
+                  <option value="pre-production">VID Pre-Production</option>
+                  <option value="production">Production</option>
+                  <option value="delivery">Delivery</option>
                 </Select>
               </div>
               
@@ -5424,7 +5424,7 @@ export default function MainApp() {
               {deckType === 'upload' ? (
                 <div style={{ marginBottom: '16px' }}>
                   <div onClick={() => deckInputRef.current?.click()} style={{ padding: '30px', border: `2px dashed ${t.border}`, borderRadius: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: '30px', marginBottom: '8px' }}>📤</div>
+                    <div style={{ fontSize: '30px', marginBottom: '8px' }}></div>
                     <div style={{ fontSize: '12px', color: t.textMuted }}>Click to upload PDF, PPT, or PPTX</div>
                     <input ref={deckInputRef} type="file" accept=".pdf,.ppt,.pptx" style={{ display: 'none' }} onChange={handleUploadDeck} />
                   </div>
@@ -5609,7 +5609,7 @@ export default function MainApp() {
           setSelectedAsset({ ...selectedAsset, isSelected: newSelected });
           await updateProject(selectedProject.id, { assets: updated });
           await refreshProject();
-          showToast(newSelected ? '⭐ Selected' : 'Deselected', 'success');
+          showToast(newSelected ? 'Selected' : 'Deselected', 'success');
         }
         
         // Escape to close lightbox
@@ -6059,7 +6059,7 @@ export default function MainApp() {
         if (editor.email) {
           await sendEmailNotification(
             editor.email,
-            `🎯 Selection Confirmed: ${selectedProject.name}`,
+            `Selection Confirmed: ${selectedProject.name}`,
             `${userProfile.name} has confirmed the selection for "${selectedProject.name}".\n\n${selectedAssetsList.length} assets are ready for editing.\n\nPlease log in to start working on the selected assets.`
           );
         }
@@ -6067,7 +6067,7 @@ export default function MainApp() {
       
       await refreshProject();
       setShowSelectionOverview(false);
-      showToast(`Selection confirmed! ${editorsToNotify.length} editor(s) notified 🎉`, 'success');
+      showToast(`Selection confirmed! ${editorsToNotify.length} editor(s) notified `, 'success');
     };
     const handleUpdateStatus = async (assetId, status) => { 
       const asset = (selectedProject.assets || []).find(a => a.id === assetId);
@@ -6203,7 +6203,7 @@ export default function MainApp() {
                 {selectedProject.type === 'photoshoot' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '4px 10px', borderRadius: '12px' }}>
                     <span style={{ fontSize: '11px', fontWeight: '600', color: selectedProject.workflowPhase === 'review' ? '#22c55e' : '#fbbf24' }}>
-                      {selectedProject.workflowPhase === 'review' ? '📝 Review' : '👆 Selection'}
+                      {selectedProject.workflowPhase === 'review' ? 'Review' : 'Selection'}
                     </span>
                     {isProducer && selectedProject.workflowPhase !== 'review' && selectedProject.selectionConfirmed && (
                       <button onClick={async () => {
@@ -6325,24 +6325,24 @@ export default function MainApp() {
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? '📑 Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
+              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? 'Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
             </div>
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', color: t.textMuted }}>{selectedAssets.size} selected</span>
                 <Btn theme={theme} onClick={() => handleBulkSelect(true)} small color="#22c55e" title="Mark as Selected">✓</Btn>
                 <Btn theme={theme} onClick={() => handleBulkSelect(false)} small outline title="Deselect">✗</Btn>
-                {isProducer && <Btn theme={theme} onClick={handleBulkDelete} small color="#ef4444" title="Delete Selected">🗑️</Btn>}
+                {isProducer && <Btn theme={theme} onClick={handleBulkDelete} small color="#ef4444" title="Delete Selected"></Btn>}
               </div>
             )}
-            {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && (isProducer || userProfile?.role === 'client') && !isMobile && <Btn theme={theme} onClick={() => setShowSelectionOverview(true)} small color="#f59e0b">🎯 Confirm ({selectedCount})</Btn>}
-            {tab === 'assets' && unmatchedFiles.length > 0 && <Btn theme={theme} onClick={() => setShowMatchModal(true)} small color="#ef4444">🔗 Match Files ({unmatchedFiles.length})</Btn>}
+            {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && (isProducer || userProfile?.role === 'client') && !isMobile && <Btn theme={theme} onClick={() => setShowSelectionOverview(true)} small color="#f59e0b">Confirm ({selectedCount})</Btn>}
+            {tab === 'assets' && unmatchedFiles.length > 0 && <Btn theme={theme} onClick={() => setShowMatchModal(true)} small color="#ef4444">Match Files ({unmatchedFiles.length})</Btn>}
 
             {/* View Mode Toggle */}
             {tab === 'assets' && assets.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
-                <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>📊 Grid</button>
-                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>📋 Kanban</button>
+                <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Grid</button>
+                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}> Kanban</button>
               </div>
             )}
           </div>
@@ -6393,9 +6393,9 @@ export default function MainApp() {
               <div style={{ width: '100%' }}>
                 {assets.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
-                    <div style={{ fontSize: '50px', marginBottom: '14px' }}>📂</div>
+                    <div style={{ fontSize: '50px', marginBottom: '14px' }}></div>
                     <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '16px' }}>No assets</p>
-                    {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>⬆️ Upload</Btn>}
+                    {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>Upload</Btn>}
                   </div>
                 ) : viewMode === 'kanban' ? (
                   <KanbanView 
@@ -6409,7 +6409,7 @@ export default function MainApp() {
                     {selectedProject.type === 'photoshoot' && selectedProject.selectionConfirmed && (
                       <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
                         <button onClick={() => setSelectedCat(null)} style={{ padding: '6px 14px', background: !selectedCat ? t.primary : t.bgCard, border: `1px solid ${!selectedCat ? t.primary : t.border}`, borderRadius: '8px', color: !selectedCat ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>All ({assets.length})</button>
-                        <button onClick={() => setSelectedCat('__selected__')} style={{ padding: '6px 14px', background: selectedCat === '__selected__' ? t.success : t.bgCard, border: `1px solid ${selectedCat === '__selected__' ? t.success : t.border}`, borderRadius: '8px', color: selectedCat === '__selected__' ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>⭐ Selected ({assets.filter(a => a.isSelected).length})</button>
+                        <button onClick={() => setSelectedCat('__selected__')} style={{ padding: '6px 14px', background: selectedCat === '__selected__' ? t.success : t.bgCard, border: `1px solid ${selectedCat === '__selected__' ? t.success : t.border}`, borderRadius: '8px', color: selectedCat === '__selected__' ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>Selected ({assets.filter(a => a.isSelected).length})</button>
                         <button onClick={() => setSelectedCat('__not_selected__')} style={{ padding: '6px 14px', background: selectedCat === '__not_selected__' ? t.warning : t.bgCard, border: `1px solid ${selectedCat === '__not_selected__' ? t.warning : t.border}`, borderRadius: '8px', color: selectedCat === '__not_selected__' ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>Not Selected ({assets.filter(a => !a.isSelected).length})</button>
                       </div>
                     )}
@@ -6453,12 +6453,12 @@ export default function MainApp() {
                                 showToast('Deleted', 'success'); 
                               }} 
                               style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(239,68,68,0.9)', border: 'none', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}
-                            >🗑️</button>
+                            ></button>
                           )}
-                          {a.isSelected && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#22c55e', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', zIndex: 5, fontWeight: '600' }}>⭐</div>}
-                          {hasNewVersion && <div style={{ position: 'absolute', top: a.isSelected ? '38px' : '10px', right: '10px', background: '#f97316', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>🆕 v{a.currentVersion}</div>}
+                          {a.isSelected && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#22c55e', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', zIndex: 5, fontWeight: '600' }}></div>}
+                          {hasNewVersion && <div style={{ position: 'absolute', top: a.isSelected ? '38px' : '10px', right: '10px', background: '#f97316', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>v{a.currentVersion}</div>}
                           {a.revisionRound > 0 && <div style={{ position: 'absolute', top: a.isSelected ? (hasNewVersion ? '66px' : '38px') : (hasNewVersion ? '38px' : '10px'), left: '10px', background: a.revisionRound >= (selectedProject.maxRevisions || 999) ? '#ef4444' : '#8b5cf6', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>R{a.revisionRound}</div>}
-                          {(a.annotations?.length > 0) && <div style={{ position: 'absolute', bottom: appearance.showInfo ? '80px' : '10px', right: '10px', background: '#ec4899', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>✏️ {a.annotations.length}</div>}
+                          {(a.annotations?.length > 0) && <div style={{ position: 'absolute', bottom: appearance.showInfo ? '80px' : '10px', right: '10px', background: '#ec4899', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}> {a.annotations.length}</div>}
                           {/* Tags display */}
                           {a.tags?.length > 0 && (
                             <div style={{ position: 'absolute', top: a.isSelected ? (hasNewVersion ? '66px' : '38px') : (hasNewVersion ? '38px' : '10px'), right: '10px', display: 'flex', gap: '4px', zIndex: 5 }}>
@@ -6471,18 +6471,18 @@ export default function MainApp() {
                           )}
                           
                           <div className="asset-thumb-area" onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: t.bgInput, position: 'relative', overflow: 'hidden' }}>
-                            {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>🔊</span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>📄</span></div>}
+                            {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}></span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>DOC</span></div>}
                             {/* Version badge - top left */}
                             {a.currentVersion > 1 && <div style={{ position: 'absolute', top: '8px', left: '40px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '10px', padding: '2px 8px', fontSize: '9px', color: '#fff', fontWeight: '600', zIndex: 4 }}>v{a.currentVersion}</div>}
                             {/* Status dot - top right */}
                             {a.status && (() => { const statusColors = { pending: '#fbbf24', selected: '#3b82f6', assigned: '#6366f1', 'in-progress': '#a855f7', 'review-ready': '#f59e0b', 'changes-requested': '#ef4444', approved: '#22c55e', delivered: '#06b6d4' }; return <div style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '8px', height: '8px', borderRadius: '50%', background: statusColors[a.status] || '#6b7280', border: '2px solid rgba(0,0,0,0.4)', zIndex: 4 }} title={STATUS[a.status]?.label || a.status} />; })()}
                             {/* Frosted glass overlay on hover - asset name + type */}
                             <div className="asset-hover-overlay" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 10px', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0, transition: 'opacity 0.2s ease', zIndex: 3 }}>
-                              <span style={{ fontSize: '12px' }}>{a.type === 'video' ? '🎬' : a.type === 'audio' ? '🔊' : a.type === 'image' ? '🖼️' : '📄'}</span>
+                              <span style={{ fontSize: '12px' }}>{a.type === 'video' ? 'VID' : a.type === 'audio' ? '' : a.type === 'image' ? 'IMG' : 'DOC'}</span>
                               <span style={{ fontSize: '10px', color: '#fff', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{a.name}</span>
                             </div>
-                            {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px', zIndex: 4 }}>{a.feedback.length}💬</div>}
-                            {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px', zIndex: 4 }}>{new Date(a.dueDate) < new Date() ? '⚠️' : '📅'}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
+                            {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px', zIndex: 4 }}>{a.feedback.length}</div>}
+                            {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px', zIndex: 4 }}>{new Date(a.dueDate) < new Date() ? '' : ''}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
                             {/* Always visible star rating overlay */}
                             {!appearance.showInfo && (
                               <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '12px', padding: '3px 8px', display: 'flex', gap: '2px', zIndex: 5 }}>
@@ -6521,13 +6521,13 @@ export default function MainApp() {
                 {/* Project Team - Project Level Assignment */}
                 <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
                   <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '14px' }}>👥 Project Team ({team.length})</h3>
+                    <h3 style={{ margin: 0, fontSize: '14px' }}>Project Team ({team.length})</h3>
                     {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Member</Btn>}
                   </div>
                   <div style={{ padding: '14px' }}>
                     {team.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted }}>
-                        <div style={{ fontSize: '40px', marginBottom: '10px' }}>👥</div>
+                        <div style={{ fontSize: '40px', marginBottom: '10px' }}></div>
                         <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members assigned to this project</div>
                         {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Team Member</Btn>}
                       </div>
@@ -6547,7 +6547,7 @@ export default function MainApp() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
-                                {m.isOwner && <span style={{ fontSize: '10px', color: '#f97316', flexShrink: 0 }}>👑 Owner</span>}
+                                {m.isOwner && <span style={{ fontSize: '10px', color: '#f97316', flexShrink: 0 }}>Owner</span>}
                               </div>
                               <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</div>
                               <div style={{ marginTop: '6px' }}><RoleBadge role={m.role} /></div>
@@ -6611,7 +6611,7 @@ export default function MainApp() {
                   return (
                     <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginTop: '16px' }}>
                       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}` }}>
-                        <h3 style={{ margin: 0, fontSize: '14px' }}>💡 Suggested for {projectType.replace('-', ' ')}</h3>
+                        <h3 style={{ margin: 0, fontSize: '14px' }}>Suggested for {projectType.replace('-', ' ')}</h3>
                       </div>
                       <div style={{ padding: '14px' }}>
                         {suggestedMembers.map(m => (
@@ -6638,7 +6638,7 @@ export default function MainApp() {
                 {isProducer && (
                   <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginTop: '16px' }}>
                     <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}` }}>
-                      <h3 style={{ margin: 0, fontSize: '14px' }}>👔 Client Contacts ({(selectedProject.clientContacts || []).length})</h3>
+                      <h3 style={{ margin: 0, fontSize: '14px' }}>Client Contacts ({(selectedProject.clientContacts || []).length})</h3>
                     </div>
                     <div style={{ padding: '14px' }}>
                       {(selectedProject.clientContacts || []).length === 0 ? (
@@ -6648,7 +6648,7 @@ export default function MainApp() {
                       ) : (
                         (selectedProject.clientContacts || []).map((c, i) => (
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '20px' }}>👔</span>
+                            <span style={{ fontSize: '20px' }}></span>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: '12px', fontWeight: '500' }}>{c.name || 'Client'}</div>
                               <div style={{ fontSize: '10px', color: t.textMuted }}>{c.email}</div>
@@ -6664,7 +6664,7 @@ export default function MainApp() {
 
             {tab === 'activity' && (
               <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '18px' }}>
-                <h3 style={{ margin: '0 0 14px', fontSize: '14px' }}>📋 Activity Timeline</h3>
+                <h3 style={{ margin: '0 0 14px', fontSize: '14px' }}> Activity Timeline</h3>
                 <ActivityTimeline activities={selectedProject.activityLog || []} maxItems={20} theme={theme} />
               </div>
             )}
@@ -6673,10 +6673,10 @@ export default function MainApp() {
               <div>
                 {isProducer && (
                   <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px', marginBottom: '16px' }}>
-                    <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>🔗 Create Share Link</h3>
+                    <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}> Create Share Link</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr auto', gap: '10px', alignItems: 'end' }}>
                       <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Name</label><Input theme={theme} value={newLinkName} onChange={setNewLinkName} placeholder="e.g., Client Review" /></div>
-                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Type</label><Select theme={theme} value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select></div>
+                      <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Type</label><Select theme={theme} value={newLinkType} onChange={setNewLinkType}><option value="client">Client</option><option value="editor">Editor</option></Select></div>
                       <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Expiry (optional)</label><Input theme={theme} type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
                       <Btn theme={theme} onClick={handleCreateLink}>Create</Btn>
                     </div>
@@ -6688,9 +6688,9 @@ export default function MainApp() {
                     const isExpired = link.expiresAt && new Date(link.expiresAt) < new Date();
                     return (
                       <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: isExpired ? 'rgba(239,68,68,0.1)' : t.bgInput, borderRadius: '10px', marginBottom: '8px', border: isExpired ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}` }}>
-                        <span style={{ fontSize: '24px' }}>{link.type === 'client' ? '👔' : '🎨'}</span>
+                        <span style={{ fontSize: '24px' }}>{link.type === 'client' ? '' : ''}</span>
                         <div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>{link.name}{isExpired && <span style={{ fontSize: '9px', padding: '2px 6px', background: '#ef4444', borderRadius: '4px' }}>EXPIRED</span>}</div><div style={{ fontSize: '10px', color: t.textMuted }}>{link.type} • {formatTimeAgo(link.createdAt)}{link.expiresAt && !isExpired && <span> • Expires {formatDate(link.expiresAt)}</span>}</div></div>
-                        <div style={{ display: 'flex', gap: '6px' }}><Btn theme={theme} onClick={() => copyLink(link.token)} small outline>📋</Btn>{isProducer && <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>}</div>
+                        <div style={{ display: 'flex', gap: '6px' }}><Btn theme={theme} onClick={() => copyLink(link.token)} small outline></Btn>{isProducer && <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}></button>}</div>
                       </div>
                     );
                   })}
@@ -6704,13 +6704,13 @@ export default function MainApp() {
           <Modal theme={theme} title="Upload Assets" onClose={() => { setShowUpload(false); setUploadFiles([]); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
               <div style={{ textAlign: 'center', padding: '40px', border: '2px dashed #2a2a3e', borderRadius: '12px', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
-                <div style={{ fontSize: '44px', marginBottom: '12px' }}>📤</div>
+                <div style={{ fontSize: '44px', marginBottom: '12px' }}></div>
                 <p style={{ margin: 0, fontSize: '14px' }}>{uploadFiles.length ? `${uploadFiles.length} files selected` : 'Click to select files'}</p>
                 <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => setUploadFiles(Array.from(e.target.files))} />
               </div>
               {uploadFiles.length > 0 && <div style={{ maxHeight: '140px', overflow: 'auto', background: t.bgInput, borderRadius: '8px', padding: '10px' }}>{uploadFiles.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}><span>{f.name}</span><span style={{ color: t.textMuted }}>{formatFileSize(f.size)}</span></div>)}</div>}
               <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Category</label><Select theme={theme} value={selectedCat || cats[0]?.id || ''} onChange={setSelectedCat}>{cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</Select></div>
-              <Btn theme={theme} onClick={handleUpload} disabled={!uploadFiles.length} color="#22c55e">⬆️ Upload {uploadFiles.length} Files</Btn>
+              <Btn theme={theme} onClick={handleUpload} disabled={!uploadFiles.length} color="#22c55e">Upload {uploadFiles.length} Files</Btn>
             </div>
           </Modal>
         )}
@@ -6721,7 +6721,7 @@ export default function MainApp() {
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <Input theme={theme} value={newLinkName} onChange={setNewLinkName} placeholder="Link name" />
-                <Select theme={theme} value={newLinkType} onChange={setNewLinkType}><option value="client">👔 Client</option><option value="editor">🎨 Editor</option></Select>
+                <Select theme={theme} value={newLinkType} onChange={setNewLinkType}><option value="client">Client</option><option value="editor">Editor</option></Select>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Expiry</label><Input theme={theme} type="date" value={newLinkExpiry} onChange={setNewLinkExpiry} /></div>
@@ -6731,10 +6731,10 @@ export default function MainApp() {
                 <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Active ({shareLinks.length})</div>
                 {shareLinks.map(link => (
                   <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '18px' }}>{link.type === 'client' ? '👔' : '🎨'}</span>
+                    <span style={{ fontSize: '18px' }}>{link.type === 'client' ? '' : ''}</span>
                     <div style={{ flex: 1 }}><div style={{ fontSize: '12px' }}>{link.name}</div></div>
                     <Btn theme={theme} onClick={() => copyLink(link.token)} small outline>Copy</Btn>
-                    <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>🗑️</button>
+                    <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}></button>
                   </div>
                 ))}
               </div>
@@ -6816,7 +6816,7 @@ export default function MainApp() {
               
               {/* Deliverables Section */}
               <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: '16px', marginTop: '8px' }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>📦 Deliverables Requirements</h4>
+                <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>Deliverables Requirements</h4>
                 
                 {/* Required Formats */}
                 <div style={{ marginBottom: '14px' }}>
@@ -6904,12 +6904,12 @@ export default function MainApp() {
                   <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Who can upload new versions?</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                     {[
-                      { id: 'producer', label: '👑 Producer' },
-                      { id: 'editor', label: '✂️ Editor' },
-                      { id: 'colorist', label: '🎨 Colorist' },
-                      { id: 'vfx', label: '✨ VFX Artist' },
-                      { id: 'retoucher', label: '🖼️ Retoucher' },
-                      { id: 'sound', label: '🎵 Sound' },
+                      { id: 'producer', label: 'Producer' },
+                      { id: 'editor', label: 'Editor' },
+                      { id: 'colorist', label: 'Colorist' },
+                      { id: 'vfx', label: 'VFX Artist' },
+                      { id: 'retoucher', label: 'Retoucher' },
+                      { id: 'sound', label: 'Sound' },
                     ].map(role => {
                       const isActive = (editProjectData.versionUploadRoles || ['producer', 'editor']).includes(role.id);
                       return (
@@ -6955,24 +6955,24 @@ export default function MainApp() {
                 <div style={{ marginBottom: '14px' }}>
                   <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Project Type</label>
                   <Select theme={theme} value={editProjectData.type || selectedProject.type || 'photoshoot'} onChange={(v) => setEditProjectData({ ...editProjectData, type: v })} style={{ width: '100%' }}>
-                    <option value="photoshoot">📸 Photoshoot</option>
-                    <option value="video-production">🎬 Video Production</option>
-                    <option value="ad-film">🎥 Ad Film</option>
-                    <option value="toolkit">🧰 Toolkit</option>
-                    <option value="cgi-animation">✨ CGI/Animation</option>
-                    <option value="social-content">📱 Social Content</option>
-                    <option value="product-photography">📦 Product Photography</option>
-                    <option value="event-coverage">🎉 Event Coverage</option>
-                    <option value="retouch-only">🖼️ Retouch Only</option>
-                    <option value="color-grade">🎨 Color Grade Only</option>
-                    <option value="post-production">🎞️ Post Production</option>
-                    <option value="motion-graphics">🌀 Motion Graphics</option>
+                    <option value="photoshoot">Photoshoot</option>
+                    <option value="video-production">Video Production</option>
+                    <option value="ad-film">Ad Film</option>
+                    <option value="toolkit">Toolkit</option>
+                    <option value="cgi-animation">CGI/Animation</option>
+                    <option value="social-content">Social Content</option>
+                    <option value="product-photography">Product Photography</option>
+                    <option value="event-coverage">Event Coverage</option>
+                    <option value="retouch-only">Retouch Only</option>
+                    <option value="color-grade"> Color Grade Only</option>
+                    <option value="post-production">Post Production</option>
+                    <option value="motion-graphics">Motion Graphics</option>
                   </Select>
                 </div>
                 
                 {/* Quick Presets based on project type */}
                 <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: '8px', padding: '10px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px', color: '#6366f1' }}>💡 Quick Presets</div>
+                  <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px', color: '#6366f1' }}>Quick Presets</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                     <button onClick={() => setEditProjectData({ 
                       ...editProjectData, 
@@ -6981,7 +6981,7 @@ export default function MainApp() {
                       maxRevisions: 3,
                       versionUploadRoles: ['producer', 'editor', 'retoucher']
                     })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
-                      📸 Standard Photo
+                      Standard Photo
                     </button>
                     <button onClick={() => setEditProjectData({ 
                       ...editProjectData, 
@@ -6990,7 +6990,7 @@ export default function MainApp() {
                       maxRevisions: 5,
                       versionUploadRoles: ['producer', 'editor', 'colorist', 'vfx', 'sound']
                     })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
-                      🎬 Video Project
+                      VID Video Project
                     </button>
                     <button onClick={() => setEditProjectData({ 
                       ...editProjectData, 
@@ -6999,7 +6999,7 @@ export default function MainApp() {
                       maxRevisions: 2,
                       versionUploadRoles: ['producer', 'editor']
                     })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
-                      📱 Social Only
+                      Social Only
                     </button>
                     <button onClick={() => setEditProjectData({ 
                       ...editProjectData, 
@@ -7008,7 +7008,7 @@ export default function MainApp() {
                       maxRevisions: 5,
                       versionUploadRoles: ['producer', 'editor', 'retoucher', 'colorist']
                     })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
-                      🧰 Full Toolkit
+                      Full Toolkit
                     </button>
                   </div>
                 </div>
@@ -7104,7 +7104,7 @@ export default function MainApp() {
                 {/* Fullscreen toggle */}
                 <button onClick={() => setIsFullscreen(true)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>⛶ {!isMobile && 'Fullscreen'}</button>
                 {/* Tab buttons */}
-                {[{ id: 'preview', icon: '👁️', label: 'Preview' }, { id: 'annotate', icon: '✏️', label: 'Annotate' }, { id: 'compare', icon: '📊', label: 'Compare' }].map(tb => (
+                {[{ id: 'preview', icon: '', label: 'Preview' }, { id: 'annotate', icon: '', label: 'Annotate' }, { id: 'compare', icon: '', label: 'Compare' }].map(tb => (
                   <button key={tb.id} onClick={() => setAssetTab(tb.id)} style={{ padding: '6px 12px', background: assetTab === tb.id ? 'rgba(99,102,241,0.9)' : 'rgba(255,255,255,0.06)', border: assetTab === tb.id ? 'none' : '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: assetTab === tb.id ? '#fff' : 'rgba(255,255,255,0.7)', fontSize: '11px', cursor: 'pointer', fontWeight: assetTab === tb.id ? '600' : '400', transition: 'all 0.2s' }}>{tb.icon} {!isMobile && tb.label}</button>
                 ))}
               </div>
@@ -7127,12 +7127,12 @@ export default function MainApp() {
                 </div>
                 {/* Selection Toggle Button */}
                 <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected }); }} style={{ padding: '12px 24px', background: selectedAsset.isSelected ? '#22c55e' : 'rgba(255,255,255,0.15)', border: selectedAsset.isSelected ? 'none' : '1px solid rgba(255,255,255,0.3)', borderRadius: '12px', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-                  {selectedAsset.isSelected ? '⭐ Selected' : '☆ Mark as Selected'}
+                  {selectedAsset.isSelected ? 'Selected' : '☆ Mark as Selected'}
                 </button>
                 {/* Confirm Selection Button - only show if there are selections */}
                 {!selectedProject.selectionConfirmed && selectedCount > 0 && (isProducer || userProfile?.role === 'client') && (
                   <button onClick={() => { setIsFullscreen(false); setShowSelectionOverview(true); }} style={{ padding: '10px 20px', background: '#f59e0b', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                    🎯 Confirm Selection ({selectedCount})
+                    Confirm Selection ({selectedCount})
                   </button>
                 )}
               </div>
@@ -7167,7 +7167,7 @@ export default function MainApp() {
                             <div style={{ textAlign: 'center', padding: '40px' }}>
                               <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
                               <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video...</div>
-                              <button onClick={async () => { try { const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`); const data = await res.json(); if (data.asset?.playbackId) { const updatedAssets = selectedProject.assets.map(a => a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a); await updateProject(selectedProject.id, { assets: updatedAssets }); await refreshProject(); showToast('Ready!', 'success'); } else { showToast('Still processing...', 'info'); } } catch (e) { showToast('Check failed', 'error'); } }} style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>🔄 Check</button>
+                              <button onClick={async () => { try { const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`); const data = await res.json(); if (data.asset?.playbackId) { const updatedAssets = selectedProject.assets.map(a => a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a); await updateProject(selectedProject.id, { assets: updatedAssets }); await refreshProject(); showToast('Ready!', 'success'); } else { showToast('Still processing...', 'info'); } } catch (e) { showToast('Check failed', 'error'); } }} style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>Check</button>
                               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                             </div>
                           ) : (
@@ -7180,7 +7180,7 @@ export default function MainApp() {
                         </div>
                       ) : selectedAsset.type === 'audio' ? (
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '60px', marginBottom: '20px' }}>🔊</div>
+                          <div style={{ fontSize: '60px', marginBottom: '20px' }}></div>
                           <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
                         </div>
                       ) : selectedAsset.type === 'image' ? (
@@ -7390,7 +7390,7 @@ export default function MainApp() {
                           </div>
                         )
                       ) : (
-                        <div style={{ textAlign: 'center', fontSize: '60px' }}>📄</div>
+                        <div style={{ textAlign: 'center', fontSize: '60px' }}>DOC</div>
                       )}
                     </div>
                     
@@ -7398,7 +7398,7 @@ export default function MainApp() {
                     {!isFullscreen && (
                     <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', flexShrink: 0, maxHeight: isMobile ? '180px' : '220px', overflow: 'auto' }}>
                       <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>💬 Feedback ({selectedAsset.feedback?.length || 0})</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Feedback ({selectedAsset.feedback?.length || 0})</span>
                         {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
                           <span style={{ fontSize: '10px', padding: '3px 10px', background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: '10px', fontWeight: '600', border: '1px solid rgba(239,68,68,0.3)' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
                         )}
@@ -7430,7 +7430,7 @@ export default function MainApp() {
                         ))}
                       </div>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', position: 'relative' }}>
-                        {selectedAsset.type === 'video' && <span style={{ fontSize: '9px', color: t.textMuted, flexShrink: 0 }}>📍{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
+                        {selectedAsset.type === 'video' && <span style={{ fontSize: '9px', color: t.textMuted, flexShrink: 0 }}>{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
                         <div style={{ flex: 1, position: 'relative' }}>
                           <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }} placeholder="Add feedback... (@ to mention)" style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '11px' }} />
                           {/* Mentions Dropdown - includes all available team members */}
@@ -7466,12 +7466,12 @@ export default function MainApp() {
                     <div style={{ width: '300px', background: 'rgba(10,10,18,0.95)', borderLeft: '1px solid rgba(255,255,255,0.06)', overflow: 'auto', padding: '16px', flexShrink: 0 }}>
                       {/* Selection Toggle - Prominent */}
                       <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'rgba(255,255,255,0.04)', border: selectedAsset.isSelected ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px', transition: 'all 0.2s', boxShadow: selectedAsset.isSelected ? '0 2px 10px rgba(34,197,94,0.3)' : 'none' }}>
-                        {selectedAsset.isSelected ? '⭐ Selected' : '☆ Mark as Selected'}
+                        {selectedAsset.isSelected ? 'Selected' : '☆ Mark as Selected'}
                       </button>
                       
                       {/* Tags */}
                       <div style={{ marginBottom: '12px' }}>
-                        <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>🏷️ Tags</label>
+                        <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Tags</label>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                           {PREDEFINED_TAGS.map(tag => {
                             const isActive = (selectedAsset.tags || []).includes(tag.id);
@@ -7504,9 +7504,9 @@ export default function MainApp() {
                       {/* Due Date */}
                       {isProducer && (
                         <div style={{ marginBottom: '12px' }}>
-                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📅 Due Date</label>
+                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Due: Due Date</label>
                           <input type="date" value={selectedAsset.dueDate?.split('T')[0] || ''} onChange={async (e) => { const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a); setSelectedAsset({ ...selectedAsset, dueDate }); await updateProject(selectedProject.id, { assets: updated }); if (selectedAsset.assignedTo && dueDate) { const assignee = editors.find(e => e.id === selectedAsset.assignedTo); if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`); } }} style={{ width: '100%', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '11px' }} />
-                          {selectedAsset.dueDate && <div style={{ marginTop: '4px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>{new Date(selectedAsset.dueDate) < new Date() ? '⚠️ Overdue!' : `⏳ ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days`}</div>}
+                          {selectedAsset.dueDate && <div style={{ marginTop: '4px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>{new Date(selectedAsset.dueDate) < new Date() ? 'Overdue!' : `In ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days`}</div>}
                         </div>
                       )}
                       
@@ -7527,7 +7527,7 @@ export default function MainApp() {
                         return canUploadVersion ? (
                           <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
                             <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>📦 Versions</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Versions</span>
                               <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.06)', color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : 'rgba(255,255,255,0.7)', borderRadius: '10px', fontSize: '9px', fontWeight: '700', border: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '1px solid rgba(249,115,22,0.3)' : '1px solid rgba(255,255,255,0.08)' }}>v{selectedAsset.currentVersion}</span>
                             </div>
                             {/* Visual version list */}
@@ -7554,7 +7554,7 @@ export default function MainApp() {
                         ) : (
                           <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
                             <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>📦 Versions</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Versions</span>
                               <span style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '10px', fontSize: '9px', fontWeight: '700', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.08)' }}>v{selectedAsset.currentVersion}</span>
                             </div>
                             <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
@@ -7565,18 +7565,18 @@ export default function MainApp() {
                       {/* GDrive Link */}
                       {selectedAsset.status === 'approved' && (
                         <div style={{ marginBottom: '12px' }}>
-                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>📁 GDrive Link</label>
+                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}> GDrive Link</label>
                           <div style={{ display: 'flex', gap: '4px' }}>
                             <Input theme={theme} value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '6px', fontSize: '10px' }} />
                             <button onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} style={{ padding: '6px 10px', background: '#22c55e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>✓</button>
                           </div>
                         </div>
                       )}
-                      {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '8px', background: 'rgba(34,197,94,0.15)', borderRadius: '6px', color: '#22c55e', fontSize: '10px', textAlign: 'center', textDecoration: 'none', marginBottom: '12px', fontWeight: '600' }}>📁 Open High-Res</a>}
+                      {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '8px', background: 'rgba(34,197,94,0.15)', borderRadius: '6px', color: '#22c55e', fontSize: '10px', textAlign: 'center', textDecoration: 'none', marginBottom: '12px', fontWeight: '600' }}> Open High-Res</a>}
                       
                       {/* File Details */}
                       <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px', marginBottom: '12px', fontSize: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fff' }}>📋 File Details</div>
+                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fff' }}> File Details</div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Size</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatFileSize(selectedAsset.fileSize)}</span></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Type</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Uploaded</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatDate(selectedAsset.uploadedAt)}</span></div>
@@ -7586,7 +7586,7 @@ export default function MainApp() {
                       {((selectedProject.requiredFormats?.length > 0) || (selectedProject.requiredSizes?.length > 0)) && (
                         <div style={{ background: t.bgInput, borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
                           <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            📦 Required Deliverables
+                            Required Deliverables
                             {selectedAsset.revisionRound > 0 && <span style={{ padding: '2px 6px', background: '#f97316', borderRadius: '4px', fontSize: '8px' }}>R{selectedAsset.revisionRound}</span>}
                           </div>
                           {/* Required Formats */}
@@ -7627,7 +7627,7 @@ export default function MainApp() {
                           {selectedProject.maxRevisions > 0 && (
                             <div style={{ marginTop: '8px', fontSize: '9px', color: (selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions ? '#ef4444' : t.textMuted }}>
                               Revisions: {selectedAsset.revisionRound || 0} / {selectedProject.maxRevisions}
-                              {(selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions && ' ⚠️ Limit reached'}
+                              {(selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions && ' Limit reached'}
                             </div>
                           )}
                         </div>
@@ -7637,7 +7637,7 @@ export default function MainApp() {
                       {selectedAsset.status === 'approved' && (selectedAsset.highResFiles?.length > 0 || isProducer) && (
                         <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
                           <div style={{ fontSize: '10px', fontWeight: '600', color: '#22c55e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            📦 High-Res Downloads
+                            High-Res Downloads
                             {!selectedAsset.highResFiles?.length && <span style={{ color: '#ef4444', fontWeight: 'normal' }}>Not uploaded yet</span>}
                           </div>
                           {selectedAsset.highResFiles?.length > 0 ? (
@@ -7645,7 +7645,7 @@ export default function MainApp() {
                               {selectedAsset.highResFiles.map((file, idx) => (
                                 <a key={idx} href={file.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', background: t.bgCard, borderRadius: '4px', textDecoration: 'none', color: t.text, fontSize: '10px' }}>
                                   <span>{file.formatLabel || file.format}</span>
-                                  <span style={{ color: '#22c55e' }}>⬇️</span>
+                                  <span style={{ color: '#22c55e' }}></span>
                                 </a>
                               ))}
                             </div>
@@ -7658,7 +7658,7 @@ export default function MainApp() {
                       {/* Editor: Upload High-Res Files */}
                       {selectedAsset.status === 'approved' && !isProducer && userProfile?.role !== 'client' && (
                         <div style={{ background: t.bgInput, borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
-                          <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px' }}>📤 Upload High-Res Files</div>
+                          <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px' }}> Upload High-Res Files</div>
                           {(selectedProject.requiredFormats || []).length > 0 ? (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                               {selectedProject.requiredFormats.map(fmtId => {
@@ -7710,12 +7710,12 @@ export default function MainApp() {
                       
                       {/* Actions */}
                       <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                        <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', borderRadius: '10px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none', transition: 'transform 0.2s, box-shadow 0.2s', boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>⬇️ Download Preview</a>
+                        <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', borderRadius: '10px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none', transition: 'transform 0.2s, box-shadow 0.2s', boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>Download Preview</a>
                       </div>
                       
                       {/* Delete */}
                       {isProducer && (
-                        <button onClick={async () => { if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAsset.name}`, timestamp: new Date().toISOString() }; await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ width: '100%', padding: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>🗑️ Delete</button>
+                        <button onClick={async () => { if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAsset.name}`, timestamp: new Date().toISOString() }; await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ width: '100%', padding: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>Delete</button>
                       )}
                     </div>
                   )}
@@ -7736,9 +7736,9 @@ export default function MainApp() {
                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                   {sortedAssets.map((asset) => (
                     <div key={asset.id} onClick={() => setSelectedAsset(asset)} style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', border: asset.id === selectedAsset.id ? '2px solid #6366f1' : '2px solid transparent', boxShadow: asset.id === selectedAsset.id ? '0 0 0 2px rgba(99,102,241,0.3)' : 'none', cursor: 'pointer', flexShrink: 0, opacity: asset.id === selectedAsset.id ? 1 : 0.5, position: 'relative', transition: 'opacity 0.2s, box-shadow 0.2s' }}>
-                      {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : asset.type === 'video' ? <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{asset.thumbnail ? <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '14px' }}>🎬</span>}</div> : <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{asset.type === 'audio' ? '🔊' : '📄'}</div>}
+                      {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : asset.type === 'video' ? <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{asset.thumbnail ? <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '14px' }}>VID</span>}</div> : <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{asset.type === 'audio' ? '' : 'DOC'}</div>}
                       {asset.rating > 0 && <div style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}>{'★'.repeat(asset.rating)}</div>}
-                      {asset.isSelected && <div style={{ position: 'absolute', top: '2px', right: '2px', background: '#22c55e', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}>⭐</div>}
+                      {asset.isSelected && <div style={{ position: 'absolute', top: '2px', right: '2px', background: '#22c55e', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}></div>}
                     </div>
                   ))}
                 </div>
@@ -7748,8 +7748,8 @@ export default function MainApp() {
             {/* Mobile Bottom Actions */}
             {isMobile && !isFullscreen && (
               <div style={{ padding: '10px 16px', background: t.bgTertiary, borderTop: `1px solid ${t.border}`, display: 'flex', gap: '8px', flexShrink: 0 }}>
-                <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected }); }} style={{ flex: 1, padding: '10px', background: selectedAsset.isSelected ? '#22c55e' : t.bgInput, border: `1px solid ${selectedAsset.isSelected ? '#22c55e' : t.border}`, borderRadius: '8px', color: '#fff', fontSize: '11px' }}>{selectedAsset.isSelected ? '⭐ Selected' : '☆ Select'}</button>
-                <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '11px', textAlign: 'center', textDecoration: 'none' }}>⬇️ Download</a>
+                <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected }); }} style={{ flex: 1, padding: '10px', background: selectedAsset.isSelected ? '#22c55e' : t.bgInput, border: `1px solid ${selectedAsset.isSelected ? '#22c55e' : t.border}`, borderRadius: '8px', color: '#fff', fontSize: '11px' }}>{selectedAsset.isSelected ? 'Selected' : '☆ Select'}</button>
+                <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '11px', textAlign: 'center', textDecoration: 'none' }}>Download</a>
               </div>
             )}
             
@@ -7774,7 +7774,7 @@ export default function MainApp() {
                 {/* Header */}
                 <div style={{ padding: '20px 24px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>🎯 Confirm Selection</h2>
+                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Confirm Selection</h2>
                     <p style={{ margin: '4px 0 0', fontSize: '12px', color: t.textMuted }}>Review selected assets before confirming</p>
                   </div>
                   <button onClick={() => setShowSelectionOverview(false)} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: t.textMuted }}>✕</button>
@@ -7786,7 +7786,7 @@ export default function MainApp() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
                     <div style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
                       <div style={{ fontSize: '28px', fontWeight: '700', color: '#fbbf24' }}>{fiveStarAssets.length}</div>
-                      <div style={{ fontSize: '11px', color: t.textMuted }}>⭐⭐⭐⭐⭐ Final Picks</div>
+                      <div style={{ fontSize: '11px', color: t.textMuted }}> Final Picks</div>
                     </div>
                     <div style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
                       <div style={{ fontSize: '28px', fontWeight: '700', color: '#22c55e' }}>{otherSelected.length}</div>
@@ -7810,7 +7810,7 @@ export default function MainApp() {
                             {asset.type === 'image' ? (
                               <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                              <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>{asset.type === 'video' ? '🎬' : '📄'}</div>
+                              <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>{asset.type === 'video' ? 'VID' : 'DOC'}</div>
                             )}
                             <div style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</div>
                           </div>
@@ -7829,7 +7829,7 @@ export default function MainApp() {
                             {asset.type === 'image' ? (
                               <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                              <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{asset.type === 'video' ? '🎬' : '📄'}</div>
+                              <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{asset.type === 'video' ? 'VID' : 'DOC'}</div>
                             )}
                             {asset.rating > 0 && <div style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 4px', fontSize: '8px', color: '#fbbf24' }}>{'★'.repeat(asset.rating)}</div>}
                           </div>
@@ -7841,7 +7841,7 @@ export default function MainApp() {
                   
                   {/* Notification Preview */}
                   <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '10px', padding: '14px' }}>
-                    <h4 style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '600', color: '#6366f1' }}>📧 Notifications will be sent to:</h4>
+                    <h4 style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '600', color: '#6366f1' }}>Notifications will be sent to:</h4>
                     {editorsOnProject.length > 0 ? (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                         {editorsOnProject.map(editor => (
@@ -7853,13 +7853,13 @@ export default function MainApp() {
                         ))}
                       </div>
                     ) : (
-                      <p style={{ margin: 0, fontSize: '11px', color: t.textMuted }}>⚠️ No editors assigned to this project. Add team members first.</p>
+                      <p style={{ margin: 0, fontSize: '11px', color: t.textMuted }}>No editors assigned to this project. Add team members first.</p>
                     )}
                   </div>
                   
                   {selectedAssetsList.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '40px 20px', color: t.textMuted }}>
-                      <div style={{ fontSize: '48px', marginBottom: '12px' }}>🤷</div>
+                      <div style={{ fontSize: '48px', marginBottom: '12px' }}></div>
                       <p style={{ margin: 0 }}>No assets selected yet. Rate assets with 5 stars or mark them as selected.</p>
                     </div>
                   )}
@@ -7884,7 +7884,7 @@ export default function MainApp() {
               {/* Header */}
               <div style={{ padding: '20px 24px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>🔗 Match Uploaded Files</h2>
+                  <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}> Match Uploaded Files</h2>
                   <p style={{ margin: '4px 0 0', fontSize: '12px', color: t.textMuted }}>{unmatchedFiles.length} files need to be matched to existing assets</p>
                 </div>
                 <button onClick={() => setShowMatchModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: t.textMuted }}>✕</button>
@@ -7903,7 +7903,7 @@ export default function MainApp() {
                             {file.preview ? (
                               <img src={file.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>📄</div>
+                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>DOC</div>
                             )}
                           </div>
                           <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px', textAlign: 'center' }}>New</div>
@@ -7936,7 +7936,7 @@ export default function MainApp() {
                                   {asset.thumbnail || asset.url ? (
                                     <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   ) : (
-                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>{asset.type === 'video' ? '🎬' : '📄'}</div>
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>{asset.type === 'video' ? 'VID' : 'DOC'}</div>
                                   )}
                                 </div>
                                 <div style={{ fontSize: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name.substring(0, 10)}...</div>
@@ -8433,7 +8433,7 @@ export default function MainApp() {
         {pendingAnnot && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }} onClick={cancelAnnotation}>
             <div style={{ background: t.bgCard, borderRadius: '16px', padding: '24px', width: '90%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
-              <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600' }}>✏️ Add Description</h3>
+              <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600' }}> Add Description</h3>
               <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.textMuted }}>What feedback do you want to give about this area?</p>
               <textarea 
                 value={annotText} 
@@ -8457,7 +8457,7 @@ export default function MainApp() {
   const VersionComparison = ({ versions = [], currentVersion }) => {
     const [leftV, setLeftV] = useState(versions.length > 1 ? versions.length - 2 : 0);
     const [rightV, setRightV] = useState(versions.length - 1);
-    if (versions.length < 2) return <div style={{ textAlign: 'center', padding: '40px', background: t.bgInput, borderRadius: '12px' }}><div style={{ fontSize: '40px', marginBottom: '12px' }}>📦</div><div style={{ color: t.textMuted, fontSize: '13px' }}>Upload more versions to compare</div></div>;
+    if (versions.length < 2) return <div style={{ textAlign: 'center', padding: '40px', background: t.bgInput, borderRadius: '12px' }}><div style={{ fontSize: '40px', marginBottom: '12px' }}></div><div style={{ color: t.textMuted, fontSize: '13px' }}>Upload more versions to compare</div></div>;
     const left = versions[leftV];
     const right = versions[rightV];
     return (
