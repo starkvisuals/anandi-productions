@@ -6745,7 +6745,6 @@ export default function MainApp() {
               </div>
             )}
           </div>
-        </div>
 
         {/* Upload Modal */}
         {showUpload && (
