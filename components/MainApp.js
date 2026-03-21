@@ -2541,6 +2541,22 @@ export default function MainApp() {
       ...extra,
     });
 
+    // Needs Attention items
+    const attentionItems = [];
+    overdueAssets.forEach(a => {
+      const proj = projects.find(p => p.id === a.projectId || (p.assets || []).some(pa => pa.id === a.id));
+      attentionItems.push({ type: 'overdue', asset: a, projectName: proj?.name || 'Unknown', color: '#ef4444', label: 'Overdue', priority: 1 });
+    });
+    allAssets.filter(a => a.status === 'revision').forEach(a => {
+      const proj = projects.find(p => (p.assets || []).some(pa => pa.id === a.id));
+      attentionItems.push({ type: 'revision', asset: a, projectName: proj?.name || 'Unknown', color: '#f97316', label: 'Changes requested', priority: 2 });
+    });
+    pendingReview.forEach(a => {
+      const proj = projects.find(p => (p.assets || []).some(pa => pa.id === a.id));
+      attentionItems.push({ type: 'review', asset: a, projectName: proj?.name || 'Unknown', color: '#a855f7', label: 'Needs review', priority: 3 });
+    });
+    attentionItems.sort((a, b) => a.priority - b.priority);
+
     return (
       <div style={{ overflow: 'auto', paddingBottom: '32px' }}>
         {/* 1. Command Strip */}
@@ -2712,47 +2728,63 @@ export default function MainApp() {
 
         {/* 5. Two-Column Layout */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '3fr 2fr', gap: '16px' }}>
-          {/* Left Column (60%) */}
+          {/* Left Column (60%) — Needs Attention */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
-            {/* Alerts Section */}
-            {(overdueAssets.length > 0 || pendingReview.length > 0) && (
-              <div className="animate-fadeInUp" style={{
-                ...glassCard({ padding: isMobile ? '14px' : '18px' }),
-                background: 'rgba(239,68,68,0.06)',
-                border: '1px solid rgba(239,68,68,0.2)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                  {Icons.alert('#ef4444')}
-                  <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#ef4444' }}>Needs Attention</h3>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {overdueAssets.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(239,68,68,0.08)', borderRadius: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {Icons.alert('#ef4444')}
-                        <span style={{ fontSize: '12px', color: '#fca5a5' }}>{overdueAssets.length} overdue asset{overdueAssets.length !== 1 ? 's' : ''} need attention</span>
-                      </div>
-                      <button onClick={() => setView('tasks')} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', color: '#fca5a5', padding: '4px 12px', borderRadius: '6px', fontSize: '10px', cursor: 'pointer', fontWeight: '500' }}>View</button>
-                    </div>
-                  )}
-                  {pendingReview.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(168,85,247,0.08)', borderRadius: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {Icons.eye('#a855f7')}
-                        <span style={{ fontSize: '12px', color: '#c4b5fd' }}>{pendingReview.length} asset{pendingReview.length !== 1 ? 's' : ''} ready for review</span>
-                      </div>
-                      <button onClick={() => setView('tasks')} style={{ background: 'rgba(168,85,247,0.2)', border: 'none', color: '#c4b5fd', padding: '4px 12px', borderRadius: '6px', fontSize: '10px', cursor: 'pointer', fontWeight: '500' }}>Review</button>
-                    </div>
-                  )}
-                </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                {Icons.alert(t.textSecondary)}
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: t.text }}>Needs Attention</h3>
               </div>
-            )}
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {attentionItems.length === 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
+                    {Icons.check('#22c55e')}
+                    <div style={{ fontSize: '13px', color: t.textMuted, marginTop: '8px' }}>Nothing needs your attention</div>
+                  </div>
+                ) : (
+                  attentionItems.map((item, idx) => {
+                    const proj = projects.find(p => (p.assets || []).some(pa => pa.id === item.asset.id));
+                    return (
+                      <div
+                        key={`${item.type}-${item.asset.id}-${idx}`}
+                        onClick={() => { if (proj) { setSelectedProjectId(proj.id); setView('projects'); } }}
+                        style={{
+                          padding: '10px 14px',
+                          background: t.bgCard,
+                          borderRadius: '8px',
+                          marginBottom: '6px',
+                          borderLeft: `3px solid ${item.color}`,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{item.asset.name}</div>
+                          <div style={{ fontSize: '11px', color: t.textMuted, flexShrink: 0, marginLeft: '8px' }}>{formatTimeAgo(item.asset.dueDate || item.asset.updatedAt || '')}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                          <span style={{ fontSize: '11px', color: t.textMuted }}>{item.projectName}</span>
+                          <span style={{
+                            fontSize: '10px',
+                            color: item.color,
+                            background: `${item.color}1a`,
+                            padding: '1px 8px',
+                            borderRadius: '10px',
+                            fontWeight: 500,
+                          }}>{item.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Right Column (40%) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
             {/* Activity Feed */}
-            <div style={{ ...glassCard({ padding: isMobile ? '14px' : '20px' }) }}>
+            <div>
               <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {Icons.bell(t.textSecondary)} Activity
               </h3>
