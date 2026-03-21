@@ -2874,8 +2874,8 @@ export default function MainApp() {
     
     // Priority colors and icons
     const priorityColors = { urgent: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
-    const priorityIcons = { urgent: '!!', high: '!', medium: '--', low: '' };
-    
+    const priorityIcons = { urgent: '!!', high: '!', medium: '--', low: '~' };
+
     // Get intelligent subtask suggestions based on task title
     const getSubtaskSuggestions = (title) => {
       if (!title) return [];
@@ -4749,7 +4749,7 @@ export default function MainApp() {
     const projectTasks = globalTasks.filter(t => t.projectId === project.id);
     
     const priorityColors = { urgent: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
-    const priorityIcons = { urgent: '!!', high: '!', medium: '--', low: '' };
+    const priorityIcons = { urgent: '!!', high: '!', medium: '--', low: '~' };
     const allTeam = [...coreTeam, ...freelancers, ...users].filter(u => 
       (project.assignedTeam || []).some(t => t.odId === u.id) || u.role === 'producer'
     );
@@ -4810,7 +4810,7 @@ export default function MainApp() {
         <div style={{ padding: '14px' }}>
           {activeTasks.length === 0 && completedTasks.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: t.textMuted }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}></div>
+              <div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
               <div style={{ fontSize: '13px' }}>No tasks yet</div>
               <div style={{ fontSize: '11px', marginTop: '4px' }}>Tasks created here sync with the Tasks tab</div>
             </div>
@@ -4926,7 +4926,7 @@ export default function MainApp() {
                             placeholder="Add subtask..."
                             style={{ flex: 1, padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px', outline: 'none' }}
                           />
-                          <button onClick={() => deleteTask(task.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}></button>
+                          <button onClick={() => deleteTask(task.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>{Icons.trash('#ef4444')}</button>
                         </div>
                       </div>
                     )}
@@ -5139,7 +5139,7 @@ export default function MainApp() {
 
         {Object.keys(byProject).length === 0 ? (
           <div className="animate-fadeInUp" style={{ textAlign: 'center', padding: '80px 20px', color: t.textMuted, background: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}` }}>
-            <div style={{ fontSize: '56px', marginBottom: '16px', opacity: 0.5 }}></div>
+            <div style={{ marginBottom: '16px', opacity: 0.5 }}><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg></div>
             <div style={{ fontSize: '16px', fontWeight: '500', color: t.textSecondary, marginBottom: '6px' }}>No approved assets available yet</div>
             <div style={{ fontSize: '12px', color: t.textMuted }}>Assets will appear here once they are approved</div>
           </div>
@@ -5342,7 +5342,7 @@ export default function MainApp() {
                   <a href={deck.url} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 10px', background: t.primary, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', textDecoration: 'none' }}>Open</a>
                 )}
                 {isProducer && (
-                  <button onClick={() => handleDeleteDeck(deck.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}></button>
+                  <button onClick={() => handleDeleteDeck(deck.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>{Icons.trash('#ef4444')}</button>
                 )}
               </div>
             </div>
@@ -5431,7 +5431,7 @@ export default function MainApp() {
               {deckType === 'upload' ? (
                 <div style={{ marginBottom: '16px' }}>
                   <div onClick={() => deckInputRef.current?.click()} style={{ padding: '30px', border: `2px dashed ${t.border}`, borderRadius: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: '30px', marginBottom: '8px' }}></div>
+                    <div style={{ marginBottom: '8px', opacity: 0.5 }}><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                     <div style={{ fontSize: '12px', color: t.textMuted }}>Click to upload PDF, PPT, or PPTX</div>
                     <input ref={deckInputRef} type="file" accept=".pdf,.ppt,.pptx" style={{ display: 'none' }} onChange={handleUploadDeck} />
                   </div>
@@ -6400,7 +6400,7 @@ export default function MainApp() {
               <div style={{ width: '100%' }}>
                 {assets.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
-                    <div style={{ fontSize: '50px', marginBottom: '14px' }}></div>
+                    <div style={{ marginBottom: '14px', opacity: 0.5 }}><svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
                     <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '16px' }}>No assets</p>
                     {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>Upload</Btn>}
                   </div>
@@ -6462,7 +6462,7 @@ export default function MainApp() {
                               style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(239,68,68,0.9)', border: 'none', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}
                             ></button>
                           )}
-                          {a.isSelected && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#22c55e', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', zIndex: 5, fontWeight: '600' }}></div>}
+                          {a.isSelected && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#22c55e', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', zIndex: 5, fontWeight: '600', color: '#fff' }}>Selected</div>}
                           {hasNewVersion && <div style={{ position: 'absolute', top: a.isSelected ? '38px' : '10px', right: '10px', background: '#f97316', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>v{a.currentVersion}</div>}
                           {a.revisionRound > 0 && <div style={{ position: 'absolute', top: a.isSelected ? (hasNewVersion ? '66px' : '38px') : (hasNewVersion ? '38px' : '10px'), left: '10px', background: a.revisionRound >= (selectedProject.maxRevisions || 999) ? '#ef4444' : '#8b5cf6', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>R{a.revisionRound}</div>}
                           {(a.annotations?.length > 0) && <div style={{ position: 'absolute', bottom: appearance.showInfo ? '80px' : '10px', right: '10px', background: '#ec4899', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}> {a.annotations.length}</div>}
@@ -6489,7 +6489,7 @@ export default function MainApp() {
                               <span style={{ fontSize: '10px', color: '#fff', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{a.name}</span>
                             </div>
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px', zIndex: 4 }}>{a.feedback.length}</div>}
-                            {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px', zIndex: 4 }}>{new Date(a.dueDate) < new Date() ? '' : ''}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
+                            {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px', zIndex: 4 }}>{new Date(a.dueDate) < new Date() ? 'Overdue ' : ''}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
                             {/* Always visible star rating overlay */}
                             {!appearance.showInfo && (
                               <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '12px', padding: '3px 8px', display: 'flex', gap: '2px', zIndex: 5 }}>
@@ -6534,7 +6534,7 @@ export default function MainApp() {
                   <div style={{ padding: '14px' }}>
                     {team.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted }}>
-                        <div style={{ fontSize: '40px', marginBottom: '10px' }}></div>
+                        <div style={{ marginBottom: '10px', opacity: 0.5 }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
                         <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members assigned to this project</div>
                         {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Team Member</Btn>}
                       </div>
@@ -6655,7 +6655,7 @@ export default function MainApp() {
                       ) : (
                         (selectedProject.clientContacts || []).map((c, i) => (
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '20px' }}></span>
+                            <span style={{ fontSize: '20px' }}>{Icons.users(t.textMuted)}</span>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: '12px', fontWeight: '500' }}>{c.name || 'Client'}</div>
                               <div style={{ fontSize: '10px', color: t.textMuted }}>{c.email}</div>
@@ -6695,9 +6695,9 @@ export default function MainApp() {
                     const isExpired = link.expiresAt && new Date(link.expiresAt) < new Date();
                     return (
                       <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: isExpired ? 'rgba(239,68,68,0.1)' : t.bgInput, borderRadius: '10px', marginBottom: '8px', border: isExpired ? '1px solid rgba(239,68,68,0.3)' : `1px solid ${t.border}` }}>
-                        <span style={{ fontSize: '24px' }}>{link.type === 'client' ? '' : ''}</span>
+                        <span style={{ display: 'flex', alignItems: 'center' }}>{link.type === 'client' ? Icons.users(t.textMuted) : Icons.link(t.textMuted)}</span>
                         <div style={{ flex: 1 }}><div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>{link.name}{isExpired && <span style={{ fontSize: '9px', padding: '2px 6px', background: '#ef4444', borderRadius: '4px' }}>EXPIRED</span>}</div><div style={{ fontSize: '10px', color: t.textMuted }}>{link.type} • {formatTimeAgo(link.createdAt)}{link.expiresAt && !isExpired && <span> • Expires {formatDate(link.expiresAt)}</span>}</div></div>
-                        <div style={{ display: 'flex', gap: '6px' }}><Btn theme={theme} onClick={() => copyLink(link.token)} small outline></Btn>{isProducer && <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}></button>}</div>
+                        <div style={{ display: 'flex', gap: '6px' }}><Btn theme={theme} onClick={() => copyLink(link.token)} small outline>Copy</Btn>{isProducer && <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>{Icons.trash('#ef4444')}</button>}</div>
                       </div>
                     );
                   })}
@@ -6711,7 +6711,7 @@ export default function MainApp() {
           <Modal theme={theme} title="Upload Assets" onClose={() => { setShowUpload(false); setUploadFiles([]); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
               <div style={{ textAlign: 'center', padding: '40px', border: '2px dashed #2a2a3e', borderRadius: '12px', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
-                <div style={{ fontSize: '44px', marginBottom: '12px' }}></div>
+                <div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                 <p style={{ margin: 0, fontSize: '14px' }}>{uploadFiles.length ? `${uploadFiles.length} files selected` : 'Click to select files'}</p>
                 <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => setUploadFiles(Array.from(e.target.files))} />
               </div>
@@ -6738,10 +6738,10 @@ export default function MainApp() {
                 <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Active ({shareLinks.length})</div>
                 {shareLinks.map(link => (
                   <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: t.bgInput, borderRadius: '8px', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '18px' }}>{link.type === 'client' ? '' : ''}</span>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>{link.type === 'client' ? Icons.users(t.textMuted) : Icons.link(t.textMuted)}</span>
                     <div style={{ flex: 1 }}><div style={{ fontSize: '12px' }}>{link.name}</div></div>
                     <Btn theme={theme} onClick={() => copyLink(link.token)} small outline>Copy</Btn>
-                    <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}></button>
+                    <button onClick={() => handleDeleteLink(link.id)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>{Icons.trash('#ef4444')}</button>
                   </div>
                 ))}
               </div>
@@ -7187,7 +7187,7 @@ export default function MainApp() {
                         </div>
                       ) : selectedAsset.type === 'audio' ? (
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '60px', marginBottom: '20px' }}></div>
+                          <div style={{ marginBottom: '20px', opacity: 0.5 }}><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg></div>
                           <audio src={selectedAsset.url} controls style={{ width: '100%', maxWidth: '300px' }} />
                         </div>
                       ) : selectedAsset.type === 'image' ? (
@@ -7652,7 +7652,7 @@ export default function MainApp() {
                               {selectedAsset.highResFiles.map((file, idx) => (
                                 <a key={idx} href={file.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', background: t.bgCard, borderRadius: '4px', textDecoration: 'none', color: t.text, fontSize: '10px' }}>
                                   <span>{file.formatLabel || file.format}</span>
-                                  <span style={{ color: '#22c55e' }}></span>
+                                  <span style={{ color: '#22c55e' }}>{Icons.download('#22c55e')}</span>
                                 </a>
                               ))}
                             </div>
@@ -7745,7 +7745,7 @@ export default function MainApp() {
                     <div key={asset.id} onClick={() => setSelectedAsset(asset)} style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', border: asset.id === selectedAsset.id ? '2px solid #6366f1' : '2px solid transparent', boxShadow: asset.id === selectedAsset.id ? '0 0 0 2px rgba(99,102,241,0.3)' : 'none', cursor: 'pointer', flexShrink: 0, opacity: asset.id === selectedAsset.id ? 1 : 0.5, position: 'relative', transition: 'opacity 0.2s, box-shadow 0.2s' }}>
                       {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : asset.type === 'video' ? <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{asset.thumbnail ? <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '14px' }}>VID</span>}</div> : <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{asset.type === 'audio' ? '' : 'DOC'}</div>}
                       {asset.rating > 0 && <div style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}>{'★'.repeat(asset.rating)}</div>}
-                      {asset.isSelected && <div style={{ position: 'absolute', top: '2px', right: '2px', background: '#22c55e', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}></div>}
+                      {asset.isSelected && <div style={{ position: 'absolute', top: '2px', right: '2px', background: '#22c55e', borderRadius: '3px', padding: '1px 3px', fontSize: '8px', color: '#fff' }}>{'\u2713'}</div>}
                     </div>
                   ))}
                 </div>
@@ -7866,7 +7866,7 @@ export default function MainApp() {
                   
                   {selectedAssetsList.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '40px 20px', color: t.textMuted }}>
-                      <div style={{ fontSize: '48px', marginBottom: '12px' }}></div>
+                      <div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg></div>
                       <p style={{ margin: 0 }}>No assets selected yet. Rate assets with 5 stars or mark them as selected.</p>
                     </div>
                   )}
@@ -8464,7 +8464,7 @@ export default function MainApp() {
   const VersionComparison = ({ versions = [], currentVersion }) => {
     const [leftV, setLeftV] = useState(versions.length > 1 ? versions.length - 2 : 0);
     const [rightV, setRightV] = useState(versions.length - 1);
-    if (versions.length < 2) return <div style={{ textAlign: 'center', padding: '40px', background: t.bgInput, borderRadius: '12px' }}><div style={{ fontSize: '40px', marginBottom: '12px' }}></div><div style={{ color: t.textMuted, fontSize: '13px' }}>Upload more versions to compare</div></div>;
+    if (versions.length < 2) return <div style={{ textAlign: 'center', padding: '40px', background: t.bgInput, borderRadius: '12px' }}><div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><div style={{ color: t.textMuted, fontSize: '13px' }}>Upload more versions to compare</div></div>;
     const left = versions[leftV];
     const right = versions[rightV];
     return (
