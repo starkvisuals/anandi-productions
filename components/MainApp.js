@@ -4566,11 +4566,12 @@ export default function MainApp() {
   };
 
   const TeamManagement = () => {
-    const [tab, setTab] = useState('core');
+    const [tab, setTab] = useState('all');
     const [showAdd, setShowAdd] = useState(false);
     const [newUser, setNewUser] = useState({ name: '', email: '', password: '', phone: '', role: 'photo-editor', type: 'freelancer', company: '' });
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState('');
+    const [teamSearch, setTeamSearch] = useState('');
 
     const handleCreate = async () => {
       if (!newUser.name || !newUser.email || !newUser.password) { setError('Fill required fields'); return; }
@@ -4589,9 +4590,8 @@ export default function MainApp() {
     };
 
     const renderUser = u => {
-      // Find projects where this user is assigned
       const userProjects = projects.filter(p => {
-        const isTeamMember = (p.assignedTeam || []).some(t => t.odId === u.id);
+        const isTeamMember = (p.assignedTeam || []).some(tm => tm.odId === u.id);
         const hasAssignedAssets = (p.assets || []).some(a => a.assignedTo === u.id || a.assignedTo === u.email);
         return isTeamMember || hasAssignedAssets;
       });
@@ -4599,101 +4599,41 @@ export default function MainApp() {
       const activeAssets = assignedAssets.filter(a => a.status !== 'delivered' && a.status !== 'approved');
       const today = new Date(); today.setHours(0,0,0,0);
       const overdueAssets = activeAssets.filter(a => a.dueDate && new Date(a.dueDate) < today);
-      
-      const roleColor = TEAM_ROLES[u.role]?.color || t.primary;
+
       return (
-        <div key={u.id} className="hover-lift hover-glow animate-fadeInUp" style={{ background: t.bgCard, borderRadius: '16px', overflow: 'hidden', border: `1px solid ${t.border}`, transition: 'all 0.25s' }}>
-          {/* User Header */}
-          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px' }}>
-            <div style={{ position: 'relative' }}>
-              <div style={{ width: '52px', height: '52px', borderRadius: '50%', padding: '2px', background: `linear-gradient(135deg, ${roleColor || t.primary}, ${t.accent || '#8b5cf6'})` }}>
-                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: t.bgCard }}>
-                  <Avatar user={u} size={48} />
-                </div>
-              </div>
-            </div>
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '4px', color: t.text }}>{u.name}</div>
-              <RoleBadge role={u.role} />
-              <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '6px' }}>{u.email}</div>
-            </div>
+        <div key={u.id} style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', background: t.bgCard, borderRadius: '10px', marginBottom: '6px', border: `1px solid ${t.border}`, cursor: 'pointer', transition: 'all 0.2s' }}>
+          <Avatar user={u} size={36} />
+          <div style={{ flex: 1, marginLeft: '12px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: t.text }}>{u.name}</div>
+            <div style={{ fontSize: '11px', color: t.textMuted }}>{u.email}</div>
           </div>
-
-          {/* Stats row */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', padding: '12px 16px', borderTop: `1px solid ${t.border}`, borderBottom: `1px solid ${t.border}`, background: `${t.bgTertiary}80` }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '18px', fontWeight: '700', color: userProjects.length > 0 ? t.primary : 'rgba(255,255,255,0.3)' }}>{userProjects.length}</div>
-              <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Projects</div>
-            </div>
-            <div style={{ width: '1px', background: t.border }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '18px', fontWeight: '700', color: overdueAssets.length > 0 ? '#ef4444' : activeAssets.length > 0 ? '#6366f1' : 'rgba(255,255,255,0.3)' }}>{activeAssets.length}</div>
-              <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{overdueAssets.length > 0 ? `${overdueAssets.length} overdue` : 'Active'}</div>
-            </div>
+          <RoleBadge role={u.role} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '16px' }}>
+            <span style={{ fontSize: '12px', color: t.textMuted }}>{activeAssets.length} active</span>
+            {overdueAssets.length > 0 && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />}
           </div>
-
-          {/* Projects */}
           {userProjects.length > 0 && (
-            <div style={{ padding: '12px 16px' }}>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {userProjects.slice(0, 3).map(p => {
-                  const pAssets = (p.assets || []).filter(a => !a.deleted && (a.assignedTo === u.id || a.assignedTo === u.email));
-                  const pActive = pAssets.filter(a => a.status !== 'delivered' && a.status !== 'approved');
-                  return (
-                    <div
-                      key={p.id}
-                      onClick={() => { setSelectedProjectId(p.id); setView('projects'); }}
-                      style={{
-                        padding: '6px 10px',
-                        background: `${t.primary}10`,
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        border: `1px solid ${t.primary}20`,
-                        fontSize: '10px',
-                        color: t.primary,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'background 0.2s'
-                      }}
-                    >
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{p.name}</span>
-                      {pActive.length > 0 && (
-                        <span style={{
-                          padding: '1px 5px',
-                          background: t.primary,
-                          borderRadius: '6px',
-                          fontSize: '8px',
-                          color: '#fff',
-                          fontWeight: '600'
-                        }}>
-                          {pActive.length}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-                {userProjects.length > 3 && (
-                  <div style={{ padding: '6px 10px', fontSize: '10px', color: t.textMuted }}>+{userProjects.length - 3} more</div>
-                )}
-              </div>
-            </div>
+            <button onClick={(e) => { e.stopPropagation(); setSelectedProjectId(userProjects[0].id); setView('projects'); }} style={{ marginLeft: '12px', padding: '6px 8px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textMuted, cursor: 'pointer', fontSize: '11px', transition: 'all 0.2s' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
           )}
-
-          {/* Quick actions on hover - visible via CSS hover */}
-          <div style={{ padding: '0 16px 14px', display: 'flex', gap: '6px', justifyContent: 'center' }}>
-            <button onClick={() => { /* edit handler */ }} style={{ padding: '6px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', fontSize: '10px', color: t.textSecondary, cursor: 'pointer', transition: 'all 0.2s' }}>✏️ Edit</button>
-            <button onClick={() => { setSelectedProjectId(userProjects[0]?.id); if (userProjects[0]) setView('projects'); }} style={{ padding: '6px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', fontSize: '10px', color: t.textSecondary, cursor: 'pointer', transition: 'all 0.2s' }}>📂 Projects</button>
-          </div>
         </div>
       );
     };
+
+    const allMembers = [...coreTeam, ...freelancers, ...clients];
+    const getFilteredMembers = (list) => {
+      if (!teamSearch) return list;
+      const q = teamSearch.toLowerCase();
+      return list.filter(u => (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+    };
+    const displayMembers = tab === 'all' ? getFilteredMembers(allMembers) : tab === 'core' ? getFilteredMembers(coreTeam) : tab === 'freelancers' ? getFilteredMembers(freelancers) : getFilteredMembers(clients);
 
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>👥 Team</h1>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>Team</h1>
             <p style={{ margin: '6px 0 0', fontSize: '13px', color: t.textMuted }}>
               {coreTeam.length + freelancers.length} team members • {clients.length} clients
             </p>
@@ -4719,78 +4659,58 @@ export default function MainApp() {
           )}
         </div>
 
-        {/* Search/filter bar */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          marginBottom: '20px',
-          alignItems: 'center',
-          background: t.bgCard,
-          borderRadius: '12px',
-          padding: '6px',
-          border: `1px solid ${t.border}`
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            flex: 1,
-            padding: '6px 12px',
-            color: t.textMuted,
-            fontSize: '13px'
-          }}>
-            🔍 <span style={{ opacity: 0.6 }}>Search team members...</span>
+        {/* Search bar */}
+        <div style={{ position: 'relative', marginBottom: '20px' }}>
+          <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+            </svg>
           </div>
+          <input
+            value={teamSearch}
+            onChange={e => setTeamSearch(e.target.value)}
+            placeholder="Search team members..."
+            style={{ width: '100%', padding: '10px 14px 10px 36px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '10px', color: t.text, fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+          />
         </div>
 
-        {/* Section tabs - pill shaped */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: t.bgCard, borderRadius: '14px', padding: '4px', border: `1px solid ${t.border}` }}>
-          {[{ id: 'core', label: 'Core Team', icon: '👑', data: coreTeam }, { id: 'freelancers', label: 'Freelancers', icon: '🎨', data: freelancers }, { id: 'clients', label: 'Clients', icon: '👔', data: clients }].map(tabItem => (
+        {/* Underline tabs */}
+        <div style={{ display: 'flex', gap: '24px', borderBottom: `1px solid ${t.border}`, marginBottom: '20px' }}>
+          {[{ id: 'all', label: `All (${allMembers.length})` }, { id: 'core', label: `Core Team (${coreTeam.length})` }, { id: 'freelancers', label: `Freelancers (${freelancers.length})` }, { id: 'clients', label: `Clients (${clients.length})` }].map(tabItem => (
             <button
               key={tabItem.id}
               onClick={() => setTab(tabItem.id)}
               style={{
-                flex: 1,
-                padding: '10px 16px',
-                background: tab === tabItem.id ? t.primary : 'transparent',
-                border: 'none',
-                borderRadius: '10px',
-                color: tab === tabItem.id ? '#fff' : t.textSecondary,
-                fontSize: '12px',
-                fontWeight: tab === tabItem.id ? '600' : '400',
+                padding: '10px 0',
+                fontSize: '13px',
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
+                background: 'none',
+                border: 'none',
+                borderBottom: tab === tabItem.id ? '2px solid #6366f1' : '2px solid transparent',
+                color: tab === tabItem.id ? '#fff' : t.textMuted,
+                fontWeight: tab === tabItem.id ? 600 : 400,
                 transition: 'all 0.2s'
               }}
             >
-              {tabItem.icon} {tabItem.label}
-              <span style={{
-                padding: '2px 8px',
-                borderRadius: '10px',
-                fontSize: '10px',
-                fontWeight: '600',
-                background: tab === tabItem.id ? 'rgba(255,255,255,0.2)' : `${t.primary}15`,
-                color: tab === tabItem.id ? '#fff' : t.primary
-              }}>{tabItem.data.length}</span>
+              {tabItem.label}
             </button>
           ))}
         </div>
 
-        {/* Team grid */}
-        <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-          {tab === 'core' && (coreTeam.length ? coreTeam.map(renderUser) : null)}
-          {tab === 'freelancers' && (freelancers.length ? freelancers.map(renderUser) : null)}
-          {tab === 'clients' && (clients.length ? clients.map(renderUser) : null)}
+        {/* Team list */}
+        <div>
+          {displayMembers.length > 0 ? displayMembers.map(renderUser) : null}
         </div>
         {/* Empty state */}
-        {((tab === 'core' && !coreTeam.length) || (tab === 'freelancers' && !freelancers.length) || (tab === 'clients' && !clients.length)) && (
+        {displayMembers.length === 0 && (
           <div className="animate-fadeInUp" style={{ background: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '60px 20px', color: t.textMuted }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>👥</div>
-            <div style={{ fontSize: '15px', fontWeight: '500', marginBottom: '6px', color: t.textSecondary }}>No team members yet</div>
-            <div style={{ fontSize: '12px', color: t.textMuted }}>Add your first {tab === 'core' ? 'core team member' : tab === 'freelancers' ? 'freelancer' : 'client'} to get started</div>
+            <div style={{ marginBottom: '16px', opacity: 0.5 }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: '500', marginBottom: '6px', color: t.textSecondary }}>{teamSearch ? 'No matching members' : 'No team members yet'}</div>
+            <div style={{ fontSize: '12px', color: t.textMuted }}>{teamSearch ? 'Try a different search term' : `Add your first ${tab === 'core' ? 'core team member' : tab === 'freelancers' ? 'freelancer' : tab === 'clients' ? 'client' : 'team member'} to get started`}</div>
           </div>
         )}
         {showAdd && (
