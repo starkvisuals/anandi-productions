@@ -2164,7 +2164,7 @@ export default function MainApp() {
         {/* Logo Section */}
         {!isMobile && (
           <div style={{
-            padding: sidebarCollapsed ? '18px 10px 14px' : '18px 16px 14px',
+            padding: sidebarCollapsed ? '14px 10px 12px' : '14px 16px 12px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -2306,7 +2306,7 @@ export default function MainApp() {
 
         {/* Bottom Section */}
         {!isMobile && (
-          <div style={{ padding: sidebarCollapsed ? '8px' : '10px', borderTop: `1px solid ${t.borderLight}` }}>
+          <div style={{ padding: sidebarCollapsed ? '8px' : '10px 12px', borderTop: `1px solid ${t.borderLight}`, flexShrink: 0 }}>
             {/* User Profile Card */}
             {!sidebarCollapsed ? (
               <div style={{
@@ -2335,28 +2335,31 @@ export default function MainApp() {
             {/* Action buttons row */}
             <div style={{
               display: 'flex',
-              gap: '6px',
+              gap: '4px',
               marginBottom: '8px',
-              flexDirection: sidebarCollapsed ? 'column' : 'row'
+              flexDirection: sidebarCollapsed ? 'column' : 'row',
+              overflow: 'hidden'
             }}>
               {/* Theme Toggle */}
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 style={{
                   flex: sidebarCollapsed ? 'none' : 1,
+                  minWidth: 0,
                   width: sidebarCollapsed ? '100%' : 'auto',
-                  padding: '8px',
+                  padding: '7px 6px',
                   background: t.bgCard,
                   border: `1px solid ${t.borderLight}`,
                   borderRadius: '8px',
                   color: t.textSecondary,
-                  fontSize: '11px',
+                  fontSize: '10px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s ease'
+                  gap: '4px',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
                 }}
                 title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
               >
@@ -2370,19 +2373,21 @@ export default function MainApp() {
                   onClick={() => setShowCompanySettings(true)}
                   style={{
                     flex: sidebarCollapsed ? 'none' : 1,
+                    minWidth: 0,
                     width: sidebarCollapsed ? '100%' : 'auto',
-                    padding: '8px',
+                    padding: '7px 6px',
                     background: 'transparent',
                     border: `1px solid ${t.borderLight}`,
                     borderRadius: '8px',
                     color: t.textSecondary,
-                    fontSize: '11px',
+                    fontSize: '10px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease'
+                    gap: '4px',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap'
                   }}
                   title="Company Settings"
                 >
@@ -2396,19 +2401,21 @@ export default function MainApp() {
                 onClick={signOut}
                 style={{
                   flex: sidebarCollapsed ? 'none' : 1,
+                  minWidth: 0,
                   width: sidebarCollapsed ? '100%' : 'auto',
-                  padding: '8px',
+                  padding: '7px 6px',
                   background: 'transparent',
                   border: `1px solid ${t.borderLight}`,
                   borderRadius: '8px',
                   color: t.textSecondary,
-                  fontSize: '11px',
+                  fontSize: '10px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s ease'
+                  gap: '4px',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
                 }}
                 title="Sign Out"
               >
