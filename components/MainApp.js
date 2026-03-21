@@ -5,6 +5,7 @@ import { getProjects, getProjectsForUser, createProject, updateProject, getUsers
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import Logo from './Logo';
 import dynamic from 'next/dynamic';
 
 // Dynamic import MuxPlayer to avoid SSR issues
@@ -2071,214 +2072,309 @@ export default function MainApp() {
   };
 
   const Sidebar = () => {
-    const sidebarWidth = sidebarCollapsed ? '60px' : '200px';
+    const sidebarWidth = sidebarCollapsed ? '60px' : '220px';
     const navItems = [
-      { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' }, 
-      { id: 'tasks', icon: 'tasks', label: 'My Tasks' }, 
-      { id: 'projects', icon: 'folder', label: 'Projects' },
-      { id: 'calendar', icon: 'calendar', label: 'Calendar' },
-      ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads' }] : []),
-      ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team' }] : [])
+      { id: 'dashboard', icon: 'dashboard', label: 'Dashboard', shortcut: '1' },
+      { id: 'tasks', icon: 'tasks', label: 'My Tasks', shortcut: '2' },
+      { id: 'projects', icon: 'folder', label: 'Projects', shortcut: '3' },
+      { id: 'calendar', icon: 'calendar', label: 'Calendar', shortcut: '4' },
+      ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads', shortcut: '5' }] : []),
+      ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team', shortcut: isClientView ? '6' : '5' }] : [])
     ];
-    
+
     return (
-      <div style={{ 
-        width: isMobile ? '100%' : sidebarWidth, 
-        background: t.bgSecondary, 
-        borderRight: isMobile ? 'none' : `1px solid ${t.border}`, 
-        borderBottom: isMobile ? `1px solid ${t.border}` : 'none', 
-        height: isMobile ? 'auto' : '100vh', 
-        position: isMobile ? 'relative' : 'fixed', 
-        left: 0, 
-        top: 0, 
-        display: 'flex', 
-        flexDirection: isMobile ? 'row' : 'column', 
+      <div style={{
+        width: isMobile ? '100%' : sidebarWidth,
+        background: t.bgSecondary,
+        borderRight: isMobile ? 'none' : `1px solid ${t.borderLight}`,
+        borderBottom: isMobile ? `1px solid ${t.border}` : 'none',
+        height: isMobile ? 'auto' : '100vh',
+        position: isMobile ? 'relative' : 'fixed',
+        left: 0,
+        top: 0,
+        display: 'flex',
+        flexDirection: isMobile ? 'row' : 'column',
         zIndex: 100,
         transition: 'width 0.2s ease'
       }}>
         {/* Logo Section */}
         {!isMobile && (
-          <div style={{ padding: sidebarCollapsed ? '16px 10px' : '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${t.border}` }}>
-            {!sidebarCollapsed && (
-              <div style={{ flex: 1 }}>
-                {companySettings.logoDark && theme === 'dark' ? (
-                  <img src={companySettings.logoDark} alt={companySettings.name} style={{ height: '28px', objectFit: 'contain' }} />
-                ) : companySettings.logoLight && theme === 'light' ? (
-                  <img src={companySettings.logoLight} alt={companySettings.name} style={{ height: '28px', objectFit: 'contain' }} />
-                ) : (
-                  <div style={{ fontSize: '16px', fontWeight: '700', background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{companySettings.name}</div>
-                )}
-                <div style={{ fontSize: '9px', color: t.textMuted, marginTop: '2px' }}>Production Hub</div>
-              </div>
-            )}
-            <button 
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              style={{ 
-                background: t.bgCard, 
-                border: `1px solid ${t.border}`, 
-                borderRadius: '6px', 
-                padding: '6px', 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              {sidebarCollapsed ? Icons.chevronRight(t.textSecondary) : Icons.chevronLeft(t.textSecondary)}
-            </button>
+          <div style={{
+            padding: sidebarCollapsed ? '18px 10px 14px' : '18px 16px 14px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderBottom: `1px solid ${t.borderLight}`
+          }}>
+            <Logo
+              variant={sidebarCollapsed ? 'icon' : 'full'}
+              size={sidebarCollapsed ? 28 : 32}
+              theme={theme}
+            />
           </div>
         )}
-        
+
         {/* Search Button */}
-        {!isMobile && !sidebarCollapsed && (
-          <div style={{ padding: '12px 10px' }}>
-            <button 
+        {!isMobile && (
+          <div style={{ padding: '10px' }}>
+            <button
               onClick={() => setShowGlobalSearch(true)}
-              style={{ 
-                width: '100%', 
-                padding: '10px 12px', 
-                background: t.bgInput, 
-                border: `1px solid ${t.border}`, 
-                borderRadius: '8px', 
-                color: t.textMuted, 
-                fontSize: '12px', 
+              className="glass"
+              style={{
+                width: '100%',
+                padding: sidebarCollapsed ? '10px' : '9px 12px',
+                background: t.bgInput,
+                border: `1px solid ${t.borderLight}`,
+                borderRadius: '10px',
+                color: t.textMuted,
+                fontSize: '12px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                textAlign: 'left'
-              }}
-            >
-              {Icons.search(t.textMuted)}
-              <span style={{ flex: 1 }}>Search</span>
-              <span style={{ fontSize: '10px', background: t.bgTertiary, padding: '2px 6px', borderRadius: '4px', color: t.textMuted }}>/</span>
-            </button>
-          </div>
-        )}
-        
-        {/* Collapsed Search */}
-        {!isMobile && sidebarCollapsed && (
-          <div style={{ padding: '12px 10px' }}>
-            <button 
-              onClick={() => setShowGlobalSearch(true)}
-              style={{ 
-                width: '100%', 
-                padding: '10px', 
-                background: t.bgInput, 
-                border: `1px solid ${t.border}`, 
-                borderRadius: '8px', 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              {Icons.search(t.textMuted)}
-            </button>
-          </div>
-        )}
-        
-        {/* Navigation */}
-        <nav style={{ flex: 1, padding: isMobile ? '10px' : '8px 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: '4px', alignItems: isMobile ? 'center' : 'stretch' }}>
-          {isMobile && <NotificationPanel />}
-          {isMobile && <button onClick={() => setShowGlobalSearch(true)} style={{ padding: '10px', background: 'transparent', border: 'none', cursor: 'pointer' }}>{Icons.search(t.textSecondary)}</button>}
-          {navItems.map(item => (
-            <div 
-              key={item.id} 
-              onClick={() => { setView(item.id); setSelectedProjectId(null); }} 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '10px', 
-                padding: sidebarCollapsed ? '10px' : '10px 12px', 
-                borderRadius: '8px', 
-                cursor: 'pointer', 
-                fontSize: '13px', 
-                fontWeight: view === item.id ? '500' : '400',
-                background: view === item.id ? `${t.primary}15` : 'transparent', 
-                color: view === item.id ? t.primary : t.textSecondary,
                 justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                transition: 'all 0.15s'
+                gap: '8px',
+                textAlign: 'left',
+                transition: 'all 0.2s ease'
               }}
-              title={sidebarCollapsed ? item.label : ''}
             >
-              {Icons[item.icon] && Icons[item.icon](view === item.id ? t.primary : t.textSecondary)}
-              {!isMobile && !sidebarCollapsed && <span>{item.label}</span>}
-            </div>
-          ))}
+              {Icons.search(t.textMuted)}
+              {!sidebarCollapsed && <span style={{ flex: 1 }}>Search</span>}
+              {!sidebarCollapsed && (
+                <span style={{
+                  fontSize: '10px',
+                  background: t.bgTertiary,
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  color: t.textMuted,
+                  fontFamily: 'monospace'
+                }}>/</span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <nav style={{
+          flex: 1,
+          padding: isMobile ? '6px 8px' : '4px 8px',
+          display: 'flex',
+          flexDirection: isMobile ? 'row' : 'column',
+          gap: '2px',
+          alignItems: isMobile ? 'center' : 'stretch',
+          overflowY: isMobile ? 'visible' : 'auto'
+        }}>
+          {isMobile && <NotificationPanel />}
+          {isMobile && (
+            <button
+              onClick={() => setShowGlobalSearch(true)}
+              style={{ padding: '8px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              {Icons.search(t.textSecondary)}
+            </button>
+          )}
+          {navItems.map(item => {
+            const isActive = view === item.id;
+            return (
+              <div
+                key={item.id}
+                onClick={() => { setView(item.id); setSelectedProjectId(null); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: sidebarCollapsed ? '10px' : '9px 12px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: isActive ? '600' : '400',
+                  background: isActive ? `${t.primary}15` : 'transparent',
+                  color: isActive ? t.primary : t.textSecondary,
+                  justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                  transition: 'all 0.2s ease',
+                  position: 'relative',
+                  ...(isMobile && isActive ? { borderBottom: `2px solid ${t.primary}`, borderRadius: '0' } : {}),
+                  ...(isMobile ? { padding: '8px 10px' } : {})
+                }}
+                title={sidebarCollapsed ? item.label : ''}
+                onMouseEnter={e => {
+                  if (!isActive && !isMobile) {
+                    e.currentTarget.style.background = t.bgHover;
+                    e.currentTarget.style.transform = 'translateX(2px)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive && !isMobile) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.transform = 'translateX(0)';
+                  }
+                }}
+              >
+                {/* Active gradient bar */}
+                {isActive && !isMobile && (
+                  <div style={{
+                    position: 'absolute',
+                    left: '0',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '3px',
+                    height: '60%',
+                    borderRadius: '0 3px 3px 0',
+                    background: `linear-gradient(180deg, ${t.primary}, ${t.accent || t.primary})`,
+                  }} />
+                )}
+                {Icons[item.icon] && Icons[item.icon](isActive ? t.primary : t.textSecondary)}
+                {!isMobile && !sidebarCollapsed && (
+                  <>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    <span style={{
+                      fontSize: '10px',
+                      color: t.textMuted,
+                      opacity: 0.5,
+                      fontFamily: 'monospace',
+                      fontWeight: '400'
+                    }}>{item.shortcut}</span>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </nav>
-        
+
         {/* Bottom Section */}
         {!isMobile && (
-          <div style={{ padding: sidebarCollapsed ? '10px' : '14px', borderTop: `1px solid ${t.border}` }}>
-            {/* Notification Icon (collapsed) */}
-            {sidebarCollapsed && (
-              <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ padding: sidebarCollapsed ? '8px' : '10px', borderTop: `1px solid ${t.borderLight}` }}>
+            {/* User Profile Card */}
+            {!sidebarCollapsed ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px',
+                marginBottom: '8px',
+                background: t.bgCard,
+                border: `1px solid ${t.borderLight}`,
+                borderRadius: '10px'
+              }}>
+                <Avatar user={userProfile} size={32} />
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: t.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userProfile?.firstName}</div>
+                  <div style={{ fontSize: '10px', color: t.textMuted }}>{CORE_ROLES[userProfile?.role]?.label || userProfile?.role}</div>
+                </div>
+                <NotificationPanel />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
                 <NotificationPanel />
               </div>
             )}
-            
-            {/* Theme Toggle */}
-            <button 
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              style={{ 
+
+            {/* Action buttons row */}
+            <div style={{
+              display: 'flex',
+              gap: '6px',
+              marginBottom: '8px',
+              flexDirection: sidebarCollapsed ? 'column' : 'row'
+            }}>
+              {/* Theme Toggle */}
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                style={{
+                  flex: sidebarCollapsed ? 'none' : 1,
+                  width: sidebarCollapsed ? '100%' : 'auto',
+                  padding: '8px',
+                  background: t.bgCard,
+                  border: `1px solid ${t.borderLight}`,
+                  borderRadius: '8px',
+                  color: t.textSecondary,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease'
+                }}
+                title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+              >
+                {theme === 'dark' ? Icons.sun(t.textSecondary) : Icons.moon(t.textSecondary)}
+                {!sidebarCollapsed && <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>}
+              </button>
+
+              {/* Settings */}
+              {isProducer && (
+                <button
+                  onClick={() => setShowCompanySettings(true)}
+                  style={{
+                    flex: sidebarCollapsed ? 'none' : 1,
+                    width: sidebarCollapsed ? '100%' : 'auto',
+                    padding: '8px',
+                    background: 'transparent',
+                    border: `1px solid ${t.borderLight}`,
+                    borderRadius: '8px',
+                    color: t.textSecondary,
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Company Settings"
+                >
+                  {Icons.settings(t.textSecondary)}
+                  {!sidebarCollapsed && <span>Settings</span>}
+                </button>
+              )}
+
+              {/* Sign Out */}
+              <button
+                onClick={signOut}
+                style={{
+                  flex: sidebarCollapsed ? 'none' : 1,
+                  width: sidebarCollapsed ? '100%' : 'auto',
+                  padding: '8px',
+                  background: 'transparent',
+                  border: `1px solid ${t.borderLight}`,
+                  borderRadius: '8px',
+                  color: t.textSecondary,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Sign Out"
+              >
+                {Icons.logout(t.textSecondary)}
+                {!sidebarCollapsed && <span>Exit</span>}
+              </button>
+            </div>
+
+            {/* Collapse Toggle */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              style={{
                 width: '100%',
-                padding: sidebarCollapsed ? '10px' : '8px 12px', 
-                background: t.bgCard, 
-                border: `1px solid ${t.border}`, 
-                borderRadius: '8px', 
-                color: t.textSecondary, 
-                fontSize: '11px', 
+                background: 'transparent',
+                border: 'none',
+                padding: '6px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                gap: '8px',
-                marginBottom: '10px'
+                justifyContent: 'center',
+                borderRadius: '6px',
+                transition: 'all 0.2s ease',
+                opacity: 0.5
               }}
-              title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = t.bgHover; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.background = 'transparent'; }}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              {theme === 'dark' ? Icons.sun(t.textSecondary) : Icons.moon(t.textSecondary)}
-              {!sidebarCollapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+              {sidebarCollapsed ? Icons.chevronRight(t.textMuted) : Icons.chevronLeft(t.textMuted)}
             </button>
-            
-            {/* User Info */}
-            {!sidebarCollapsed ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <Avatar user={userProfile} size={32} />
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontSize: '12px', fontWeight: '500', color: t.text }}>{userProfile?.firstName}</div>
-                    <div style={{ fontSize: '10px', color: t.textMuted }}>{CORE_ROLES[userProfile?.role]?.label || userProfile?.role}</div>
-                  </div>
-                  {!sidebarCollapsed && <NotificationPanel />}
-                </div>
-                {isProducer && (
-                  <button 
-                    onClick={() => setShowCompanySettings(true)} 
-                    style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '8px' }}
-                  >
-                    {Icons.settings(t.textSecondary)}
-                    <span>Company Settings</span>
-                  </button>
-                )}
-                <button onClick={signOut} style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                  {Icons.logout(t.textSecondary)}
-                  <span>Sign Out</span>
-                </button>
-              </>
-            ) : (
-              <>
-                {isProducer && (
-                  <button onClick={() => setShowCompanySettings(true)} style={{ width: '100%', padding: '10px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }} title="Company Settings">
-                    {Icons.settings(t.textSecondary)}
-                  </button>
-                )}
-                <button onClick={signOut} style={{ width: '100%', padding: '10px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sign Out">
-                  {Icons.logout(t.textSecondary)}
-                </button>
-              </>
-            )}
           </div>
         )}
       </div>
