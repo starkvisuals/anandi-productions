@@ -1763,80 +1763,141 @@ export default function MainApp() {
     
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: t.text }}>📅 Calendar</h1>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} style={{ padding: '8px 14px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, cursor: 'pointer' }}>←</button>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: t.text, minWidth: '140px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>📅 Calendar</h1>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', background: t.bgCard, borderRadius: '12px', padding: '4px', border: `1px solid ${t.border}` }}>
+            <button onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} style={{ padding: '8px 12px', background: 'transparent', border: 'none', borderRadius: '8px', color: t.text, cursor: 'pointer', fontSize: '14px', transition: 'background 0.2s' }}>◀</button>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: t.text, minWidth: '160px', textAlign: 'center' }}>
               {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </span>
-            <button onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} style={{ padding: '8px 14px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, cursor: 'pointer' }}>→</button>
-            <button onClick={() => setCurrentMonth(new Date())} style={{ padding: '8px 14px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '12px' }}>Today</button>
+            <button onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} style={{ padding: '8px 12px', background: 'transparent', border: 'none', borderRadius: '8px', color: t.text, cursor: 'pointer', fontSize: '14px', transition: 'background 0.2s' }}>▶</button>
+            <div style={{ width: '1px', height: '20px', background: t.border, margin: '0 2px' }} />
+            <button onClick={() => setCurrentMonth(new Date())} style={{ padding: '8px 14px', background: t.primary, border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: '600', transition: 'all 0.2s' }}>Today</button>
           </div>
         </div>
-        
+
         {/* Day headers */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', marginBottom: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', marginBottom: '4px' }}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <div key={d} style={{ padding: '8px', textAlign: 'center', fontSize: '11px', fontWeight: '600', color: t.textMuted }}>{d}</div>
+            <div key={d} style={{ padding: '10px', textAlign: 'center', fontSize: '11px', fontWeight: '600', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{d}</div>
           ))}
         </div>
-        
+
         {/* Calendar grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', background: t.border, border: `1px solid ${t.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', background: `${t.border}40`, border: `1px solid ${t.border}`, borderRadius: '14px', overflow: 'hidden' }}>
           {days.map((day, idx) => {
             const dayAssets = getAssetsForDay(day);
             const isPast = day && new Date(year, month, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            
+            const hasEvents = dayAssets.length > 0;
+            const statusColors = { approved: '#22c55e', 'in-progress': '#6366f1', pending: '#f59e0b', revision: '#f97316' };
+
             return (
-              <div 
+              <div
                 key={idx}
+                className={hasEvents ? 'hover-lift' : ''}
                 onDragOver={e => { if (day) e.preventDefault(); }}
                 onDrop={() => handleDrop(day)}
-                style={{ 
-                  minHeight: '100px', 
-                  padding: '8px', 
-                  background: isToday(day) ? 'rgba(99,102,241,0.1)' : t.bgTertiary,
-                  opacity: day ? 1 : 0.3
+                style={{
+                  minHeight: '105px',
+                  padding: '8px',
+                  background: isToday(day) ? `${t.primary}12` : t.bgTertiary,
+                  opacity: day ? 1 : 0.3,
+                  transition: 'all 0.2s',
+                  cursor: day ? 'default' : 'auto',
+                  position: 'relative'
                 }}
               >
                 {day && (
                   <>
-                    <div style={{ 
-                      fontSize: '12px', 
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: isToday(day) ? '28px' : 'auto',
+                      height: isToday(day) ? '28px' : 'auto',
+                      borderRadius: '50%',
+                      background: isToday(day) ? t.primary : 'transparent',
+                      color: isToday(day) ? '#fff' : isPast ? t.textMuted : t.text,
+                      fontSize: '12px',
                       fontWeight: isToday(day) ? '700' : '500',
-                      color: isToday(day) ? '#6366f1' : isPast ? t.textMuted : t.text,
-                      marginBottom: '6px'
+                      marginBottom: '6px',
+                      boxShadow: isToday(day) ? `0 2px 8px ${t.primary}40` : 'none',
+                      transition: 'all 0.3s'
                     }}>
                       {day}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {dayAssets.slice(0, 3).map(a => (
-                        <div 
-                          key={a.id}
-                          draggable
-                          onDragStart={() => setDraggedAsset(a)}
-                          onDragEnd={() => setDraggedAsset(null)}
-                          onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }}
-                          style={{ 
-                            padding: '4px 6px', 
-                            background: a.status === 'approved' ? 'rgba(34,197,94,0.2)' : isPast ? 'rgba(239,68,68,0.2)' : 'rgba(99,102,241,0.2)',
-                            borderRadius: '4px', 
-                            fontSize: '10px', 
-                            cursor: 'grab',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            color: t.text
-                          }}
-                        >
-                          {a.name}
-                        </div>
-                      ))}
-                      {dayAssets.length > 3 && (
-                        <div style={{ fontSize: '10px', color: t.textMuted }}>+{dayAssets.length - 3} more</div>
-                      )}
-                    </div>
+
+                    {/* Event dots for compact view */}
+                    {dayAssets.length > 0 && dayAssets.length <= 2 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {dayAssets.map(a => (
+                          <div
+                            key={a.id}
+                            draggable
+                            onDragStart={() => setDraggedAsset(a)}
+                            onDragEnd={() => setDraggedAsset(null)}
+                            onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }}
+                            style={{
+                              padding: '3px 6px',
+                              background: a.status === 'approved' ? 'rgba(34,197,94,0.15)' : isPast ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)',
+                              borderLeft: `2px solid ${statusColors[a.status] || t.primary}`,
+                              borderRadius: '0 4px 4px 0',
+                              fontSize: '10px',
+                              cursor: 'grab',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              color: t.text,
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {a.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {dayAssets.length > 2 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {dayAssets.slice(0, 2).map(a => (
+                          <div
+                            key={a.id}
+                            draggable
+                            onDragStart={() => setDraggedAsset(a)}
+                            onDragEnd={() => setDraggedAsset(null)}
+                            onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }}
+                            style={{
+                              padding: '3px 6px',
+                              background: a.status === 'approved' ? 'rgba(34,197,94,0.15)' : isPast ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)',
+                              borderLeft: `2px solid ${statusColors[a.status] || t.primary}`,
+                              borderRadius: '0 4px 4px 0',
+                              fontSize: '10px',
+                              cursor: 'grab',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              color: t.text
+                            }}
+                          >
+                            {a.name}
+                          </div>
+                        ))}
+                        <div style={{ fontSize: '10px', color: t.primary, fontWeight: '500', paddingLeft: '6px' }}>+{dayAssets.length - 2} more</div>
+                      </div>
+                    )}
+
+                    {/* Color dots row for quick glance */}
+                    {dayAssets.length > 0 && (
+                      <div style={{ display: 'flex', gap: '3px', marginTop: '4px', position: 'absolute', bottom: '6px', left: '8px' }}>
+                        {dayAssets.slice(0, 5).map((a, i) => (
+                          <div key={i} style={{
+                            width: '5px',
+                            height: '5px',
+                            borderRadius: '50%',
+                            background: statusColors[a.status] || t.primary
+                          }} />
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -3043,26 +3104,26 @@ export default function MainApp() {
       };
       
       return (
-        <div 
+        <div
+          className="hover-lift"
           draggable={task.type !== 'auto'}
           onDragStart={(e) => handleDragStart(e, task)}
           onMouseEnter={() => setHoveredTask(task.id)}
           onMouseLeave={() => setHoveredTask(null)}
-          style={{ 
-            background: t.bgCard, 
-            borderRadius: '10px', 
-            border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.border}`,
-            marginBottom: '8px',
+          style={{
+            background: t.bgCard,
+            borderRadius: '12px',
+            borderLeft: `3px solid ${priorityColors[task.priority] || priorityColors.medium}`,
+            borderRight: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.border}`,
+            borderTop: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.border}`,
+            borderBottom: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.border}`,
+            marginBottom: '10px',
             overflow: 'hidden',
             transition: 'all 0.2s',
             opacity: isDragging ? 0.5 : 1,
             cursor: task.type === 'auto' ? 'default' : 'grab',
-            transform: isHovered ? 'translateY(-2px)' : 'none',
-            boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.15)' : 'none'
           }}
         >
-          {/* Priority stripe */}
-          <div style={{ height: '3px', background: priorityColors[task.priority] || priorityColors.medium }} />
           
           {/* Card content */}
           <div style={{ padding: '12px' }}>
@@ -3111,17 +3172,22 @@ export default function MainApp() {
                   }}
                 />
               ) : (
-                <div 
+                <div
                   onDoubleClick={() => task.type !== 'auto' && setEditingTask(task.id)}
-                  style={{ 
+                  style={{
                     flex: 1,
-                    fontWeight: '500', 
+                    fontWeight: '500',
                     fontSize: '13px',
                     color: t.text,
                     textDecoration: task.status === 'done' ? 'line-through' : 'none',
                     opacity: task.status === 'done' ? 0.6 : 1,
                     lineHeight: '1.4',
-                    cursor: task.type === 'auto' ? 'default' : 'text'
+                    cursor: task.type === 'auto' ? 'default' : 'text',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
                   }}
                 >
                   {task.type === 'feedback' && '🔄 '}
@@ -3165,14 +3231,34 @@ export default function MainApp() {
                 </span>
               )}
               {totalSubtasks > 0 && (
-                <span style={{ 
-                  fontSize: '10px', 
+                <span style={{
+                  fontSize: '10px',
                   color: completedSubtasks === totalSubtasks ? t.success : t.textMuted,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '3px'
+                  gap: '4px'
                 }}>
-                  ☑️ {completedSubtasks}/{totalSubtasks}
+                  <span style={{
+                    display: 'inline-block',
+                    width: '36px',
+                    height: '4px',
+                    background: `${t.border}`,
+                    borderRadius: '2px',
+                    overflow: 'hidden',
+                    position: 'relative'
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      height: '100%',
+                      width: `${totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0}%`,
+                      background: completedSubtasks === totalSubtasks ? t.success : t.primary,
+                      borderRadius: '2px',
+                      transition: 'width 0.3s'
+                    }} />
+                  </span>
+                  {completedSubtasks}/{totalSubtasks} done
                 </span>
               )}
               {(task.attachments || []).length > 0 && (
@@ -3425,27 +3511,31 @@ export default function MainApp() {
     const KanbanColumn = ({ column }) => {
       const columnTasks = tasksByStatus[column.id] || [];
       const isDropTarget = dragOverColumn === column.id;
-      
+
       return (
-        <div 
+        <div
           onDragOver={(e) => handleDragOver(e, column.id)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, column.id)}
-          style={{ 
+          style={{
             flex: 1,
             minWidth: '260px',
             maxWidth: '320px',
-            background: isDropTarget ? `${column.color}10` : t.bgSecondary,
-            borderRadius: '12px',
+            background: isDropTarget ? `${column.color}08` : t.bgSecondary,
+            borderRadius: '14px',
             display: 'flex',
             flexDirection: 'column',
             border: isDropTarget ? `2px dashed ${column.color}` : `1px solid ${t.border}`,
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            overflow: 'hidden'
           }}
         >
+          {/* Colored top border */}
+          <div style={{ height: '4px', background: column.color }} />
+
           {/* Column header */}
-          <div style={{ 
-            padding: '14px 16px', 
+          <div style={{
+            padding: '14px 16px',
             borderBottom: `1px solid ${t.border}`,
             display: 'flex',
             alignItems: 'center',
@@ -3453,39 +3543,61 @@ export default function MainApp() {
           }}>
             <span style={{ fontSize: '16px' }}>{column.icon}</span>
             <span style={{ fontWeight: '600', fontSize: '13px', color: t.text }}>{column.title}</span>
-            <span style={{ 
+            <span style={{
               marginLeft: 'auto',
               background: `${column.color}20`,
               color: column.color,
-              padding: '2px 8px',
+              padding: '3px 10px',
               borderRadius: '10px',
               fontSize: '11px',
-              fontWeight: '600'
+              fontWeight: '700'
             }}>{columnTasks.length}</span>
           </div>
-          
+
           {/* Tasks */}
-          <div style={{ 
-            flex: 1, 
-            padding: '12px', 
+          <div className="stagger-children" style={{
+            flex: 1,
+            padding: '12px',
             overflowY: 'auto',
             minHeight: '200px'
           }}>
             {columnTasks.length === 0 ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '30px 10px', 
-                color: t.textMuted, 
+              <div style={{
+                textAlign: 'center',
+                padding: '30px 10px',
+                color: t.textMuted,
                 fontSize: '12px',
-                opacity: 0.7
+                opacity: 0.7,
+                border: isDropTarget ? 'none' : `1px dashed ${t.border}`,
+                borderRadius: '10px'
               }}>
-                {isDropTarget ? 'Drop here' : 'No tasks'}
+                {isDropTarget ? '⬇ Drop here' : 'No tasks'}
               </div>
             ) : (
               columnTasks.map(task => (
                 <TaskCard key={task.id} task={task} />
               ))
             )}
+          </div>
+
+          {/* Add task button at bottom */}
+          <div
+            onClick={() => setShowAddTask(true)}
+            style={{
+              padding: '10px 16px',
+              textAlign: 'center',
+              fontSize: '12px',
+              color: t.textMuted,
+              cursor: 'pointer',
+              borderTop: `1px solid ${t.border}`,
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <span style={{ fontSize: '14px', opacity: 0.6 }}>+</span> Add task
           </div>
         </div>
       );
@@ -3723,31 +3835,45 @@ export default function MainApp() {
           
           {/* Filter Tabs & View Toggle */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '4px' }}>
+            {/* Tabs - pill styled */}
+            <div style={{ display: 'flex', gap: '4px', background: t.bgCard, borderRadius: '10px', padding: '3px', border: `1px solid ${t.border}` }}>
               {[
                 { id: 'all', label: 'All' },
                 { id: 'my', label: 'My Tasks' },
                 { id: 'team', label: 'Team' },
                 { id: 'today', label: 'Today' },
                 { id: 'week', label: 'This Week' },
-                { id: 'overdue', label: `Overdue ${overdueTasks.length > 0 ? `(${overdueTasks.length})` : ''}` },
+                { id: 'overdue', label: 'Overdue', count: overdueTasks.length },
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setTaskTab(tab.id)}
                   style={{
-                    padding: '8px 14px',
+                    padding: '7px 14px',
                     background: taskTab === tab.id ? t.primary : 'transparent',
                     border: 'none',
                     borderRadius: '8px',
                     color: taskTab === tab.id ? '#fff' : t.textSecondary,
                     fontSize: '12px',
                     fontWeight: taskTab === tab.id ? '600' : '400',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    transition: 'all 0.2s'
                   }}
                 >
                   {tab.label}
+                  {tab.count > 0 && (
+                    <span style={{
+                      padding: '1px 6px',
+                      borderRadius: '8px',
+                      fontSize: '9px',
+                      fontWeight: '700',
+                      background: taskTab === tab.id ? 'rgba(255,255,255,0.25)' : '#ef444425',
+                      color: taskTab === tab.id ? '#fff' : '#ef4444'
+                    }}>{tab.count}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -3758,13 +3884,19 @@ export default function MainApp() {
                 value={projectFilter}
                 onChange={(e) => setProjectFilter(e.target.value)}
                 style={{
-                  padding: '8px 12px',
-                  background: t.bgInput,
+                  padding: '8px 14px',
+                  background: t.bgCard,
                   border: `1px solid ${t.border}`,
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   color: t.text,
                   fontSize: '12px',
-                  outline: 'none'
+                  outline: 'none',
+                  cursor: 'pointer',
+                  appearance: 'none',
+                  paddingRight: '28px',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 10px center'
                 }}
               >
                 <option value="all">All Projects</option>
@@ -4411,57 +4543,72 @@ export default function MainApp() {
       const today = new Date(); today.setHours(0,0,0,0);
       const overdueAssets = activeAssets.filter(a => a.dueDate && new Date(a.dueDate) < today);
       
+      const roleColor = TEAM_ROLES[u.role]?.color || t.primary;
       return (
-        <div key={u.id} style={{ background: t.bgInput, borderRadius: '12px', marginBottom: '12px', overflow: 'hidden', border: `1px solid ${t.border}` }}>
+        <div key={u.id} className="hover-lift hover-glow animate-fadeInUp" style={{ background: t.bgCard, borderRadius: '16px', overflow: 'hidden', border: `1px solid ${t.border}`, transition: 'all 0.25s' }}>
           {/* User Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', borderBottom: userProjects.length > 0 ? '1px solid #1e1e2e' : 'none' }}>
-            <Avatar user={u} size={48} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '2px' }}>{u.name}</div>
-              <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '4px' }}>{u.email}</div>
-              <RoleBadge role={u.role} />
+          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px' }}>
+            <div style={{ position: 'relative' }}>
+              <div style={{ width: '52px', height: '52px', borderRadius: '50%', padding: '2px', background: `linear-gradient(135deg, ${roleColor || t.primary}, ${t.accent || '#8b5cf6'})` }}>
+                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: t.bgCard }}>
+                  <Avatar user={u} size={48} />
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '20px', fontWeight: '700', color: overdueAssets.length > 0 ? '#ef4444' : activeAssets.length > 0 ? '#6366f1' : 'rgba(255,255,255,0.3)' }}>
-                {activeAssets.length}
-              </div>
-              <div style={{ fontSize: '10px', color: t.textMuted }}>
-                {overdueAssets.length > 0 ? `${overdueAssets.length} overdue` : 'active tasks'}
-              </div>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '4px', color: t.text }}>{u.name}</div>
+              <RoleBadge role={u.role} />
+              <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '6px' }}>{u.email}</div>
             </div>
           </div>
-          
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', padding: '12px 16px', borderTop: `1px solid ${t.border}`, borderBottom: `1px solid ${t.border}`, background: `${t.bgTertiary}80` }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: userProjects.length > 0 ? t.primary : 'rgba(255,255,255,0.3)' }}>{userProjects.length}</div>
+              <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Projects</div>
+            </div>
+            <div style={{ width: '1px', background: t.border }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: overdueAssets.length > 0 ? '#ef4444' : activeAssets.length > 0 ? '#6366f1' : 'rgba(255,255,255,0.3)' }}>{activeAssets.length}</div>
+              <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{overdueAssets.length > 0 ? `${overdueAssets.length} overdue` : 'Active'}</div>
+            </div>
+          </div>
+
           {/* Projects */}
           {userProjects.length > 0 && (
-            <div style={{ padding: '12px 16px', background: '#0a0a0f' }}>
-              <div style={{ fontSize: '10px', color: t.textMuted, marginBottom: '8px' }}>ASSIGNED PROJECTS</div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {userProjects.map(p => {
+            <div style={{ padding: '12px 16px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {userProjects.slice(0, 3).map(p => {
                   const pAssets = (p.assets || []).filter(a => !a.deleted && (a.assignedTo === u.id || a.assignedTo === u.email));
                   const pActive = pAssets.filter(a => a.status !== 'delivered' && a.status !== 'approved');
                   return (
-                    <div 
-                      key={p.id} 
+                    <div
+                      key={p.id}
                       onClick={() => { setSelectedProjectId(p.id); setView('projects'); }}
-                      style={{ 
-                        padding: '8px 12px', 
-                        background: t.bgTertiary, 
-                        borderRadius: '8px', 
+                      style={{
+                        padding: '6px 10px',
+                        background: `${t.primary}10`,
+                        borderRadius: '8px',
                         cursor: 'pointer',
-                        border: `1px solid ${t.border}`,
-                        fontSize: '11px',
+                        border: `1px solid ${t.primary}20`,
+                        fontSize: '10px',
+                        color: t.primary,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '6px',
+                        transition: 'background 0.2s'
                       }}
                     >
-                      <span>{p.name}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{p.name}</span>
                       {pActive.length > 0 && (
-                        <span style={{ 
-                          padding: '2px 6px', 
-                          background: '#6366f1', 
-                          borderRadius: '4px', 
-                          fontSize: '9px' 
+                        <span style={{
+                          padding: '1px 5px',
+                          background: t.primary,
+                          borderRadius: '6px',
+                          fontSize: '8px',
+                          color: '#fff',
+                          fontWeight: '600'
                         }}>
                           {pActive.length}
                         </span>
@@ -4469,30 +4616,126 @@ export default function MainApp() {
                     </div>
                   );
                 })}
+                {userProjects.length > 3 && (
+                  <div style={{ padding: '6px 10px', fontSize: '10px', color: t.textMuted }}>+{userProjects.length - 3} more</div>
+                )}
               </div>
             </div>
           )}
+
+          {/* Quick actions on hover - visible via CSS hover */}
+          <div style={{ padding: '0 16px 14px', display: 'flex', gap: '6px', justifyContent: 'center' }}>
+            <button onClick={() => { /* edit handler */ }} style={{ padding: '6px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', fontSize: '10px', color: t.textSecondary, cursor: 'pointer', transition: 'all 0.2s' }}>✏️ Edit</button>
+            <button onClick={() => { setSelectedProjectId(userProjects[0]?.id); if (userProjects[0]) setView('projects'); }} style={{ padding: '6px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', fontSize: '10px', color: t.textSecondary, cursor: 'pointer', transition: 'all 0.2s' }}>📂 Projects</button>
+          </div>
         </div>
       );
     };
 
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Team</h1>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: t.textMuted }}>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>👥 Team</h1>
+            <p style={{ margin: '6px 0 0', fontSize: '13px', color: t.textMuted }}>
               {coreTeam.length + freelancers.length} team members • {clients.length} clients
             </p>
           </div>
-          {isProducer && <Btn theme={theme} onClick={() => setShowAdd(true)}>+ Add</Btn>}
+          {isProducer && (
+            <button onClick={() => setShowAdd(true)} style={{
+              padding: '10px 20px',
+              background: `linear-gradient(135deg, ${t.primary}, ${t.accent || '#8b5cf6'})`,
+              border: 'none',
+              borderRadius: '12px',
+              color: '#fff',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: `0 4px 14px ${t.primary}40`,
+              transition: 'all 0.2s'
+            }}>
+              <span style={{ fontSize: '16px' }}>+</span> Add Member
+            </button>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>{[{ id: 'core', label: '👑 Core', data: coreTeam }, { id: 'freelancers', label: '🎨 Freelancers', data: freelancers }, { id: 'clients', label: '👔 Clients', data: clients }].map(tabItem => <button key={tabItem.id} onClick={() => setTab(tabItem.id)} style={{ padding: '10px 16px', background: tab === tabItem.id ? t.primary : t.bgCard, border: `1px solid ${tab === tabItem.id ? t.primary : t.border}`, borderRadius: '8px', color: tab === tabItem.id ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer' }}>{tabItem.label} ({tabItem.data.length})</button>)}</div>
-        <div>
-          {tab === 'core' && (coreTeam.length ? coreTeam.map(renderUser) : <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '40px', color: t.textMuted, fontSize: '12px' }}>No core team members</div>)}
-          {tab === 'freelancers' && (freelancers.length ? freelancers.map(renderUser) : <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '40px', color: t.textMuted, fontSize: '12px' }}>No freelancers</div>)}
-          {tab === 'clients' && (clients.length ? clients.map(renderUser) : <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '40px', color: t.textMuted, fontSize: '12px' }}>No clients</div>)}
+
+        {/* Search/filter bar */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '20px',
+          alignItems: 'center',
+          background: t.bgCard,
+          borderRadius: '12px',
+          padding: '6px',
+          border: `1px solid ${t.border}`
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flex: 1,
+            padding: '6px 12px',
+            color: t.textMuted,
+            fontSize: '13px'
+          }}>
+            🔍 <span style={{ opacity: 0.6 }}>Search team members...</span>
+          </div>
         </div>
+
+        {/* Section tabs - pill shaped */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: t.bgCard, borderRadius: '14px', padding: '4px', border: `1px solid ${t.border}` }}>
+          {[{ id: 'core', label: 'Core Team', icon: '👑', data: coreTeam }, { id: 'freelancers', label: 'Freelancers', icon: '🎨', data: freelancers }, { id: 'clients', label: 'Clients', icon: '👔', data: clients }].map(tabItem => (
+            <button
+              key={tabItem.id}
+              onClick={() => setTab(tabItem.id)}
+              style={{
+                flex: 1,
+                padding: '10px 16px',
+                background: tab === tabItem.id ? t.primary : 'transparent',
+                border: 'none',
+                borderRadius: '10px',
+                color: tab === tabItem.id ? '#fff' : t.textSecondary,
+                fontSize: '12px',
+                fontWeight: tab === tabItem.id ? '600' : '400',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                transition: 'all 0.2s'
+              }}
+            >
+              {tabItem.icon} {tabItem.label}
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: '10px',
+                fontSize: '10px',
+                fontWeight: '600',
+                background: tab === tabItem.id ? 'rgba(255,255,255,0.2)' : `${t.primary}15`,
+                color: tab === tabItem.id ? '#fff' : t.primary
+              }}>{tabItem.data.length}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Team grid */}
+        <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+          {tab === 'core' && (coreTeam.length ? coreTeam.map(renderUser) : null)}
+          {tab === 'freelancers' && (freelancers.length ? freelancers.map(renderUser) : null)}
+          {tab === 'clients' && (clients.length ? clients.map(renderUser) : null)}
+        </div>
+        {/* Empty state */}
+        {((tab === 'core' && !coreTeam.length) || (tab === 'freelancers' && !freelancers.length) || (tab === 'clients' && !clients.length)) && (
+          <div className="animate-fadeInUp" style={{ background: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, textAlign: 'center', padding: '60px 20px', color: t.textMuted }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>👥</div>
+            <div style={{ fontSize: '15px', fontWeight: '500', marginBottom: '6px', color: t.textSecondary }}>No team members yet</div>
+            <div style={{ fontSize: '12px', color: t.textMuted }}>Add your first {tab === 'core' ? 'core team member' : tab === 'freelancers' ? 'freelancer' : 'client'} to get started</div>
+          </div>
+        )}
         {showAdd && (
           <Modal theme={theme} title="Add Team Member" onClose={() => { setShowAdd(false); setError(''); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'auto' }}>
@@ -4854,20 +5097,31 @@ export default function MainApp() {
       byProject[a.projectId].assets.push(a);
     });
     
+    const fileTypeIcon = (type) => type === 'image' ? '🖼️' : type === 'video' ? '🎬' : '📄';
+
     return (
       <div>
-        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>📥 Download Center</h1>
-            <p style={{ fontSize: '12px', color: t.textMuted, margin: '4px 0 0' }}>{approvedAssets.length} approved assets ready for download</p>
+            <h1 style={{ fontSize: '24px', fontWeight: '700', margin: 0, color: t.text }}>📥 Download Center</h1>
+            <p style={{ fontSize: '13px', color: t.textMuted, margin: '6px 0 0' }}>{approvedAssets.length} approved assets ready for download</p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={selectAll} style={{ padding: '8px 16px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '12px', cursor: 'pointer' }}>
+            <button onClick={selectAll} style={{
+              padding: '10px 18px',
+              background: t.bgCard,
+              border: `1px solid ${t.border}`,
+              borderRadius: '10px',
+              color: t.text,
+              fontSize: '12px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              transition: 'all 0.2s'
+            }}>
               {selectedForDownload.size === approvedAssets.length ? '☐ Deselect All' : '☑️ Select All'}
             </button>
             {selectedForDownload.size > 0 && (
               <button onClick={() => {
-                // Download selected files
                 const assetsToDownload = approvedAssets.filter(a => selectedForDownload.has(a.id));
                 assetsToDownload.forEach(asset => {
                   const link = document.createElement('a');
@@ -4879,56 +5133,92 @@ export default function MainApp() {
                   document.body.removeChild(link);
                 });
                 showToast(`Downloading ${assetsToDownload.length} files...`, 'success');
-              }} style={{ padding: '8px 16px', background: '#22c55e', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
+              }} style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#fff',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                boxShadow: '0 4px 12px rgba(34,197,94,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
                 ⬇️ Download ({selectedForDownload.size})
               </button>
             )}
           </div>
         </div>
-        
+
         {Object.keys(byProject).length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
-            <p style={{ margin: 0 }}>No approved assets available yet</p>
+          <div className="animate-fadeInUp" style={{ textAlign: 'center', padding: '80px 20px', color: t.textMuted, background: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: '56px', marginBottom: '16px', opacity: 0.5 }}>📭</div>
+            <div style={{ fontSize: '16px', fontWeight: '500', color: t.textSecondary, marginBottom: '6px' }}>No approved assets available yet</div>
+            <div style={{ fontSize: '12px', color: t.textMuted }}>Assets will appear here once they are approved</div>
           </div>
         ) : (
           Object.entries(byProject).map(([projectId, data]) => (
-            <div key={projectId} style={{ background: t.bgCard, borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>{data.name}</h3>
-                <span style={{ fontSize: '11px', color: t.textMuted }}>{data.assets.length} files</span>
+            <div key={projectId} style={{ background: t.bgCard, borderRadius: '16px', padding: '20px', marginBottom: '20px', border: `1px solid ${t.border}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: t.text }}>{data.name}</h3>
+                <span style={{
+                  fontSize: '11px',
+                  color: t.primary,
+                  background: `${t.primary}12`,
+                  padding: '4px 10px',
+                  borderRadius: '8px',
+                  fontWeight: '500'
+                }}>{data.assets.length} files</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
+              <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px' }}>
                 {data.assets.map(asset => (
-                  <div key={asset.id} onClick={() => toggleSelect(asset.id)} style={{ 
-                    background: t.bgInput, 
-                    borderRadius: '10px', 
-                    overflow: 'hidden', 
+                  <div key={asset.id} className="hover-lift" onClick={() => toggleSelect(asset.id)} style={{
+                    background: t.bgInput,
+                    borderRadius: '12px',
+                    overflow: 'hidden',
                     cursor: 'pointer',
-                    border: selectedForDownload.has(asset.id) ? '2px solid #22c55e' : '1px solid transparent',
-                    transition: 'border 0.2s'
+                    border: selectedForDownload.has(asset.id) ? '2px solid #22c55e' : `1px solid ${t.border}`,
+                    transition: 'all 0.2s'
                   }}>
                     <div style={{ aspectRatio: '4/3', background: t.bgTertiary, position: 'relative' }}>
                       {asset.type === 'image' ? (
                         <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px' }}>{asset.type === 'video' ? '🎬' : '📄'}</div>
+                        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '36px' }}>{fileTypeIcon(asset.type)}</span>
+                          <span style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase' }}>{asset.type || 'file'}</span>
+                        </div>
                       )}
                       {selectedForDownload.has(asset.id) && (
-                        <div style={{ position: 'absolute', top: '6px', right: '6px', width: '20px', height: '20px', borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✓</div>
+                        <div style={{ position: 'absolute', top: '8px', right: '8px', width: '22px', height: '22px', borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#fff', boxShadow: '0 2px 6px rgba(34,197,94,0.4)' }}>✓</div>
                       )}
                       {asset.highResFiles?.length > 0 && (
-                        <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: '#22c55e', borderRadius: '4px', padding: '2px 6px', fontSize: '8px', fontWeight: '600' }}>HD</div>
+                        <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', borderRadius: '4px', padding: '2px 8px', fontSize: '8px', fontWeight: '700', color: '#fff', letterSpacing: '0.5px' }}>HD</div>
                       )}
                     </div>
-                    <div style={{ padding: '8px' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</div>
-                      <div style={{ fontSize: '9px', color: t.textMuted, marginTop: '2px' }}>v{asset.currentVersion} • {formatFileSize(asset.fileSize)}</div>
+                    <div style={{ padding: '10px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{asset.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '10px', color: t.textMuted }}>{fileTypeIcon(asset.type)}</span>
+                        <span style={{ fontSize: '9px', color: t.textMuted }}>v{asset.currentVersion} • {formatFileSize(asset.fileSize)}</span>
+                      </div>
                       {asset.highResFiles?.length > 0 && (
-                        <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
                           {asset.highResFiles.map((f, i) => (
-                            <a key={i} href={f.url} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: '2px 6px', background: 'rgba(34,197,94,0.2)', borderRadius: '4px', fontSize: '8px', color: '#22c55e', textDecoration: 'none' }}>
-                              {f.formatLabel?.split(' ')[0] || f.format}
+                            <a key={i} href={f.url} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{
+                              padding: '3px 8px',
+                              background: 'rgba(34,197,94,0.15)',
+                              borderRadius: '6px',
+                              fontSize: '9px',
+                              color: '#22c55e',
+                              textDecoration: 'none',
+                              fontWeight: '500',
+                              transition: 'background 0.2s'
+                            }}>
+                              ⬇ {f.formatLabel?.split(' ')[0] || f.format}
                             </a>
                           ))}
                         </div>
