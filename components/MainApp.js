@@ -394,21 +394,26 @@ const getProjectNotifs = (project) => {
 };
 
 // Full Screen Image/Video Modal
-const Modal = ({ title, onClose, children, wide, theme = 'dark' }) => {
+const Modal = ({ title, onClose, children, wide, size, theme = 'dark' }) => {
   const t = THEMES[theme];
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
-  useEffect(() => { 
+  useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
+  const sizeMap = { sm: '420px', md: '550px', lg: '800px', xl: '1200px', full: '95vw' };
+  const resolvedSize = size || (wide ? 'xl' : 'md');
+  const maxW = sizeMap[resolvedSize] || sizeMap.md;
+  const isLarge = resolvedSize === 'xl' || resolvedSize === 'full' || resolvedSize === 'lg';
+  const isDark = theme === 'dark';
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px', backdropFilter: 'blur(4px)' }} onClick={onClose}>
-      <div style={{ background: t.modalBg, borderRadius: isMobile ? 0 : '16px', border: isMobile ? 'none' : `1px solid ${t.border}`, width: '100%', maxWidth: isMobile ? '100%' : (wide ? '1200px' : '550px'), height: isMobile ? '100%' : (wide ? '85vh' : 'auto'), maxHeight: isMobile ? '100%' : '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: t.shadow }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: `1px solid ${t.border}`, background: t.bgTertiary, flexShrink: 0 }}>
+    <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px', backdropFilter: 'blur(8px)' }} onClick={onClose}>
+      <div className="modal-content" style={{ background: t.modalBg, borderRadius: isMobile ? 0 : '16px', border: isMobile ? 'none' : `1px solid ${t.border}`, width: '100%', maxWidth: isMobile ? '100%' : maxW, height: isMobile ? '100%' : (isLarge ? '85vh' : 'auto'), maxHeight: isMobile ? '100%' : '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5)' : '0 25px 60px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.1)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: `1px solid ${t.border}`, background: isDark ? 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 100%)' : 'linear-gradient(135deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0.03) 100%)', flexShrink: 0 }}>
           <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px', color: t.text }}>{title}</h3>
-          <button onClick={onClose} style={{ background: t.bgCard, border: `1px solid ${t.border}`, color: t.textSecondary, width: '32px', height: '32px', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.close(t.textSecondary)}</button>
+          <button onClick={onClose} style={{ background: 'rgba(128,128,128,0.15)', border: 'none', backdropFilter: 'blur(8px)', color: t.textSecondary, width: '32px', height: '32px', borderRadius: '50%', fontSize: '16px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(128,128,128,0.3)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(128,128,128,0.15)'}>{Icons.close(t.textSecondary)}</button>
         </div>
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: t.bgSecondary }}>{children}</div>
       </div>
@@ -649,7 +654,21 @@ const sendEmailNotification = async (to, subject, body, type = 'default', data =
   }
 };
 
-const Toast = ({ message, type, onClose }) => { useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]); return <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', padding: '14px 24px', background: type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '500', zIndex: 2000, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>{message}</div>; };
+const Toast = ({ message, type, onClose }) => {
+  const duration = 3500;
+  useEffect(() => { const t = setTimeout(onClose, duration); return () => clearTimeout(t); }, [onClose]);
+  const colorMap = { success: '#22c55e', error: '#ef4444', info: '#3b82f6', warning: '#f59e0b' };
+  const bg = colorMap[type] || colorMap.info;
+  const iconEl = type === 'success' ? Icons.check('#fff') : type === 'error' ? Icons.close('#fff') : type === 'warning' ? Icons.alert('#fff') : Icons.alert('#fff');
+  return (
+    <div className="animate-slideInRight" style={{ position: 'fixed', top: '20px', right: '20px', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', background: bg, borderRadius: '12px', color: '#fff', fontSize: '13px', fontWeight: '500', zIndex: 2000, boxShadow: '0 8px 30px rgba(0,0,0,0.35)', minWidth: '260px', maxWidth: '400px', overflow: 'hidden' }}>
+      <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{iconEl}</span>
+      <span style={{ flex: 1 }}>{message}</span>
+      <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>{Icons.close('#fff')}</button>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: 'rgba(255,255,255,0.3)', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}><div style={{ height: '100%', background: 'rgba(255,255,255,0.7)', animation: `toastProgress ${duration}ms linear forwards`, width: '100%' }} /></div>
+    </div>
+  );
+};
 const Btn = ({ children, onClick, color = '#6366f1', disabled, small, outline, theme = 'dark' }) => {
   const t = THEMES[theme];
   return <button onClick={onClick} disabled={disabled} style={{ padding: small ? '8px 14px' : '10px 18px', background: outline ? 'transparent' : color, border: outline ? `1px solid ${color}` : 'none', borderRadius: '8px', color: outline ? color : '#fff', fontSize: small ? '11px' : '13px', fontWeight: '500', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s' }}>{children}</button>;
