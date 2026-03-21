@@ -4,6 +4,61 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import Logo from './Logo';
 
+const INPUT_STYLE = {
+  width: '100%',
+  padding: '14px 14px 14px 44px',
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '10px',
+  color: '#fff',
+  fontSize: '14px',
+  outline: 'none',
+  transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+  boxSizing: 'border-box',
+};
+
+const envelopeIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="M22 4L12 13L2 4" />
+  </svg>
+);
+
+const lockIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0110 0v4" />
+  </svg>
+);
+
+const errorIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
+const iconWrapStyle = {
+  position: 'absolute',
+  left: '14px',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  alignItems: 'center',
+  pointerEvents: 'none',
+};
+
+const handleFocus = (e) => {
+  e.target.style.borderColor = 'rgba(99,102,241,0.6)';
+  e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)';
+};
+
+const handleBlur = (e) => {
+  e.target.style.borderColor = 'rgba(255,255,255,0.08)';
+  e.target.style.boxShadow = 'none';
+};
+
 export default function LoginPage() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
@@ -41,58 +96,6 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  // Envelope icon SVG
-  const EnvelopeIcon = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M22 4L12 13L2 4" />
-    </svg>
-  );
-
-  // Lock icon SVG
-  const LockIcon = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0110 0v4" />
-    </svg>
-  );
-
-  // Eye icon SVG
-  const EyeIcon = ({ off }) => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-      {off && <line x1="1" y1="1" x2="23" y2="23" />}
-    </svg>
-  );
-
-  // Error icon SVG
-  const ErrorIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-
-  const inputStyle = {
-    width: '100%',
-    padding: '14px 14px 14px 44px',
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '10px',
-    color: '#fff',
-    fontSize: '14px',
-    outline: 'none',
-    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-    boxSizing: 'border-box',
-  };
-
-  const inputFocusGlow = {
-    borderColor: 'rgba(99,102,241,0.6)',
-    boxShadow: '0 0 0 3px rgba(99,102,241,0.15)',
-  };
-
   return (
     <div style={{
       display: 'flex',
@@ -128,9 +131,9 @@ export default function LoginPage() {
             pointerEvents: 'none',
             animation: 'grain 8s steps(10) infinite',
           }} />
-          <div style={{ position: 'absolute', top: '15%', left: '10%', width: '80px', height: '80px', border: '1px solid rgba(99,102,241,0.1)', borderRadius: '16px', transform: 'rotate(15deg)', animation: 'fadeIn 2s ease forwards' }} />
-          <div style={{ position: 'absolute', bottom: '20%', right: '15%', width: '60px', height: '60px', border: '1px solid rgba(168,85,247,0.08)', borderRadius: '50%', animation: 'fadeIn 2.5s ease forwards' }} />
-          <div style={{ position: 'absolute', top: '60%', left: '18%', width: '40px', height: '40px', border: '1px solid rgba(99,102,241,0.06)', borderRadius: '8px', transform: 'rotate(-20deg)', animation: 'fadeIn 3s ease forwards' }} />
+          <div style={{ position: 'absolute', top: '15%', left: '10%', width: '80px', height: '80px', border: '1px solid rgba(99,102,241,0.1)', borderRadius: '16px', transform: 'rotate(15deg)' }} />
+          <div style={{ position: 'absolute', bottom: '20%', right: '15%', width: '60px', height: '60px', border: '1px solid rgba(168,85,247,0.08)', borderRadius: '50%' }} />
+          <div style={{ position: 'absolute', top: '60%', left: '18%', width: '40px', height: '40px', border: '1px solid rgba(99,102,241,0.06)', borderRadius: '8px', transform: 'rotate(-20deg)' }} />
           <div style={{
             position: 'relative',
             zIndex: 1,
@@ -138,9 +141,8 @@ export default function LoginPage() {
             flexDirection: 'column',
             alignItems: 'center',
             gap: '24px',
-            animation: 'fadeIn 0.8s ease forwards',
           }}>
-            <Logo variant="full" size={60} animated theme="dark" />
+            <Logo variant="full" size={60} theme="dark" />
             <p style={{
               color: 'rgba(255,255,255,0.35)',
               fontSize: '13px',
@@ -155,7 +157,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* Form panel (desktop right side / mobile full) */}
+      {/* Form panel */}
       <div style={{
         width: isMobile ? '100%' : '45%',
         minHeight: '100vh',
@@ -169,19 +171,15 @@ export default function LoginPage() {
         position: 'relative',
         overflow: 'hidden',
       }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '380px',
-        }}>
+        <div style={{ width: '100%', maxWidth: '380px' }}>
           {isMobile && (
             <div style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               marginBottom: '36px',
-              animation: 'fadeIn 0.6s ease forwards',
             }}>
-              <Logo variant="icon" size={48} animated theme="dark" />
+              <Logo variant="icon" size={48} theme="dark" />
               <div style={{
                 marginTop: '12px',
                 fontSize: '22px',
@@ -204,13 +202,12 @@ export default function LoginPage() {
             </div>
           )}
 
-          <div className="stagger-children" style={{ marginBottom: '32px' }}>
+          <div style={{ marginBottom: '32px' }}>
             <h1 style={{
               fontSize: '28px',
               fontWeight: 700,
               color: '#fff',
               margin: '0 0 8px 0',
-              animation: 'fadeInUp 0.5s ease both',
             }}>
               Welcome back
             </h1>
@@ -218,178 +215,138 @@ export default function LoginPage() {
               fontSize: '14px',
               color: 'rgba(255,255,255,0.4)',
               margin: 0,
-              animation: 'fadeInUp 0.5s ease both',
             }}>
               Sign in to your account
             </p>
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div className="stagger-children">
-              <div style={{ marginBottom: '16px', animation: 'fadeInUp 0.5s ease both' }}>
-                <label style={{
-                  display: 'block',
-                  fontSize: '12px',
-                  color: 'rgba(255,255,255,0.5)',
-                  marginBottom: '6px',
-                  fontWeight: 500,
-                }}>Email</label>
-                <div style={{ position: 'relative' }}>
-                  <div style={{
-                    position: 'absolute',
-                    left: '14px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    pointerEvents: 'none',
-                  }}>
-                    <EnvelopeIcon />
-                  </div>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    style={inputStyle}
-                    placeholder="you@example.com"
-                    required
-                    onFocus={(e) => Object.assign(e.target.style, inputFocusGlow)}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = 'rgba(255,255,255,0.08)';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                </div>
+            {/* Email field */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '12px',
+                color: 'rgba(255,255,255,0.5)',
+                marginBottom: '6px',
+                fontWeight: 500,
+              }}>Email</label>
+              <div style={{ position: 'relative' }}>
+                <div style={iconWrapStyle}>{envelopeIcon}</div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={INPUT_STYLE}
+                  placeholder="you@example.com"
+                  required
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                />
               </div>
+            </div>
 
-              <div style={{ marginBottom: '20px', animation: 'fadeInUp 0.5s ease both' }}>
-                <label style={{
-                  display: 'block',
-                  fontSize: '12px',
-                  color: 'rgba(255,255,255,0.5)',
-                  marginBottom: '6px',
-                  fontWeight: 500,
-                }}>Password</label>
-                <div style={{ position: 'relative' }}>
-                  <div style={{
-                    position: 'absolute',
-                    left: '14px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    pointerEvents: 'none',
-                  }}>
-                    <LockIcon />
-                  </div>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{ ...inputStyle, paddingRight: '44px' }}
-                    placeholder="Enter your password"
-                    required
-                    onFocus={(e) => Object.assign(e.target.style, inputFocusGlow)}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = 'rgba(255,255,255,0.08)';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                    tabIndex={-1}
-                  >
-                    <EyeIcon off={showPassword} />
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '12px 14px',
-                  background: 'rgba(239,68,68,0.08)',
-                  border: '1px solid rgba(239,68,68,0.2)',
-                  borderRadius: '10px',
-                  marginBottom: '20px',
-                  animation: 'scaleIn 0.3s ease forwards',
-                }}>
-                  <ErrorIcon />
-                  <span style={{ color: '#f87171', fontSize: '13px' }}>{error}</span>
-                </div>
-              )}
-
-              <div style={{ animation: 'fadeInUp 0.5s ease both' }}>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading ? 0.6 : 1,
-                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                    boxSizing: 'border-box',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!loading) {
-                      e.target.style.transform = 'scale(1.02)';
-                      e.target.style.boxShadow = '0 0 24px rgba(99,102,241,0.4)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'scale(1)';
-                    e.target.style.boxShadow = 'none';
-                  }}
-                >
-                  {loading ? 'Signing in...' : 'Sign In'}
-                </button>
-              </div>
-
-              <div style={{
-                textAlign: 'center',
-                marginTop: '16px',
-                animation: 'fadeInUp 0.5s ease both',
-              }}>
+            {/* Password field */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '12px',
+                color: 'rgba(255,255,255,0.5)',
+                marginBottom: '6px',
+                fontWeight: 500,
+              }}>Password</label>
+              <div style={{ position: 'relative' }}>
+                <div style={iconWrapStyle}>{lockIcon}</div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ ...INPUT_STYLE, paddingRight: '44px' }}
+                  placeholder="Enter your password"
+                  required
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                />
                 <button
                   type="button"
+                  onClick={() => setShowPassword(!showPassword)}
                   style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
                     background: 'none',
                     border: 'none',
-                    color: 'rgba(99,102,241,0.7)',
-                    fontSize: '13px',
                     cursor: 'pointer',
-                    padding: 0,
-                    transition: 'color 0.2s ease',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
-                  onMouseEnter={(e) => { e.target.style.color = '#6366f1'; }}
-                  onMouseLeave={(e) => { e.target.style.color = 'rgba(99,102,241,0.7)'; }}
-                  onClick={() => {}}
+                  tabIndex={-1}
                 >
-                  Forgot password?
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                    {showPassword && <line x1="1" y1="1" x2="23" y2="23" />}
+                  </svg>
                 </button>
               </div>
+            </div>
+
+            {/* Error message */}
+            {error && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 14px',
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.2)',
+                borderRadius: '10px',
+                marginBottom: '20px',
+              }}>
+                {errorIcon}
+                <span style={{ color: '#f87171', fontSize: '13px' }}>{error}</span>
+              </div>
+            )}
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                boxSizing: 'border-box',
+              }}
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+
+            {/* Forgot password link */}
+            <div style={{ textAlign: 'center', marginTop: '16px' }}>
+              <button
+                type="button"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(99,102,241,0.7)',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+                onClick={() => {}}
+              >
+                Forgot password?
+              </button>
             </div>
           </form>
 
@@ -398,7 +355,6 @@ export default function LoginPage() {
             fontSize: '12px',
             color: 'rgba(255,255,255,0.25)',
             marginTop: '40px',
-            animation: 'fadeIn 1s ease forwards',
           }}>
             Contact your admin if you don&apos;t have an account
           </p>
