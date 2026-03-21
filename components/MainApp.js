@@ -1419,19 +1419,19 @@ export default function MainApp() {
     return (
       <div style={{ position: 'relative' }}>
         {/* Bell Icon */}
-        <button 
+        <button
           onClick={() => setShowNotifications(!showNotifications)}
-          style={{ 
-            position: 'relative', 
-            background: 'transparent', 
-            border: 'none', 
-            cursor: 'pointer', 
+          style={{
+            position: 'relative',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
             padding: '8px',
             borderRadius: '8px',
             transition: 'background 0.2s'
           }}
         >
-          <span style={{ fontSize: '18px' }}>🔔</span>
+          {Icons.bell(t.textSecondary)}
           {unreadCount > 0 && (
             <span style={{
               position: 'absolute',
@@ -1454,33 +1454,33 @@ export default function MainApp() {
         {/* Dropdown Panel */}
         {showNotifications && (
           <>
-            <div onClick={() => setShowNotifications(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
-            <div style={{
+            <div className="modal-backdrop" onClick={() => setShowNotifications(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+            <div className="modal-content" style={{
               position: 'fixed',
               top: isMobile ? '60px' : '50px',
-              left: isMobile ? '10px' : '210px',
-              right: isMobile ? '10px' : 'auto',
+              left: isMobile ? '10px' : 'auto',
+              right: isMobile ? '10px' : '24px',
               width: isMobile ? 'auto' : '360px',
               maxHeight: '480px',
-              background: '#1a1a2e',
+              background: t.bgSecondary,
               border: `1px solid ${t.border}`,
               borderRadius: '12px',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
               zIndex: 200,
               overflow: 'hidden'
             }}>
               {/* Header */}
-              <div style={{ 
-                padding: '14px 16px', 
-                borderBottom: '1px solid #2a2a3e', 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center' 
+              <div style={{
+                padding: '14px 16px',
+                borderBottom: `1px solid ${t.border}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
               }}>
-                <span style={{ fontWeight: '600', fontSize: '14px' }}>Notifications</span>
+                <span style={{ fontWeight: '600', fontSize: '14px', color: t.text }}>Notifications</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {unreadCount > 0 && (
-                    <button onClick={markAllAsRead} style={{ background: 'transparent', border: 'none', color: '#6366f1', fontSize: '11px', cursor: 'pointer' }}>
+                    <button onClick={markAllAsRead} style={{ background: 'transparent', border: 'none', color: t.primary, fontSize: '11px', cursor: 'pointer' }}>
                       Mark all read
                     </button>
                   )}
@@ -1496,7 +1496,7 @@ export default function MainApp() {
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {notifications.length === 0 ? (
                   <div style={{ padding: '40px 20px', textAlign: 'center', color: t.textMuted }}>
-                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔕</div>
+                    <div style={{ marginBottom: '10px', opacity: 0.4 }}>{Icons.bell(t.textMuted)}</div>
                     <div style={{ fontSize: '13px' }}>No notifications</div>
                   </div>
                 ) : (
@@ -1523,9 +1523,9 @@ export default function MainApp() {
                       }}
                       style={{
                         padding: '12px 16px',
-                        borderBottom: '1px solid #2a2a3e',
+                        borderBottom: `1px solid ${t.border}`,
                         cursor: 'pointer',
-                        background: notif.read ? 'transparent' : 'rgba(99,102,241,0.08)',
+                        background: notif.read ? 'transparent' : `${t.primary}12`,
                         transition: 'background 0.2s'
                       }}
                     >
@@ -1548,12 +1548,12 @@ export default function MainApp() {
                           }}>
                             {notif.message}
                           </div>
-                          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
+                          <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px' }}>
                             {formatTimeAgo(notif.timestamp)}
                           </div>
                         </div>
                         {!notif.read && (
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1', flexShrink: 0, marginTop: '6px' }} />
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: t.primary, flexShrink: 0, marginTop: '6px' }} />
                         )}
                       </div>
                     </div>
@@ -1598,11 +1598,11 @@ export default function MainApp() {
     if (!showGlobalSearch) return null;
     
     return (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1100, display: 'flex', justifyContent: 'center', paddingTop: '100px' }} onClick={() => { setShowGlobalSearch(false); setGlobalSearchQuery(''); }}>
-        <div style={{ width: '600px', maxWidth: '90vw', background: t.bgTertiary, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1100, display: 'flex', justifyContent: 'center', paddingTop: '100px' }} onClick={() => { setShowGlobalSearch(false); setGlobalSearchQuery(''); }}>
+        <div className="modal-content" style={{ width: '600px', maxWidth: '90vw', background: t.bgSecondary, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
           {/* Search Input */}
           <div style={{ padding: '16px', borderBottom: `1px solid ${t.border}`, display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <span style={{ fontSize: '20px' }}>🔍</span>
+            {Icons.search(t.textMuted)}
             <input
               ref={searchInputRef}
               type="text"
@@ -1706,7 +1706,7 @@ export default function MainApp() {
                 {/* No Results */}
                 {searchResults.projects.length === 0 && searchResults.assets.length === 0 && searchResults.team.length === 0 && (
                   <div style={{ padding: '40px', textAlign: 'center', color: t.textMuted }}>
-                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔍</div>
+                    <div style={{ marginBottom: '10px', opacity: 0.4 }}>{Icons.search(t.textMuted)}</div>
                     <div style={{ fontSize: '14px' }}>No results for "{globalSearchQuery}"</div>
                   </div>
                 )}
@@ -7887,24 +7887,8 @@ export default function MainApp() {
   // Main Render
   return (
     <div style={{ minHeight: '100vh', background: t.bgInput, color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      {/* Global CSS for animations */}
+      {/* Global CSS for hover rules */}
       <style>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        .fade-in { animation: fadeIn 0.3s ease-out; }
         .asset-card:hover .card-delete-btn { opacity: 1 !important; }
       `}</style>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -8024,14 +8008,102 @@ export default function MainApp() {
       )}
       
       <Sidebar />
-      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '60px' : '200px'), padding: isMobile ? '60px 16px 16px' : '24px', background: t.bg, minHeight: '100vh', transition: 'margin-left 0.2s ease' }}>
-        {view === 'dashboard' && <Dashboard />}
-        {view === 'tasks' && <TasksView />}
-        {view === 'projects' && !selectedProjectId && <ProjectsList />}
-        {view === 'projects' && selectedProjectId && <ProjectDetail />}
-        {view === 'calendar' && <CalendarView />}
-        {view === 'team' && <TeamManagement />}
-        {view === 'downloads' && <DownloadsView />}
+      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '60px' : '200px'), background: t.bg, minHeight: '100vh', transition: 'margin-left 0.2s ease' }}>
+        {/* Top Header Bar */}
+        <header style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          height: '56px',
+          background: t.bg,
+          borderBottom: `1px solid ${t.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 24px',
+          backdropFilter: 'blur(12px)',
+        }}>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+            <span style={{ color: t.text, fontWeight: '600' }}>
+              {view === 'dashboard' ? 'Dashboard' :
+               view === 'tasks' ? 'My Tasks' :
+               view === 'projects' ? 'Projects' :
+               view === 'calendar' ? 'Calendar' :
+               view === 'team' ? 'Team' :
+               view === 'downloads' ? 'Downloads' : ''}
+            </span>
+            {view === 'projects' && selectedProjectId && selectedProject && (
+              <>
+                <span style={{ color: t.textMuted }}>{Icons.chevronRight(t.textMuted)}</span>
+                <span style={{ color: t.textSecondary, fontWeight: '500' }}>{selectedProject.name}</span>
+              </>
+            )}
+          </div>
+
+          {/* Right side actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {/* Search trigger */}
+            <button
+              onClick={() => setShowGlobalSearch(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: t.bgInput,
+                border: `1px solid ${t.border}`,
+                borderRadius: '8px',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                color: t.textMuted,
+                fontSize: '13px',
+                transition: 'border-color 0.2s',
+              }}
+            >
+              {Icons.search(t.textMuted)}
+              <span>Search</span>
+              <span style={{ fontSize: '10px', background: t.bgTertiary, padding: '2px 6px', borderRadius: '4px', fontWeight: '600', color: t.textSecondary }}>
+                {navigator?.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}K
+              </span>
+            </button>
+
+            {/* Notification bell */}
+            <NotificationPanel />
+
+            {/* Theme toggle */}
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'background 0.2s',
+              }}
+            >
+              {theme === 'dark' ? Icons.sun(t.textSecondary) : Icons.moon(t.textSecondary)}
+            </button>
+
+            {/* User avatar */}
+            <div style={{ marginLeft: '4px' }}>
+              <Avatar user={userProfile} size={32} />
+            </div>
+          </div>
+        </header>
+
+        {/* Content with page transition */}
+        <div key={view + (selectedProjectId || '')} className="animate-fadeIn" style={{ padding: isMobile ? '16px' : '24px' }}>
+          {view === 'dashboard' && <Dashboard />}
+          {view === 'tasks' && <TasksView />}
+          {view === 'projects' && !selectedProjectId && <ProjectsList />}
+          {view === 'projects' && selectedProjectId && <ProjectDetail />}
+          {view === 'calendar' && <CalendarView />}
+          {view === 'team' && <TeamManagement />}
+          {view === 'downloads' && <DownloadsView />}
+        </div>
       </div>
     </div>
   );
