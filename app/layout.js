@@ -4,6 +4,9 @@ import { AuthProvider } from '@/lib/auth-context';
 export const metadata = {
   title: 'Anandi Productions',
   description: 'Production Management System',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({ children }) {
