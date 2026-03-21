@@ -4224,16 +4224,32 @@ export default function MainApp() {
       }
     };
 
+    const typeGradients = {
+      'photoshoot': 'linear-gradient(135deg, #ec489930, #a855f720)',
+      'ad-film': 'linear-gradient(135deg, #f9731630, #ef444420)',
+      'product-video': 'linear-gradient(135deg, #3b82f630, #06b6d420)',
+      'toolkit': 'linear-gradient(135deg, #6366f130, #a855f720)',
+      'social-media': 'linear-gradient(135deg, #ec489930, #f9731620)',
+      'corporate': 'linear-gradient(135deg, #64748b30, #3b82f620)',
+      'music-video': 'linear-gradient(135deg, #a855f730, #ec489920)',
+      'brand-film': 'linear-gradient(135deg, #f97316, #ef444420)',
+      'reels': 'linear-gradient(135deg, #f43f5e30, #a855f720)',
+      'ecommerce': 'linear-gradient(135deg, #10b98130, #3b82f620)',
+      'event': 'linear-gradient(135deg, #fbbf2430, #f9731620)',
+      'documentary': 'linear-gradient(135deg, #78716c30, #a855f720)',
+    };
+    const typeIcons = { 'photoshoot': '📸', 'ad-film': '🎬', 'toolkit': '🧰', 'product-video': '📦', 'social-media': '📱', 'corporate': '🏢', 'music-video': '🎵', 'brand-film': '🎯', 'reels': '🎞️', 'ecommerce': '🛒', 'event': '🎪', 'documentary': '📽️' };
+
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Projects</h1>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <Input theme={theme} value={search} onChange={setSearch} placeholder="🔍 Search..." style={{ width: isMobile ? '140px' : '180px' }} />
             {isProducer && <Btn theme={theme} onClick={() => setShowCreate(true)}>+ New</Btn>}
           </div>
         </div>
-        
+
         {/* Active / Completed Tabs */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           <button onClick={() => setProjectTab('active')} style={{ padding: '10px 20px', background: projectTab === 'active' ? t.primary : t.bgCard, border: `1px solid ${projectTab === 'active' ? t.primary : t.border}`, borderRadius: '8px', color: projectTab === 'active' ? '#fff' : t.textSecondary, fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -4243,52 +4259,99 @@ export default function MainApp() {
             ✅ Completed <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px' }}>{completedProjects.length}</span>
           </button>
         </div>
-        
+
         {displayProjects.length === 0 ? (
-          <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '60px 20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '50px', marginBottom: '16px' }}>{projectTab === 'active' ? '📁' : '✅'}</div>
-            <h3 style={{ marginBottom: '8px', fontSize: '16px' }}>{projectTab === 'active' ? 'No Active Projects' : 'No Completed Projects'}</h3>
-            <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '20px' }}>{projectTab === 'active' ? 'Create your first project' : 'Complete a project to see it here'}</p>
-            {isProducer && projectTab === 'active' && <Btn theme={theme} onClick={() => setShowCreate(true)}>+ Create Project</Btn>}
+          <div className="animate-fadeIn" style={{ background: t.bgTertiary, borderRadius: '16px', border: `1px solid ${t.border}`, padding: '80px 20px', textAlign: 'center' }}>
+            <div style={{ width: '64px', height: '64px', margin: '0 auto 20px', background: `${t.primary}15`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {Icons.folder(t.textMuted)}
+            </div>
+            <h3 style={{ marginBottom: '8px', fontSize: '18px', fontWeight: '600' }}>{projectTab === 'active' ? 'No projects yet' : 'No Completed Projects'}</h3>
+            <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '24px', maxWidth: '300px', margin: '0 auto 24px' }}>{projectTab === 'active' ? 'Create your first project to get started with production management' : 'Complete a project to see it here'}</p>
+            {isProducer && projectTab === 'active' && <Btn theme={theme} onClick={() => setShowCreate(true)}>+ Create your first project</Btn>}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+          <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
             {displayProjects.map(p => {
               const cnt = p.assets?.filter(a => !a.deleted).length || 0;
               const approved = p.assets?.filter(a => !a.deleted && ['approved', 'delivered'].includes(a.status)).length || 0;
               const notifs = getProjectNotifs(p);
               const totalNotifs = notifs.pendingReview + notifs.newFeedback + notifs.changesRequested + notifs.newVersions;
-              
+              const teamMembers = (p.assignedTeam || []).map(tm => users.find(u => u.id === tm.odId)).filter(Boolean);
+              const progressPct = cnt ? Math.round((approved / cnt) * 100) : 0;
+              const firstThumb = p.assets?.find(a => !a.deleted && a.type === 'image' && a.thumbnailUrl);
+
               return (
-                <div key={p.id} onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: t.bgTertiary, borderRadius: '12px', border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : `1px solid ${t.border}`, padding: '18px', cursor: 'pointer', position: 'relative' }}>
-                  {totalNotifs > 0 && (
-                    <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '22px', height: '22px', background: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', border: `2px solid ${t.bgSecondary}`, color: '#fff' }}>{totalNotifs}</div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <div><div style={{ fontWeight: '600', fontSize: '15px', color: t.text }}>{p.name}</div><div style={{ fontSize: '12px', color: t.textMuted, marginTop: '2px' }}>{p.client}</div></div>
+                <div key={p.id} className="hover-lift hover-glow animate-fadeInUp" onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: t.bgTertiary, borderRadius: '14px', border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : `1px solid ${t.border}`, cursor: 'pointer', position: 'relative', overflow: 'hidden', transition: 'all 0.2s ease' }}>
+                  {/* Gradient Top Area */}
+                  <div style={{ height: '120px', background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : (typeGradients[p.type] || typeGradients['photoshoot']), position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {!firstThumb && <span style={{ fontSize: '36px', opacity: 0.5 }}>{typeIcons[p.type] || '📁'}</span>}
+                    {/* Status chip top-right */}
+                    <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
+                      <Badge status={p.status} />
+                    </div>
+                    {/* Notification dots top-left */}
+                    {totalNotifs > 0 && (
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        {notifs.pendingReview > 0 && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a855f7', boxShadow: '0 0 6px #a855f7' }} title="Pending reviews" />}
+                        {notifs.newFeedback > 0 && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} title="New feedback" />}
+                        {notifs.changesRequested > 0 && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f97316', boxShadow: '0 0 6px #f97316' }} title="Changes requested" />}
+                        {notifs.newVersions > 0 && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} title="New versions" />}
+                      </div>
+                    )}
+                    {/* Producer actions overlay */}
                     {isProducer && (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button onClick={(e) => handleToggleProjectStatus(p.id, e)} title={p.status === 'active' ? 'Mark Complete' : 'Reopen'} style={{ padding: '6px 10px', background: p.status === 'active' ? t.bgCard : '#22c55e', border: `1px solid ${t.border}`, borderRadius: '6px', color: p.status === 'active' ? t.textSecondary : '#fff', fontSize: '11px', cursor: 'pointer' }}>
-                          {p.status === 'active' ? '✓ Complete' : '↩ Reopen'}
+                      <div style={{ position: 'absolute', bottom: '8px', right: '8px', display: 'flex', gap: '4px' }}>
+                        <button onClick={(e) => handleToggleProjectStatus(p.id, e)} title={p.status === 'active' ? 'Mark Complete' : 'Reopen'} style={{ padding: '4px 8px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          {Icons.check('#fff')} {p.status === 'active' ? 'Complete' : 'Reopen'}
                         </button>
-                        <button onClick={(e) => handleDeleteProject(p.id, e)} title="Delete Project" style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>
-                          🗑️
+                        <button onClick={(e) => handleDeleteProject(p.id, e)} title="Delete Project" style={{ padding: '4px 8px', background: 'rgba(239,68,68,0.7)', backdropFilter: 'blur(8px)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>
+                          {Icons.trash('#fff')}
                         </button>
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                    <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', background: 'rgba(99,102,241,0.15)', color: '#6366f1' }}>{cnt} assets</span>
-                    <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', background: p.type === 'photoshoot' ? 'rgba(236,72,153,0.15)' : 'rgba(249,115,22,0.15)', color: p.type === 'photoshoot' ? '#ec4899' : '#f97316' }}>{p.type === 'photoshoot' ? '📸' : '🎬'} {p.type}</span>
-                    {notifs.pendingReview > 0 && <NotifBadge count={notifs.pendingReview} icon="👁️" color="#a855f7" title="Pending review" />}
-                    {notifs.newFeedback > 0 && <NotifBadge count={notifs.newFeedback} icon="💬" color="#ef4444" title="New feedback" />}
-                    {notifs.changesRequested > 0 && <NotifBadge count={notifs.changesRequested} icon="⚠️" color="#f97316" title="Changes requested" />}
-                    {notifs.newVersions > 0 && <NotifBadge count={notifs.newVersions} icon="🆕" color="#22c55e" title="New versions" />}
-                    {p.selectionConfirmed && <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>✓ Selection Done</span>}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ flex: 1, background: t.bgCard, borderRadius: '4px', height: '6px' }}><div style={{ width: `${cnt ? (approved/cnt)*100 : 0}%`, height: '100%', background: t.primary, borderRadius: '4px' }} /></div>
-                    <span style={{ fontSize: '11px', color: t.textMuted }}>{cnt ? Math.round((approved/cnt)*100) : 0}%</span>
+                  {/* Content Area */}
+                  <div style={{ padding: '14px 16px 16px' }}>
+                    {/* Name + Client */}
+                    <div style={{ fontWeight: '700', fontSize: '14px', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{p.name}</div>
+                    <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '12px' }}>{p.client}</div>
+                    {/* Progress bar */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <div style={{ flex: 1, background: t.bgCard, borderRadius: '3px', height: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${progressPct}%`, height: '100%', background: progressPct === 100 ? '#22c55e' : `linear-gradient(90deg, ${t.primary}, #a855f7)`, borderRadius: '3px', transition: 'width 0.4s ease' }} />
+                      </div>
+                      <span style={{ fontSize: '10px', color: t.textMuted, fontWeight: '600', minWidth: '28px', textAlign: 'right' }}>{progressPct}%</span>
+                    </div>
+                    {/* Bottom row: team avatars, deadline, asset count */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      {/* Team avatar stack */}
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        {teamMembers.slice(0, 3).map((member, i) => (
+                          <div key={member.id} style={{ marginLeft: i > 0 ? '-8px' : '0', zIndex: 3 - i }}>
+                            <Avatar user={member} size={24} />
+                          </div>
+                        ))}
+                        {teamMembers.length > 3 && (
+                          <div style={{ marginLeft: '-8px', width: '24px', height: '24px', borderRadius: '50%', background: t.bgCard, border: `2px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: t.textMuted, fontWeight: '600', zIndex: 0 }}>
+                            +{teamMembers.length - 3}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {/* Deadline */}
+                        {p.deadline && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: t.textMuted }}>
+                            {Icons.calendar(t.textMuted)}
+                            <span>{formatDate(p.deadline)}</span>
+                          </div>
+                        )}
+                        {/* Asset count */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: t.textMuted }}>
+                          {Icons.file(t.textMuted)}
+                          <span>{cnt}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -5831,30 +5894,92 @@ export default function MainApp() {
     const totalAssetCount = (selectedProject.assets || []).filter(a => !a.deleted).length;
     const videoCount = (selectedProject.assets || []).filter(a => !a.deleted && a.type === 'video').length;
 
-    return (
-      <div style={{ display: 'flex', marginLeft: isMobile ? '0' : (sidebarCollapsed ? '-60px' : '-200px'), flexDirection: isMobile ? 'column' : 'row' }}>
-        {/* Category Sidebar */}
-        <div style={{ width: isMobile ? '100%' : '180px', background: t.bgSecondary, borderRight: isMobile ? 'none' : `1px solid ${t.border}`, borderBottom: isMobile ? `1px solid ${t.border}` : 'none', height: isMobile ? 'auto' : 'calc(100vh - 46px)', position: isMobile ? 'relative' : 'fixed', left: isMobile ? 0 : (sidebarCollapsed ? '60px' : '200px'), top: isMobile ? 0 : '46px', overflowX: isMobile ? 'auto' : 'visible', overflowY: isMobile ? 'hidden' : 'auto', zIndex: 40, transition: 'left 0.2s ease' }}>
-          <div style={{ padding: '12px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: '6px' }}>
-            <div onClick={() => setSelectedCat(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: !selectedCat ? `${t.primary}15` : t.bgCard, color: !selectedCat ? t.text : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${!selectedCat ? t.primary + '30' : t.border}` }}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons.folder(t.textSecondary)} All</span><span style={{ fontSize: '10px', opacity: 0.6, marginLeft: '8px' }}>{totalAssetCount}</span></div>
-            <div onClick={() => setSelectedCat('__videos__')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: selectedCat === '__videos__' ? `${t.primary}15` : t.bgCard, color: selectedCat === '__videos__' ? t.text : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === '__videos__' ? t.primary + '30' : t.border}` }}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons.video(t.textSecondary)} Videos</span><span style={{ fontSize: '10px', opacity: 0.6, marginLeft: '8px' }}>{videoCount}</span></div>
-            {cats.map(cat => <div key={cat.id} onClick={() => setSelectedCat(cat.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', background: selectedCat === cat.id ? `${t.primary}15` : t.bgCard, color: selectedCat === cat.id ? t.text : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === cat.id ? t.primary + '30' : t.border}` }}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons[cat.icon] ? Icons[cat.icon](cat.color) : Icons.file(cat.color)} {cat.name}</span><span style={{ fontSize: '10px', opacity: 0.6, marginLeft: '8px' }}>{getCatCount(cat.id)}</span></div>)}
-          </div>
-        </div>
+    const bannerGradients = {
+      'photoshoot': 'linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 40%, #4a1942 100%)',
+      'ad-film': 'linear-gradient(135deg, #1a0a0a 0%, #3d1515 40%, #4a1a0a 100%)',
+      'product-video': 'linear-gradient(135deg, #0a1a2e 0%, #152d4e 40%, #0a2a42 100%)',
+      'toolkit': 'linear-gradient(135deg, #0a0a2e 0%, #1b1b4e 40%, #2a0a42 100%)',
+      'social-media': 'linear-gradient(135deg, #2e0a1a 0%, #4e1b2d 40%, #420a2a 100%)',
+      'corporate': 'linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #1a2332 100%)',
+      'music-video': 'linear-gradient(135deg, #1a0a2e 0%, #3d154e 40%, #2a0a42 100%)',
+      'brand-film': 'linear-gradient(135deg, #1a1a0a 0%, #3d2d15 40%, #42300a 100%)',
+      'reels': 'linear-gradient(135deg, #2e0a1a 0%, #4e152d 40%, #42192a 100%)',
+      'ecommerce': 'linear-gradient(135deg, #0a2e1a 0%, #154e2d 40%, #0a4222 100%)',
+      'event': 'linear-gradient(135deg, #2e1a0a 0%, #4e3515 40%, #42280a 100%)',
+      'documentary': 'linear-gradient(135deg, #1a1a1a 0%, #2e2e2e 40%, #1a1a2e 100%)',
+    };
 
-        {/* Main Content */}
-        <div style={{ flex: 1, marginLeft: isMobile ? '0' : (sidebarCollapsed ? '240px' : '380px'), transition: 'margin-left 0.2s ease' }}>
-          {/* Header */}
-          <div style={{ height: '50px', background: t.bgSecondary, borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', position: 'sticky', top: 0, zIndex: 30 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-              <button onClick={() => { setSelectedProjectId(null); setView('projects'); }} style={{ background: 'none', border: 'none', color: t.textMuted, fontSize: '11px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>{Icons.chevronLeft(t.textMuted)} Back</button>
-              <span style={{ fontWeight: '600', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{selectedProject.name}</span>
+    return (
+      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '-60px' : '-200px') }}>
+        {/* Main Content - full width, no sidebar */}
+        <div style={{ flex: 1 }}>
+          {/* Project Banner */}
+          <div className="animate-fadeIn" style={{ height: isMobile ? '120px' : '140px', background: bannerGradients[selectedProject.type] || bannerGradients['photoshoot'], position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: isMobile ? '12px 16px' : '20px 24px', overflow: 'hidden' }}>
+            {/* Subtle pattern overlay */}
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 80% 20%, rgba(99,102,241,0.15) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(168,85,247,0.1) 0%, transparent 50%)', pointerEvents: 'none' }} />
+            {/* Back button */}
+            <button onClick={() => { setSelectedProjectId(null); setView('projects'); }} style={{ position: 'absolute', top: isMobile ? '10px' : '16px', left: isMobile ? '12px' : '20px', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', zIndex: 2 }}>
+              {Icons.chevronLeft('#fff')} Projects
+            </button>
+            {/* Banner content */}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <h1 style={{ margin: '0 0 6px', fontSize: isMobile ? '20px' : '26px', fontWeight: '700', color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedProject.name}</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{selectedProject.client}</span>
+                <Badge status={selectedProject.status} />
+                {selectedProject.deadline && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
+                    {Icons.calendar('rgba(255,255,255,0.5)')} {formatDate(selectedProject.deadline)}
+                  </span>
+                )}
+                {/* Photoshoot Workflow Phase Indicator */}
+                {selectedProject.type === 'photoshoot' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '4px 10px', borderRadius: '12px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: selectedProject.workflowPhase === 'review' ? '#22c55e' : '#fbbf24' }}>
+                      {selectedProject.workflowPhase === 'review' ? '📝 Review' : '👆 Selection'}
+                    </span>
+                    {isProducer && selectedProject.workflowPhase !== 'review' && selectedProject.selectionConfirmed && (
+                      <button onClick={async () => {
+                        const activity = { id: generateId(), type: 'status', message: `${userProfile.name} started review phase`, timestamp: new Date().toISOString() };
+                        await updateProject(selectedProject.id, { workflowPhase: 'review', activityLog: [...(selectedProject.activityLog || []), activity] });
+                        await refreshProject();
+                        showToast('Review phase started!', 'success');
+                      }} style={{ padding: '3px 8px', background: '#22c55e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>
+                        Start Review
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Action Bar: Categories (left) + Actions (right) */}
+          <div style={{ padding: '10px 16px', background: t.bgSecondary, borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', position: 'sticky', top: 0, zIndex: 30 }}>
+            {/* Category pill tabs - horizontally scrollable */}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', flex: 1, paddingBottom: '2px', scrollbarWidth: 'none' }}>
+              <button onClick={() => setSelectedCat(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: !selectedCat ? `${t.primary}20` : t.bgCard, color: !selectedCat ? t.primary : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${!selectedCat ? t.primary + '40' : t.border}`, transition: 'all 0.2s ease' }}>
+                {Icons.folder(!selectedCat ? t.primary : t.textSecondary)} All <span style={{ fontSize: '10px', opacity: 0.7, background: !selectedCat ? `${t.primary}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{totalAssetCount}</span>
+              </button>
+              <button onClick={() => setSelectedCat('__videos__')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: selectedCat === '__videos__' ? `${t.primary}20` : t.bgCard, color: selectedCat === '__videos__' ? t.primary : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === '__videos__' ? t.primary + '40' : t.border}`, transition: 'all 0.2s ease' }}>
+                {Icons.video(selectedCat === '__videos__' ? t.primary : t.textSecondary)} Videos <span style={{ fontSize: '10px', opacity: 0.7, background: selectedCat === '__videos__' ? `${t.primary}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{videoCount}</span>
+              </button>
+              {cats.map(cat => (
+                <button key={cat.id} onClick={() => setSelectedCat(cat.id)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: selectedCat === cat.id ? `${cat.color}20` : t.bgCard, color: selectedCat === cat.id ? cat.color : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === cat.id ? cat.color + '40' : t.border}`, transition: 'all 0.2s ease' }}>
+                  {Icons[cat.icon] ? Icons[cat.icon](selectedCat === cat.id ? cat.color : t.textSecondary) : Icons.file(selectedCat === cat.id ? cat.color : t.textSecondary)} {cat.name} <span style={{ fontSize: '10px', opacity: 0.7, background: selectedCat === cat.id ? `${cat.color}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{getCatCount(cat.id)}</span>
+                </button>
+              ))}
+            </div>
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+              {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)} small color="#22c55e">{Icons.upload('#fff')}{!isMobile && ' Upload'}</Btn>}
+              {isProducer && !isMobile && <Btn theme={theme} onClick={() => setShowShare(true)} small outline>{Icons.share(t.primary)}{!isMobile && ' Share'}</Btn>}
               {isProducer && (
-                <button 
+                <button
                   onClick={() => {
-                    setEditProjectData({ 
-                      name: selectedProject.name, 
-                      client: selectedProject.client || '', 
+                    setEditProjectData({
+                      name: selectedProject.name,
+                      client: selectedProject.client || '',
                       categories: selectedProject.categories || [],
                       status: selectedProject.status || 'active',
                       type: selectedProject.type || 'photoshoot',
@@ -5869,22 +5994,17 @@ export default function MainApp() {
                       notifyOnDeadline: selectedProject.notifyOnDeadline ?? true
                     });
                     setShowEditProject(true);
-                  }} 
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                  }}
+                  style={{ background: t.bgCard, border: `1px solid ${t.border}`, cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', color: t.textSecondary, fontSize: '12px' }}
                   title="Edit Project"
                 >
-                  {Icons.edit(t.textMuted)}
+                  {Icons.edit(t.textSecondary)}{!isMobile && ' Edit'}
                 </button>
               )}
-              {!isMobile && <Badge status={selectedProject.status} />}
-            </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {isProducer && !isMobile && <Btn theme={theme} onClick={() => setShowShare(true)} small outline>{Icons.share(t.primary)} Share</Btn>}
               <div style={{ position: 'relative' }}>
                 <Btn theme={theme} onClick={() => setShowAppearance(!showAppearance)} small outline>{Icons.settings(t.primary)}</Btn>
                 {showAppearance && <AppearancePanel settings={appearance} onChange={setAppearance} onClose={() => setShowAppearance(false)} theme={theme} />}
               </div>
-              {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)} small color="#22c55e">{Icons.upload('#fff')}{!isMobile && ' Upload'}</Btn>}
             </div>
           </div>
 
@@ -5898,36 +6018,36 @@ export default function MainApp() {
             const approved = projectAssets.filter(a => a.status === 'approved' || a.status === 'delivered').length;
             const overdue = projectAssets.filter(a => a.dueDate && new Date(a.dueDate) < today && a.status !== 'delivered' && a.status !== 'approved').length;
             const progress = projectAssets.length ? Math.round((approved / projectAssets.length) * 100) : 0;
-            
+
             return (
-              <div style={{ padding: '10px 16px', background: t.bgInput, borderBottom: `1px solid ${t.border}`, display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', color: t.textMuted }}>⏳ Pending</span>
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#fbbf24' }}>{pending}</span>
+              <div style={{ padding: '8px 16px', background: t.bgInput, borderBottom: `1px solid ${t.border}`, display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '10px', color: t.textMuted }}>Pending</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#fbbf24' }}>{pending}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', color: t.textMuted }}>⚡ In Progress</span>
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#3b82f6' }}>{inProgress}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '10px', color: t.textMuted }}>In Progress</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#3b82f6' }}>{inProgress}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', color: t.textMuted }}>👁️ Review</span>
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#a855f7' }}>{review}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '10px', color: t.textMuted }}>Review</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#a855f7' }}>{review}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', color: t.textMuted }}>✓ Done</span>
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#22c55e' }}>{approved}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '10px', color: t.textMuted }}>Done</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#22c55e' }}>{approved}</span>
                   </div>
                   {overdue > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'rgba(239,68,68,0.15)', borderRadius: '6px' }}>
-                      <span style={{ fontSize: '10px', color: '#ef4444' }}>🚨 Overdue</span>
-                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#ef4444' }}>{overdue}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 8px', background: 'rgba(239,68,68,0.15)', borderRadius: '6px' }}>
+                      <span style={{ fontSize: '10px', color: '#ef4444' }}>Overdue</span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444' }}>{overdue}</span>
                     </div>
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '120px', height: '6px', background: t.bgCard, borderRadius: '3px' }}>
-                    <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#22c55e' : '#6366f1', borderRadius: '3px', transition: 'width 0.3s' }} />
+                  <div style={{ width: '120px', height: '5px', background: t.bgCard, borderRadius: '3px' }}>
+                    <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#22c55e' : 'linear-gradient(90deg, #6366f1, #a855f7)', borderRadius: '3px', transition: 'width 0.4s ease' }} />
                   </div>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: progress === 100 ? '#22c55e' : '#6366f1' }}>{progress}%</span>
                 </div>
@@ -5939,25 +6059,6 @@ export default function MainApp() {
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? '📑 Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
-              {/* Photoshoot Workflow Phase Indicator */}
-              {selectedProject.type === 'photoshoot' && (
-                <div style={{ marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: t.bgInput, padding: '6px 12px', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '10px', color: t.textMuted }}>Phase:</span>
-                  <span style={{ fontSize: '11px', fontWeight: '600', color: selectedProject.workflowPhase === 'review' ? '#22c55e' : '#fbbf24' }}>
-                    {selectedProject.workflowPhase === 'review' ? '📝 Review' : '👆 Selection'}
-                  </span>
-                  {isProducer && selectedProject.workflowPhase !== 'review' && selectedProject.selectionConfirmed && (
-                    <button onClick={async () => {
-                      const activity = { id: generateId(), type: 'status', message: `${userProfile.name} started review phase`, timestamp: new Date().toISOString() };
-                      await updateProject(selectedProject.id, { workflowPhase: 'review', activityLog: [...(selectedProject.activityLog || []), activity] });
-                      await refreshProject();
-                      showToast('Review phase started!', 'success');
-                    }} style={{ marginLeft: '6px', padding: '4px 10px', background: '#22c55e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>
-                      Start Review →
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -5969,7 +6070,7 @@ export default function MainApp() {
             )}
             {tab === 'assets' && !selectedProject.selectionConfirmed && selectedCount > 0 && (isProducer || userProfile?.role === 'client') && !isMobile && <Btn theme={theme} onClick={() => setShowSelectionOverview(true)} small color="#f59e0b">🎯 Confirm ({selectedCount})</Btn>}
             {tab === 'assets' && unmatchedFiles.length > 0 && <Btn theme={theme} onClick={() => setShowMatchModal(true)} small color="#ef4444">🔗 Match Files ({unmatchedFiles.length})</Btn>}
-            
+
             {/* View Mode Toggle */}
             {tab === 'assets' && assets.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
@@ -7620,6 +7721,7 @@ export default function MainApp() {
           </div>
         )}
 
+        </div>
       </div>
     );
   };
