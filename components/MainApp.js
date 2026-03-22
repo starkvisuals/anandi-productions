@@ -1984,9 +1984,9 @@ export default function MainApp() {
                   <div style={{ 
                     padding: '16px 8px', 
                     textAlign: 'center', 
-                    color: 'rgba(255,255,255,0.3)', 
+                    color: t.textMuted,
                     fontSize: '9px',
-                    border: '1px dashed rgba(255,255,255,0.1)',
+                    border: `1px dashed ${t.border}`,
                     borderRadius: '6px'
                   }}>
                     Drop here
@@ -2068,13 +2068,13 @@ export default function MainApp() {
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 1200, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #2a2a3e' }}>
+        <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
             <span style={{ fontSize: '14px', color: '#ef4444' }}>◀ v{version1.version}</span>
-            <span style={{ fontSize: '14px', color: '#fff' }}>Compare</span>
+            <span style={{ fontSize: '14px', color: t.text }}>Compare</span>
             <span style={{ fontSize: '14px', color: '#22c55e' }}>v{version2.version} ▶</span>
           </div>
-          <button onClick={onClose} style={{ background: t.bgCard, border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '8px', fontSize: '18px', cursor: 'pointer' }}>×</button>
+          <button onClick={onClose} style={{ background: t.bgCard, border: 'none', color: t.text, width: '36px', height: '36px', borderRadius: '8px', fontSize: '18px', cursor: 'pointer' }}>×</button>
         </div>
         
         {/* Comparison Area */}
@@ -6349,7 +6349,7 @@ export default function MainApp() {
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : `1px solid ${theme === 'dark' ? '#2a2a3e' : '#e0e3e8'}`, borderRadius: '8px', color: tab === t ? '#fff' : (theme === 'dark' ? '#fff' : '#111827'), fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? 'Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
+              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : `1px solid ${THEMES[theme].border}`, borderRadius: '8px', color: tab === t ? '#fff' : THEMES[theme].text, fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? 'Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
             </div>
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -8518,7 +8518,7 @@ export default function MainApp() {
       <div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <Select theme={theme} value={leftV} onChange={v => setLeftV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
-          <span style={{ color: 'rgba(255,255,255,0.3)', alignSelf: 'center' }}>vs</span>
+          <span style={{ color: t.textMuted, alignSelf: 'center' }}>vs</span>
           <Select theme={theme} value={rightV} onChange={v => setRightV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
