@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { getProjects, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
+import { getProjects, getProject, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
 import { useKeyboardShortcuts, SHORTCUT_GROUPS } from '@/lib/useKeyboardShortcuts';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
@@ -842,11 +842,11 @@ export default function MainApp() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   useKeyboardShortcuts({
     handlers: {
-      '1': () => { setView('dashboard'); setSelectedProjectId(null); },
-      '2': () => { setView('tasks'); setSelectedProjectId(null); },
-      '3': () => { setView('projects'); setSelectedProjectId(null); },
-      '4': () => { setView('calendar'); setSelectedProjectId(null); },
-      '5': () => { if (isProducer) { setView('team'); setSelectedProjectId(null); } },
+      'cmd+1': () => { setView('dashboard'); setSelectedProjectId(null); },
+      'cmd+2': () => { setView('tasks'); setSelectedProjectId(null); },
+      'cmd+3': () => { setView('projects'); setSelectedProjectId(null); },
+      'cmd+4': () => { setView('calendar'); setSelectedProjectId(null); },
+      'cmd+5': () => { if (isProducer) { setView('team'); setSelectedProjectId(null); } },
       'cmd+k': () => setShowGlobalSearch(true),
       'escape': () => { if (showShortcuts) setShowShortcuts(false); else if (showGlobalSearch) setShowGlobalSearch(false); },
       '?': () => setShowShortcuts(!showShortcuts),
@@ -1066,58 +1066,6 @@ export default function MainApp() {
   useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   useEffect(() => { loadData(); }, []);
   
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyboard = (e) => {
-      // Cmd/Ctrl + K = Open Global Search
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowGlobalSearch(true);
-        return;
-      }
-      
-      // Escape = Close search
-      if (e.key === 'Escape' && showGlobalSearch) {
-        setShowGlobalSearch(false);
-        setGlobalSearchQuery('');
-        return;
-      }
-      
-      // Don't trigger if typing in input/textarea
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      
-      // Quick navigation with numbers
-      if (e.key === '1' && !e.metaKey && !e.ctrlKey) { setView('dashboard'); }
-      if (e.key === '2' && !e.metaKey && !e.ctrlKey) { setView('tasks'); }
-      if (e.key === '3' && !e.metaKey && !e.ctrlKey) { setView('projects'); }
-      if (e.key === '4' && !e.metaKey && !e.ctrlKey) { setView('team'); }
-      if (e.key === '5' && !e.metaKey && !e.ctrlKey) { setView('calendar'); }
-      
-      // N = New project (if producer and on projects view)
-      if (e.key === 'n' && view === 'projects' && isProducer) {
-        // Handled in ProjectsList
-      }
-      
-      // T = Toggle theme
-      if (e.key === 't' && !e.metaKey && !e.ctrlKey) {
-        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-      }
-      
-      // / = Open search
-      if (e.key === '/') {
-        e.preventDefault();
-        setShowGlobalSearch(true);
-      }
-      
-      // ? = Show keyboard shortcuts help
-      if (e.key === '?' && e.shiftKey) {
-        showToast('Keys: 1-4 Nav, / Search, T Theme, Esc Close', 'info');
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyboard);
-    return () => window.removeEventListener('keydown', handleKeyboard);
-  }, [view, isProducer, showGlobalSearch]);
   const loadData = async () => { 
     setLoading(true); 
     try { 
@@ -1134,7 +1082,15 @@ export default function MainApp() {
   };
   const showToast = (msg, type = 'info') => setToast({ message: msg, type });
   const selectedProject = projects.find(p => p.id === selectedProjectId);
-  const refreshProject = async () => { const all = await getProjects(); setProjects(all); };
+  const refreshProject = async () => {
+    if (!selectedProjectId) return;
+    try {
+      const updated = await getProject(selectedProjectId);
+      if (updated) {
+        setProjects(prev => prev.map(p => p.id === selectedProjectId ? updated : p));
+      }
+    } catch (e) { console.error('refreshProject error:', e); }
+  };
 
   // ==================== ADVANCED TASK MANAGEMENT ====================
   
@@ -2155,12 +2111,12 @@ export default function MainApp() {
   const Sidebar = () => {
     const sidebarWidth = sidebarCollapsed ? '60px' : '240px';
     const navItems = [
-      { id: 'dashboard', icon: 'dashboard', label: 'Dashboard', shortcut: '1' },
-      { id: 'tasks', icon: 'tasks', label: 'My Tasks', shortcut: '2' },
-      { id: 'projects', icon: 'folder', label: 'Projects', shortcut: '3' },
-      { id: 'calendar', icon: 'calendar', label: 'Calendar', shortcut: '4' },
-      ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads', shortcut: '5' }] : []),
-      ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team', shortcut: isClientView ? '6' : '5' }] : [])
+      { id: 'dashboard', icon: 'dashboard', label: 'Dashboard', shortcut: '\u2318 1' },
+      { id: 'tasks', icon: 'tasks', label: 'My Tasks', shortcut: '\u2318 2' },
+      { id: 'projects', icon: 'folder', label: 'Projects', shortcut: '\u2318 3' },
+      { id: 'calendar', icon: 'calendar', label: 'Calendar', shortcut: '\u2318 4' },
+      ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads', shortcut: '\u2318 5' }] : []),
+      ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team', shortcut: isClientView ? '\u2318 6' : '\u2318 5' }] : [])
     ];
 
     return (
