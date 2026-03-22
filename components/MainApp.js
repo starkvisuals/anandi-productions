@@ -5469,6 +5469,7 @@ export default function MainApp() {
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [assetPanelCollapsed, setAssetPanelCollapsed] = useState(false);
     const [imageLoading, setImageLoading] = useState(true);
     const [showSelectionOverview, setShowSelectionOverview] = useState(false);
     const hlsRef = useRef(null);
@@ -7109,19 +7110,19 @@ export default function MainApp() {
           return (
           <div
             className="modal-backdrop"
-            style={{ position: 'fixed', inset: 0, background: 'rgba(2,2,8,0.97)', zIndex: 1000, display: 'flex', flexDirection: 'column' }}
+            style={{ position: 'fixed', inset: 0, background: t.bg, zIndex: 1000, display: 'flex', flexDirection: 'column' }}
             onTouchStart={onTouchStartHandler}
             onTouchMove={onTouchMoveHandler}
             onTouchEnd={onTouchEndHandler}
           >
             {/* Top Bar */}
             {!isFullscreen && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: t.bgSecondary, flexShrink: 0, borderBottom: `1px solid ${t.border}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <button onClick={() => setSelectedAsset(null)} style={{ width: '36px', height: '36px', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '50%', color: '#fff', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>✕</button>
                 <div>
-                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#fff' }}>{selectedAsset.name}</div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{currentIndex + 1} of {sortedAssets.length} • v{selectedAsset.currentVersion}</div>
+                  <div style={{ fontWeight: '600', fontSize: '14px', color: t.text }}>{selectedAsset.name}</div>
+                  <div style={{ fontSize: '11px', color: t.textMuted }}>{currentIndex + 1} of {sortedAssets.length} • v{selectedAsset.currentVersion}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -7177,14 +7178,63 @@ export default function MainApp() {
 
               {/* Right Navigation Arrow */}
               {hasNext && (
-                <button onClick={goToNext} className="hover-lift" style={{ position: 'absolute', right: isMobile || isFullscreen ? '20px' : '324px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '40px' : '52px', height: isMobile ? '40px' : '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '18px' : '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s, transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>›</button>
+                <button onClick={goToNext} className="hover-lift" style={{ position: 'absolute', right: isMobile || isFullscreen ? '20px' : '300px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '40px' : '52px', height: isMobile ? '40px' : '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '18px' : '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s, transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>›</button>
               )}
               
               {/* Preview/Annotate Tab */}
               {(assetTab === 'preview' || assetTab === 'annotate') && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden' }}>
-                  {/* LEFT: Preview/Annotation Area */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a0f', minWidth: 0, overflow: 'hidden' }}>
+                  {/* LEFT: Asset Overview Panel (collapsible) */}
+                  {!isMobile && !isFullscreen && (
+                    <div style={{ width: assetPanelCollapsed ? '0px' : '200px', background: t.bgSecondary, borderRight: assetPanelCollapsed ? 'none' : `1px solid ${t.border}`, overflow: 'hidden', transition: 'width 0.2s ease', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                      {!assetPanelCollapsed && (
+                        <>
+                          <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: '11px', fontWeight: '600', color: t.text }}>Assets ({sortedAssets.length})</span>
+                            <button onClick={() => setAssetPanelCollapsed(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '14px', padding: '2px' }} title="Collapse panel">‹</button>
+                          </div>
+                          <div style={{ flex: 1, overflow: 'auto', padding: '6px' }}>
+                            {sortedAssets.map((asset, idx) => (
+                              <div
+                                key={asset.id}
+                                onClick={() => { setImageLoading(true); setSelectedAsset(asset); setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); }}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', marginBottom: '2px',
+                                  background: asset.id === selectedAsset.id ? `${t.primary}20` : 'transparent',
+                                  border: asset.id === selectedAsset.id ? `1px solid ${t.primary}40` : '1px solid transparent',
+                                  transition: 'background 0.15s'
+                                }}
+                                onMouseEnter={e => { if (asset.id !== selectedAsset.id) e.currentTarget.style.background = t.bgHover; }}
+                                onMouseLeave={e => { if (asset.id !== selectedAsset.id) e.currentTarget.style.background = 'transparent'; }}
+                              >
+                                <div style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, background: t.bgInput, border: `1px solid ${t.borderLight}` }}>
+                                  {asset.type === 'image' ? (
+                                    <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: t.textMuted }}>{asset.type === 'video' ? 'VID' : asset.type === 'audio' ? 'AUD' : 'DOC'}</div>
+                                  )}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: '10px', fontWeight: '500', color: asset.id === selectedAsset.id ? t.text : t.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                    {asset.rating > 0 && <span style={{ fontSize: '8px', color: '#fbbf24' }}>{'★'.repeat(asset.rating)}</span>}
+                                    {asset.isSelected && <span style={{ fontSize: '7px', color: t.success, fontWeight: '700' }}>SEL</span>}
+                                    {asset.feedback?.length > 0 && <span style={{ fontSize: '7px', color: t.danger, background: `${t.danger}20`, padding: '0 3px', borderRadius: '3px' }}>{asset.feedback.length}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {/* Asset Panel Toggle (when collapsed) */}
+                  {!isMobile && !isFullscreen && assetPanelCollapsed && (
+                    <button onClick={() => setAssetPanelCollapsed(false)} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', zIndex: 15, width: '24px', height: '60px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '0 8px 8px 0', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }} title="Show asset panel">›</button>
+                  )}
+                  {/* CENTER: Preview/Annotation Area */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: t.bg, minWidth: 0, overflow: 'hidden' }}>
                     {/* Content Area */}
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '8px 40px' : '16px 70px', overflow: 'hidden' }}>
                       {selectedAsset.type === 'video' ? (
