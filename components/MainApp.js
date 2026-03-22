@@ -1824,7 +1824,7 @@ export default function MainApp() {
                 style={{
                   minHeight: '110px',
                   padding: '8px',
-                  background: '#0c0c14',
+                  background: t.bgCard,
                   borderLeft: isToday(day) ? '3px solid #6366f1' : 'none',
                   opacity: day ? (isPast ? 0.5 : 1) : 0.3,
                   transition: 'all 0.2s',
@@ -5635,13 +5635,13 @@ export default function MainApp() {
           // + or = for zoom in
           if (e.key === '+' || e.key === '=') {
             e.preventDefault();
-            setZoomLevel(z => Math.min(5, z + 0.25));
+            setZoomLevel(z => Math.min(5, Math.round((z + 0.1) * 10) / 10));
           }
           // - for zoom out
           if (e.key === '-' || e.key === '_') {
             e.preventDefault();
             setZoomLevel(z => {
-              const newZ = Math.max(0.5, z - 0.25);
+              const newZ = Math.max(0.25, Math.round((z - 0.1) * 10) / 10);
               if (newZ <= 1) setPanPosition({ x: 0, y: 0 });
               return newZ;
             });
@@ -6184,8 +6184,8 @@ export default function MainApp() {
     };
 
     return (
-      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '-60px' : '-240px') }}>
-        {/* Main Content - full width, no sidebar */}
+      <div style={{ marginLeft: '0' }}>
+        {/* Main Content - full width within the content area */}
         <div style={{ flex: 1 }}>
           {/* Project Banner */}
           <div className="animate-fadeIn" style={{ height: isMobile ? '120px' : '140px', background: bannerGradients[selectedProject.type] || bannerGradients['photoshoot'], position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: isMobile ? '12px 16px' : '20px 24px', overflow: 'hidden' }}>
@@ -6332,7 +6332,7 @@ export default function MainApp() {
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : '1px solid #2a2a3e', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? 'Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
+              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : `1px solid ${theme === 'dark' ? '#2a2a3e' : '#e0e3e8'}`, borderRadius: '8px', color: tab === t ? '#fff' : (theme === 'dark' ? '#fff' : '#111827'), fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? 'Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
             </div>
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -6348,8 +6348,8 @@ export default function MainApp() {
             {/* View Mode Toggle */}
             {tab === 'assets' && assets.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
-                <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Grid</button>
-                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}> Kanban</button>
+                <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'grid' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}>Grid</button>
+                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'kanban' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}> Kanban</button>
               </div>
             )}
           </div>
@@ -6710,7 +6710,7 @@ export default function MainApp() {
         {showUpload && (
           <Modal theme={theme} title="Upload Assets" onClose={() => { setShowUpload(false); setUploadFiles([]); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
-              <div style={{ textAlign: 'center', padding: '40px', border: '2px dashed #2a2a3e', borderRadius: '12px', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
+              <div style={{ textAlign: 'center', padding: '40px', border: `2px dashed ${t.border}`, borderRadius: '12px', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
                 <div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                 <p style={{ margin: 0, fontSize: '14px' }}>{uploadFiles.length ? `${uploadFiles.length} files selected` : 'Click to select files'}</p>
                 <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => setUploadFiles(Array.from(e.target.files))} />
@@ -7200,20 +7200,20 @@ export default function MainApp() {
                           >
                             {/* Zoom Controls - Top Right */}
                             <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 20, display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '8px', padding: '4px' }}>
-                              <button 
-                                onClick={() => { setZoomLevel(z => Math.max(0.5, z - 0.25)); setPanPosition({ x: 0, y: 0 }); }}
+                              <button
+                                onClick={() => { setZoomLevel(z => { const newZ = Math.max(0.25, Math.round((z - 0.1) * 10) / 10); if (newZ <= 1) setPanPosition({ x: 0, y: 0 }); return newZ; }); }}
                                 style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Zoom out"
+                                title="Zoom out (-)"
                               >−</button>
-                              <button 
+                              <button
                                 onClick={() => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); }}
                                 style={{ padding: '0 10px', height: '32px', background: zoomLevel === 1 ? 'rgba(99,102,241,0.3)' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: '500', minWidth: '50px' }}
                                 title="Fit to screen"
                               >{Math.round(zoomLevel * 100)}%</button>
-                              <button 
-                                onClick={() => { setZoomLevel(z => Math.min(5, z + 0.25)); }}
+                              <button
+                                onClick={() => { setZoomLevel(z => Math.min(5, Math.round((z + 0.1) * 10) / 10)); }}
                                 style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Zoom in"
+                                title="Zoom in (+)"
                               >+</button>
                               <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)', margin: '4px 2px' }} />
                               <button 
@@ -7412,7 +7412,13 @@ export default function MainApp() {
                       </div>
                       <div style={{ maxHeight: '100px', overflow: 'auto', marginBottom: '8px' }}>
                         {(selectedAsset.feedback || []).length === 0 ? (
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '12px 0' }}>No feedback yet. Be the first to comment.</div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '12px 0' }}>No feedback yet. Be the first to comment.
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
+                              {['Approved', 'Needs revision', 'Love this', 'Change color', 'Crop differently', 'Too dark', 'Too bright'].map(q => (
+                                <button key={q} onClick={() => setNewFeedback(q)} style={{ padding: '4px 8px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', color: 'rgba(255,255,255,0.6)', fontSize: '9px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.25)'; e.currentTarget.style.color = '#fff'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}>{q}</button>
+                              ))}
+                            </div>
+                          </div>
                         ) : (selectedAsset.feedback || []).map(fb => (
                           <div key={fb.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', opacity: fb.isDone ? 0.6 : 1 }}>
                             {/* Avatar */}
@@ -7439,7 +7445,7 @@ export default function MainApp() {
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', position: 'relative' }}>
                         {selectedAsset.type === 'video' && <span style={{ fontSize: '9px', color: t.textMuted, flexShrink: 0 }}>{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
                         <div style={{ flex: 1, position: 'relative' }}>
-                          <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }} placeholder="Add feedback... (@ to mention)" style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '11px' }} />
+                          <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }} placeholder="Add feedback... (@ to mention)" style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px' }} />
                           {/* Mentions Dropdown - includes all available team members */}
                           {showMentions && (() => {
                             // Combine project team, freelancers, and core team for mentions
@@ -7470,9 +7476,9 @@ export default function MainApp() {
                   
                   {/* RIGHT: Details Sidebar */}
                   {!isMobile && !isFullscreen && (
-                    <div style={{ width: '300px', background: 'rgba(10,10,18,0.95)', borderLeft: '1px solid rgba(255,255,255,0.06)', overflow: 'auto', padding: '16px', flexShrink: 0 }}>
+                    <div style={{ width: '300px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', padding: '16px', flexShrink: 0 }}>
                       {/* Selection Toggle - Prominent */}
-                      <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'rgba(255,255,255,0.04)', border: selectedAsset.isSelected ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px', transition: 'all 0.2s', boxShadow: selectedAsset.isSelected ? '0 2px 10px rgba(34,197,94,0.3)' : 'none' }}>
+                      <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : t.bgInput, border: selectedAsset.isSelected ? 'none' : `1px solid ${t.border}`, borderRadius: '10px', color: selectedAsset.isSelected ? '#fff' : t.text, fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px', transition: 'all 0.2s', boxShadow: selectedAsset.isSelected ? '0 2px 10px rgba(34,197,94,0.3)' : 'none' }}>
                         {selectedAsset.isSelected ? 'Selected' : '☆ Mark as Selected'}
                       </button>
                       
@@ -7512,7 +7518,7 @@ export default function MainApp() {
                       {isProducer && (
                         <div style={{ marginBottom: '12px' }}>
                           <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Due: Due Date</label>
-                          <input type="date" value={selectedAsset.dueDate?.split('T')[0] || ''} onChange={async (e) => { const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a); setSelectedAsset({ ...selectedAsset, dueDate }); await updateProject(selectedProject.id, { assets: updated }); if (selectedAsset.assignedTo && dueDate) { const assignee = editors.find(e => e.id === selectedAsset.assignedTo); if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`); } }} style={{ width: '100%', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: '#fff', fontSize: '11px' }} />
+                          <input type="date" value={selectedAsset.dueDate?.split('T')[0] || ''} onChange={async (e) => { const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a); setSelectedAsset({ ...selectedAsset, dueDate }); await updateProject(selectedProject.id, { assets: updated }); if (selectedAsset.assignedTo && dueDate) { const assignee = editors.find(e => e.id === selectedAsset.assignedTo); if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`); } }} style={{ width: '100%', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px' }} />
                           {selectedAsset.dueDate && <div style={{ marginTop: '4px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>{new Date(selectedAsset.dueDate) < new Date() ? 'Overdue!' : `In ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days`}</div>}
                         </div>
                       )}
@@ -7532,21 +7538,21 @@ export default function MainApp() {
                         const canUploadVersion = isProducer || userRoles.some(r => allowedRoles.includes(r));
                         
                         return canUploadVersion ? (
-                          <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                            <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
+                          <div style={{ marginBottom: '12px', padding: '12px', background: t.bgInput, borderRadius: '10px', border: `1px solid ${t.borderLight}` }}>
+                            <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Versions</span>
-                              <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.06)', color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : 'rgba(255,255,255,0.7)', borderRadius: '10px', fontSize: '9px', fontWeight: '700', border: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '1px solid rgba(249,115,22,0.3)' : '1px solid rgba(255,255,255,0.08)' }}>v{selectedAsset.currentVersion}</span>
+                              <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.2)' : t.bgHover, color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.textSecondary, borderRadius: '10px', fontSize: '9px', fontWeight: '700', border: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '1px solid rgba(249,115,22,0.3)' : `1px solid ${t.borderLight}` }}>v{selectedAsset.currentVersion}</span>
                             </div>
                             {/* Visual version list */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
                               {(selectedAsset.versions || []).map((v, i) => (
                                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', background: v.version === selectedAsset.currentVersion ? 'rgba(99,102,241,0.12)' : 'transparent', borderRadius: '6px', border: v.version === selectedAsset.currentVersion ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent' }}>
-                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)', flexShrink: 0 }}>
-                                    {v.thumbnail ? <img src={v.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>v{v.version}</div>}
+                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', background: t.bgHover, flexShrink: 0 }}>
+                                    {v.thumbnail ? <img src={v.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: t.textMuted }}>v{v.version}</div>}
                                   </div>
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: '10px', fontWeight: '600', color: v.version === selectedAsset.currentVersion ? '#6366f1' : 'rgba(255,255,255,0.7)' }}>Version {v.version}</div>
-                                    {v.uploadedAt && <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.35)' }}>{formatTimeAgo(v.uploadedAt)}</div>}
+                                    <div style={{ fontSize: '10px', fontWeight: '600', color: v.version === selectedAsset.currentVersion ? '#6366f1' : t.textSecondary }}>Version {v.version}</div>
+                                    {v.uploadedAt && <div style={{ fontSize: '8px', color: t.textMuted }}>{formatTimeAgo(v.uploadedAt)}</div>}
                                   </div>
                                   {v.version === selectedAsset.currentVersion && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
                                 </div>
@@ -7554,17 +7560,17 @@ export default function MainApp() {
                             </div>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
-                              <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '7px', background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '8px', color: 'rgba(255,255,255,0.6)', fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'border-color 0.2s' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
+                              <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '7px', background: t.bgInput, border: `1px dashed ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'border-color 0.2s' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
                               {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '7px 12px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>{uploadingVersion ? <span className="spinner" style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }} /> : 'Upload'}</button>}
                             </div>
                           </div>
                         ) : (
-                          <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                            <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
+                          <div style={{ marginBottom: '12px', padding: '12px', background: t.bgInput, borderRadius: '10px', border: `1px solid ${t.borderLight}` }}>
+                            <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Versions</span>
-                              <span style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '10px', fontSize: '9px', fontWeight: '700', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.08)' }}>v{selectedAsset.currentVersion}</span>
+                              <span style={{ padding: '3px 8px', background: t.bgHover, borderRadius: '10px', fontSize: '9px', fontWeight: '700', color: t.textSecondary, border: `1px solid ${t.borderLight}` }}>v{selectedAsset.currentVersion}</span>
                             </div>
-                            <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
+                            <div style={{ fontSize: '9px', color: t.textMuted }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
                           </div>
                         );
                       })()}
@@ -7582,11 +7588,11 @@ export default function MainApp() {
                       {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '8px', background: 'rgba(34,197,94,0.15)', borderRadius: '6px', color: '#22c55e', fontSize: '10px', textAlign: 'center', textDecoration: 'none', marginBottom: '12px', fontWeight: '600' }}> Open High-Res</a>}
                       
                       {/* File Details */}
-                      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px', marginBottom: '12px', fontSize: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fff' }}> File Details</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Size</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatFileSize(selectedAsset.fileSize)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Type</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Uploaded</span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatDate(selectedAsset.uploadedAt)}</span></div>
+                      <div style={{ background: t.bgInput, borderRadius: '10px', padding: '12px', marginBottom: '12px', fontSize: '10px', border: `1px solid ${t.borderLight}` }}>
+                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: t.text }}> File Details</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Size</span><span style={{ color: t.textSecondary }}>{formatFileSize(selectedAsset.fileSize)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Type</span><span style={{ color: t.textSecondary }}>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: t.textMuted }}>Uploaded</span><span style={{ color: t.textSecondary }}>{formatDate(selectedAsset.uploadedAt)}</span></div>
                       </div>
                       
                       {/* Deliverables Checklist */}
@@ -7755,7 +7761,7 @@ export default function MainApp() {
             {/* Mobile Bottom Actions */}
             {isMobile && !isFullscreen && (
               <div style={{ padding: '10px 16px', background: t.bgTertiary, borderTop: `1px solid ${t.border}`, display: 'flex', gap: '8px', flexShrink: 0 }}>
-                <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected }); }} style={{ flex: 1, padding: '10px', background: selectedAsset.isSelected ? '#22c55e' : t.bgInput, border: `1px solid ${selectedAsset.isSelected ? '#22c55e' : t.border}`, borderRadius: '8px', color: '#fff', fontSize: '11px' }}>{selectedAsset.isSelected ? 'Selected' : '☆ Select'}</button>
+                <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected }); }} style={{ flex: 1, padding: '10px', background: selectedAsset.isSelected ? '#22c55e' : t.bgInput, border: `1px solid ${selectedAsset.isSelected ? '#22c55e' : t.border}`, borderRadius: '8px', color: selectedAsset.isSelected ? '#fff' : t.text, fontSize: '11px' }}>{selectedAsset.isSelected ? 'Selected' : '☆ Select'}</button>
                 <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '11px', textAlign: 'center', textDecoration: 'none' }}>Download</a>
               </div>
             )}
@@ -8447,7 +8453,7 @@ export default function MainApp() {
                 onChange={(e) => setAnnotText(e.target.value)} 
                 placeholder="E.g., Fix the color balance here, crop tighter, remove this element..." 
                 autoFocus
-                style={{ width: '100%', minHeight: '100px', padding: '12px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: '#fff', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} 
+                style={{ width: '100%', minHeight: '100px', padding: '12px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} 
               />
               <div style={{ display: 'flex', gap: '10px', marginTop: '16px', justifyContent: 'flex-end' }}>
                 <button onClick={cancelAnnotation} style={{ padding: '10px 20px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textMuted, fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
@@ -8490,7 +8496,7 @@ export default function MainApp() {
 
   // Main Render
   return (
-    <div style={{ minHeight: '100vh', background: t.bgInput, color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: t.bgInput, color: t.text, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Global CSS for hover rules */}
       <style>{`
         .asset-card:hover .card-delete-btn { opacity: 1 !important; }
