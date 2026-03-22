@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { getProjects, getProjectsForUser, createProject, updateProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
+import { getProjects, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -4622,6 +4622,11 @@ export default function MainApp() {
           {userProjects.length > 0 && (
             <button onClick={(e) => { e.stopPropagation(); setSelectedProjectId(userProjects[0].id); setView('projects'); }} style={{ marginLeft: '12px', padding: '6px 8px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textMuted, cursor: 'pointer', fontSize: '11px', transition: 'all 0.2s' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+          )}
+          {isProducer && u.id !== userProfile?.id && (
+            <button onClick={async (e) => { e.stopPropagation(); if (!confirm(`Remove ${u.name}? This will delete their account permanently.`)) return; try { await deleteUser(u.id); await loadData(); showToast(`${u.name} removed`, 'success'); } catch (err) { showToast('Failed to remove user', 'error'); } }} style={{ marginLeft: '8px', padding: '6px 8px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.danger, cursor: 'pointer', fontSize: '11px', transition: 'all 0.2s', opacity: 0.5 }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.5'} title="Remove user">
+              {Icons.trash(t.danger)}
             </button>
           )}
         </div>
