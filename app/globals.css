@@ -324,6 +324,38 @@ button:active {
   scroll-snap-align: start;
   flex-shrink: 0;
 }
-.team-row:hover {
+/* Team row hover - theme aware */
+[data-theme="dark"] .team-row:hover {
   background: #1a1a24 !important;
+}
+[data-theme="light"] .team-row:hover {
+  background: #f0f2f5 !important;
+}
+
+/* Smooth zoom transition for image viewer */
+.zoom-smooth {
+  transition: transform 0.2s ease-out;
+}
+.zoom-smooth.dragging {
+  transition: none;
+}
+
+/* Select dropdown styling for dark/light themes */
+[data-theme="dark"] select option {
+  background: #14141c;
+  color: #fff;
+}
+[data-theme="light"] select option {
+  background: #fff;
+  color: #111827;
+}
+
+/* Filter bar responsive */
+@media (max-width: 768px) {
+  .filter-bar {
+    flex-direction: column;
+  }
+  .filter-bar select {
+    width: 100%;
+  }
 }
