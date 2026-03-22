@@ -5479,6 +5479,9 @@ export default function MainApp() {
     const [newFeedback, setNewFeedback] = useState('');
     const [showMentions, setShowMentions] = useState(false);
     const [mentionSearch, setMentionSearch] = useState('');
+    const [filterStars, setFilterStars] = useState(0);
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [sortBy, setSortBy] = useState('newest');
     const [newLinkName, setNewLinkName] = useState('');
     const [newLinkType, setNewLinkType] = useState('client');
     const [newLinkExpiry, setNewLinkExpiry] = useState('');
@@ -5677,6 +5680,15 @@ export default function MainApp() {
       return a.sort((x, y) => (typeOrder[x.type] || 3) - (typeOrder[y.type] || 3));
     };
     const assets = getAssets();
+
+    // Apply filters
+    let displayAssets = [...assets];
+    if (filterStars > 0) displayAssets = displayAssets.filter(a => (a.rating || 0) >= filterStars);
+    if (filterStatus !== 'all') displayAssets = displayAssets.filter(a => a.status === filterStatus);
+    if (sortBy === 'rating-desc') displayAssets = [...displayAssets].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (sortBy === 'rating-asc') displayAssets = [...displayAssets].sort((a, b) => (a.rating || 0) - (b.rating || 0));
+    if (sortBy === 'name') displayAssets = [...displayAssets].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
     const getCatCount = id => (selectedProject.assets || []).filter(a => !a.deleted && a.category === id).length;
     const cardWidth = CARD_SIZES[appearance.cardSize];
     const aspectRatio = ASPECT_RATIOS[appearance.aspectRatio];
@@ -6425,9 +6437,42 @@ export default function MainApp() {
                         <button onClick={() => setSelectedCat('__not_selected__')} style={{ padding: '6px 14px', background: selectedCat === '__not_selected__' ? t.warning : t.bgCard, border: `1px solid ${selectedCat === '__not_selected__' ? t.warning : t.border}`, borderRadius: '8px', color: selectedCat === '__not_selected__' ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>Not Selected ({assets.filter(a => !a.isSelected).length})</button>
                       </div>
                     )}
-                    
+
+                {/* Filter & Sort Bar */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <select value={filterStars} onChange={e => setFilterStars(Number(e.target.value))} style={{ padding: '6px 10px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '8px', color: t.text, fontSize: '11px', cursor: 'pointer' }}>
+                    <option value={0}>All Ratings</option>
+                    <option value={5}>5 Stars</option>
+                    <option value={4}>4+ Stars</option>
+                    <option value={3}>3+ Stars</option>
+                    <option value={2}>2+ Stars</option>
+                    <option value={1}>1+ Stars</option>
+                  </select>
+                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '6px 10px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '8px', color: t.text, fontSize: '11px', cursor: 'pointer' }}>
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="selected">Selected</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="review">Review</option>
+                    <option value="approved">Approved</option>
+                    <option value="revision">Revision</option>
+                    <option value="delivered">Delivered</option>
+                  </select>
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: '6px 10px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '8px', color: t.text, fontSize: '11px', cursor: 'pointer' }}>
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="rating-desc">Rating: High to Low</option>
+                    <option value="rating-asc">Rating: Low to High</option>
+                    <option value="name">Name A-Z</option>
+                  </select>
+                  {(filterStars > 0 || filterStatus !== 'all') && (
+                    <button onClick={() => { setFilterStars(0); setFilterStatus('all'); setSortBy('newest'); }} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>Clear filters</button>
+                  )}
+                  <span style={{ fontSize: '10px', color: t.textMuted, marginLeft: 'auto' }}>{displayAssets.length} assets</span>
+                </div>
+
                     <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: isMobile ? (appearance.cardSize === 'L' ? '1fr' : appearance.cardSize === 'S' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)') : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
-                    {assets
+                    {displayAssets
                       .filter(a => {
                         if (selectedCat === '__selected__') return a.isSelected;
                         if (selectedCat === '__not_selected__') return !a.isSelected;
@@ -7214,7 +7259,7 @@ export default function MainApp() {
                                 onClick={() => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); }}
                                 style={{ padding: '0 10px', height: '32px', background: zoomLevel === 1 ? 'rgba(99,102,241,0.3)' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: '500', minWidth: '50px' }}
                                 title="Fit to screen"
-                              >{Math.round(zoomLevel * 100)}%</button>
+                              >{zoomLevel === 1 ? 'Fit' : Math.round(zoomLevel * 100) + '%'}</button>
                               <button
                                 onClick={() => { setZoomLevel(z => Math.min(5, Math.round((z + 0.1) * 10) / 10)); }}
                                 style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -7406,77 +7451,7 @@ export default function MainApp() {
                       )}
                     </div>
                     
-                    {/* Feedback Section */}
-                    {!isFullscreen && (
-                    <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', flexShrink: 0, maxHeight: isMobile ? '180px' : '220px', overflow: 'auto' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Feedback ({selectedAsset.feedback?.length || 0})</span>
-                        {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
-                          <span style={{ fontSize: '10px', padding: '3px 10px', background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: '10px', fontWeight: '600', border: '1px solid rgba(239,68,68,0.3)' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
-                        )}
-                      </div>
-                      <div style={{ maxHeight: '100px', overflow: 'auto', marginBottom: '8px' }}>
-                        {(selectedAsset.feedback || []).length === 0 ? (
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '12px 0' }}>No feedback yet. Be the first to comment.
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
-                              {['Approved', 'Needs revision', 'Love this', 'Change color', 'Crop differently', 'Too dark', 'Too bright'].map(q => (
-                                <button key={q} onClick={() => setNewFeedback(q)} style={{ padding: '4px 8px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', color: 'rgba(255,255,255,0.6)', fontSize: '9px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.25)'; e.currentTarget.style.color = '#fff'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}>{q}</button>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (selectedAsset.feedback || []).map(fb => (
-                          <div key={fb.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', opacity: fb.isDone ? 0.6 : 1 }}>
-                            {/* Avatar */}
-                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: fb.isDone ? 'rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', flexShrink: 0, color: '#fff', marginTop: '2px' }}>{fb.userName?.[0] || '?'}</div>
-                            {/* Chat bubble */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ padding: '8px 10px', background: fb.isDone ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.06)', borderRadius: '2px 10px 10px 10px', border: fb.isDone ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,255,255,0.08)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0 }}>
-                                    <span style={{ fontSize: '10px', fontWeight: '600', color: '#fff' }}>{fb.userName}</span>
-                                    <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)' }}>{formatTimeAgo(fb.timestamp)}</span>
-                                    {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
-                                      <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }} style={{ fontSize: '9px', color: '#6366f1', cursor: 'pointer', background: 'rgba(99,102,241,0.2)', padding: '1px 6px', borderRadius: '4px' }}>▶ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}</span>
-                                    )}
-                                  </div>
-                                  <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.06)', border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', padding: '2px 8px', fontSize: '9px', color: fb.isDone ? '#22c55e' : 'rgba(255,255,255,0.5)', cursor: 'pointer', flexShrink: 0 }}>{fb.isDone ? '✓ Done' : 'Mark done'}</button>
-                                </div>
-                                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>{fb.text}</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', position: 'relative' }}>
-                        {selectedAsset.type === 'video' && <span style={{ fontSize: '9px', color: t.textMuted, flexShrink: 0 }}>{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
-                        <div style={{ flex: 1, position: 'relative' }}>
-                          <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }} placeholder="Add feedback... (@ to mention)" style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px' }} />
-                          {/* Mentions Dropdown - includes all available team members */}
-                          {showMentions && (() => {
-                            // Combine project team, freelancers, and core team for mentions
-                            const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
-                            const filtered = allMentionable.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 8);
-                            return (
-                              <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px', marginBottom: '4px', maxHeight: '200px', overflow: 'auto', zIndex: 100, boxShadow: '0 -4px 20px rgba(0,0,0,0.3)' }}>
-                                <div style={{ padding: '6px 10px', borderBottom: `1px solid ${t.border}`, fontSize: '9px', color: t.textMuted, fontWeight: '600' }}>MENTION SOMEONE</div>
-                                {filtered.map(member => (
-                                  <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', borderBottom: `1px solid ${t.border}` }} onMouseEnter={(e) => e.currentTarget.style.background = t.bgInput} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: team.find(t => t.id === member.id) ? '#6366f1' : '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600' }}>{member.name?.[0]}</div>
-                                    <div>
-                                      <div style={{ fontWeight: '500' }}>{member.name}</div>
-                                      <div style={{ fontSize: '10px', color: t.textMuted }}>{member.role || 'Team Member'} {team.find(t => t.id === member.id) ? '• On this project' : ''}</div>
-                                    </div>
-                                  </div>
-                                ))}
-                                {filtered.length === 0 && <div style={{ padding: '12px', color: t.textMuted, fontSize: '11px', textAlign: 'center' }}>No matches found<br/><span style={{ fontSize: '10px' }}>Type a name to search</span></div>}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '8px 14px', background: newFeedback.trim() ? '#6366f1' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px', color: newFeedback.trim() ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: '11px', fontWeight: '600', cursor: newFeedback.trim() ? 'pointer' : 'default', transition: 'background 0.2s' }}>Send</button>
-                      </div>
-                    </div>
-                    )}
+                    {/* Feedback moved to right sidebar */}
                   </div>
                   
                   {/* RIGHT: Details Sidebar */}
@@ -7735,6 +7710,67 @@ export default function MainApp() {
                       {isProducer && (
                         <button onClick={async () => { if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAsset.name}`, timestamp: new Date().toISOString() }; await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ width: '100%', padding: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>Delete</button>
                       )}
+
+                      {/* Feedback Section */}
+                      <div style={{ marginTop: '14px', borderTop: `1px solid ${t.borderLight}`, paddingTop: '14px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
+                          <span>Feedback ({selectedAsset.feedback?.length || 0})</span>
+                          {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
+                            <span style={{ fontSize: '9px', padding: '2px 8px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', borderRadius: '10px', fontWeight: '600' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
+                          )}
+                        </div>
+                        <div style={{ maxHeight: '200px', overflow: 'auto', marginBottom: '8px' }}>
+                          {(selectedAsset.feedback || []).length === 0 ? (
+                            <div style={{ fontSize: '10px', color: t.textMuted, textAlign: 'center', padding: '8px 0' }}>No feedback yet.
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', justifyContent: 'center', marginTop: '6px' }}>
+                                {['Approved', 'Needs revision', 'Love this', 'Change color', 'Crop differently', 'Too dark', 'Too bright'].map(q => (
+                                  <button key={q} onClick={() => setNewFeedback(q)} style={{ padding: '3px 6px', background: `${t.primary}15`, border: `1px solid ${t.primary}30`, borderRadius: '10px', color: t.textMuted, fontSize: '8px', cursor: 'pointer' }}>{q}</button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (selectedAsset.feedback || []).map(fb => (
+                            <div key={fb.id} style={{ display: 'flex', gap: '6px', marginBottom: '6px', opacity: fb.isDone ? 0.6 : 1 }}>
+                              <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: fb.isDone ? 'rgba(34,197,94,0.3)' : `${t.primary}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '700', flexShrink: 0, color: t.text, marginTop: '2px' }}>{fb.userName?.[0] || '?'}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ padding: '6px 8px', background: fb.isDone ? 'rgba(34,197,94,0.08)' : t.bgInput, borderRadius: '2px 8px 8px 8px', border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.2)' : t.borderLight}` }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}>
+                                      <span style={{ fontSize: '9px', fontWeight: '600', color: t.text }}>{fb.userName}</span>
+                                      <span style={{ fontSize: '8px', color: t.textMuted }}>{formatTimeAgo(fb.timestamp)}</span>
+                                      {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
+                                        <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }} style={{ fontSize: '8px', color: '#6366f1', cursor: 'pointer', background: 'rgba(99,102,241,0.2)', padding: '1px 4px', borderRadius: '3px' }}>@ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}</span>
+                                      )}
+                                    </div>
+                                    <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.3)' : t.bgInput, border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.4)' : t.borderLight}`, borderRadius: '8px', padding: '1px 6px', fontSize: '8px', color: fb.isDone ? '#22c55e' : t.textMuted, cursor: 'pointer', flexShrink: 0 }}>{fb.isDone ? 'Done' : 'Done?'}</button>
+                                  </div>
+                                  <div style={{ fontSize: '10px', color: t.textSecondary }}>{fb.text}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', position: 'relative' }}>
+                          {selectedAsset.type === 'video' && <span style={{ fontSize: '8px', color: t.textMuted, flexShrink: 0 }}>{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
+                          <div style={{ flex: 1, position: 'relative' }}>
+                            <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }} placeholder="Add feedback..." style={{ width: '100%', padding: '7px 8px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '6px', color: t.text, fontSize: '10px', boxSizing: 'border-box' }} />
+                            {showMentions && (() => {
+                              const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
+                              const filtered = allMentionable.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5);
+                              return (
+                                <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100, boxShadow: t.shadow }}>
+                                  {filtered.map(member => (
+                                    <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }} onMouseEnter={(e) => e.currentTarget.style.background = t.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600', color: '#fff' }}>{member.name?.[0]}</div>
+                                      <span>{member.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '7px 10px', background: newFeedback.trim() ? '#6366f1' : t.bgInput, border: 'none', borderRadius: '6px', color: newFeedback.trim() ? '#fff' : t.textMuted, fontSize: '10px', fontWeight: '600', cursor: newFeedback.trim() ? 'pointer' : 'default' }}>Send</button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
