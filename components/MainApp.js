@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { getProjects, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
+import { useKeyboardShortcuts, SHORTCUT_GROUPS } from '@/lib/useKeyboardShortcuts';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -836,6 +837,22 @@ export default function MainApp() {
   });
   const [isMobile, setIsMobile] = useState(false);
   const isProducer = ['producer', 'admin', 'team-lead'].includes(userProfile?.role);
+
+  // Global keyboard shortcuts
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  useKeyboardShortcuts({
+    handlers: {
+      '1': () => { setView('dashboard'); setSelectedProjectId(null); },
+      '2': () => { setView('tasks'); setSelectedProjectId(null); },
+      '3': () => { setView('projects'); setSelectedProjectId(null); },
+      '4': () => { setView('calendar'); setSelectedProjectId(null); },
+      '5': () => { if (isProducer) { setView('team'); setSelectedProjectId(null); } },
+      'cmd+k': () => setShowGlobalSearch(true),
+      'escape': () => { if (showShortcuts) setShowShortcuts(false); else if (showGlobalSearch) setShowGlobalSearch(false); },
+      '?': () => setShowShortcuts(!showShortcuts),
+    },
+    enabled: !showCompanySettings,
+  });
 
   // Save theme to localStorage and apply to document
   useEffect(() => {
@@ -7277,7 +7294,40 @@ export default function MainApp() {
                                 title="100% actual size"
                               >100%</button>
                             </div>
-                            
+
+                            {/* Floating Annotation Toolbar */}
+                            {!isFullscreen && (
+                              <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '8px', padding: '4px' }}>
+                                <button
+                                  onClick={() => setAssetTab('annotate')}
+                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, transition: 'opacity 0.2s' }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                                  title="Draw annotation"
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                                </button>
+                                <button
+                                  onClick={() => setAssetTab('annotate')}
+                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, transition: 'opacity 0.2s' }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                                  title="Draw rectangle"
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                </button>
+                                <button
+                                  onClick={() => setAssetTab('annotate')}
+                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, transition: 'opacity 0.2s' }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                                  title="Add text note"
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 10H3"/><path d="M21 6H3"/><path d="M21 14H3"/><path d="M17 18H3"/></svg>
+                                </button>
+                              </div>
+                            )}
+
                             {/* Loading High-Res Indicator */}
                             {isLoadingHighRes && (
                               <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 20, background: 'rgba(0,0,0,0.7)', borderRadius: '6px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -8757,6 +8807,38 @@ export default function MainApp() {
           {view === 'team' && <TeamManagement />}
           {view === 'downloads' && <DownloadsView />}
         </div>
+
+        {/* Keyboard Shortcut Cheat Sheet */}
+        {showShortcuts && (
+          <div className="modal-backdrop" onClick={() => setShowShortcuts(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: t.modalBg, borderRadius: '16px', padding: '24px', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflow: 'auto', border: `1px solid ${t.borderLight}`, boxShadow: t.shadow }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: t.text }}>Keyboard Shortcuts</h2>
+                <button onClick={() => setShowShortcuts(false)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '18px' }}>x</button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                {SHORTCUT_GROUPS.map(group => (
+                  <div key={group.title}>
+                    <h3 style={{ fontSize: '11px', fontWeight: '600', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>{group.title}</h3>
+                    {group.shortcuts.map(s => (
+                      <div key={s.description} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${t.borderLight}` }}>
+                        <span style={{ fontSize: '12px', color: t.textSecondary }}>{s.description}</span>
+                        <div style={{ display: 'flex', gap: '3px' }}>
+                          {s.keys.map(k => (
+                            <kbd key={k} style={{ padding: '2px 8px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '4px', fontSize: '10px', fontFamily: 'monospace', color: t.text, fontWeight: '600' }}>{k}</kbd>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '11px', color: t.textMuted }}>
+                Press <kbd style={{ padding: '1px 6px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '3px', fontSize: '10px', fontFamily: 'monospace' }}>?</kbd> to toggle this panel
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
