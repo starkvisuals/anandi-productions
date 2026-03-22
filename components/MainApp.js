@@ -7247,8 +7247,8 @@ export default function MainApp() {
                               <button 
                                 onClick={() => { setZoomLevel(3); setPanPosition({ x: 0, y: 0 }); }}
                                 style={{ padding: '0 8px', height: '32px', background: zoomLevel >= 3 ? 'rgba(99,102,241,0.3)' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}
-                                title="100% actual size"
-                              >100%</button>
+                                title="3x zoom"
+                              >3x</button>
                             </div>
 
                             {/* Floating Annotation Toolbar */}
@@ -7312,9 +7312,12 @@ export default function MainApp() {
                               }}
                               onWheel={(e) => {
                                 e.preventDefault();
-                                const delta = e.deltaY > 0 ? -0.15 : 0.15;
+                                // Proportional zoom: trackpad gives small deltaY (~1-10), mouse wheel gives large (~100)
+                                const rawDelta = -e.deltaY;
+                                const sensitivity = Math.abs(e.deltaY) > 50 ? 0.15 : Math.abs(e.deltaY) * 0.008;
+                                const delta = rawDelta > 0 ? sensitivity : -sensitivity;
                                 setZoomLevel(z => {
-                                  const newZoom = Math.max(0.5, Math.min(5, z + delta));
+                                  const newZoom = Math.max(0.5, Math.min(5, Math.round((z + delta) * 100) / 100));
                                   // Reset pan if zooming out to fit
                                   if (newZoom <= 1) setPanPosition({ x: 0, y: 0 });
                                   // Load high-res if zooming in past threshold
@@ -7440,14 +7443,14 @@ export default function MainApp() {
                             {/* Zoom hint for desktop */}
                             {!isMobile && zoomLevel === 1 && !imageLoading && (
                               <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: 'rgba(255,255,255,0.7)', pointerEvents: 'none' }}>
-                                Scroll to zoom • Double-click for 250% • Drag to pan
+                                Scroll to zoom • Double-click to zoom • Drag to pan
                               </div>
                             )}
                             
                             {/* Mobile hint */}
                             {isMobile && zoomLevel === 1 && !imageLoading && (
                               <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: 'rgba(255,255,255,0.7)', pointerEvents: 'none' }}>
-                                Pinch to zoom • Double-tap for 250%
+                                Pinch to zoom • Double-tap to zoom
                               </div>
                             )}
                           </div>
@@ -7462,7 +7465,7 @@ export default function MainApp() {
                   
                   {/* RIGHT: Details Sidebar */}
                   {!isMobile && !isFullscreen && (
-                    <div style={{ width: '300px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', padding: '16px', flexShrink: 0 }}>
+                    <div style={{ width: '280px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', padding: '12px', flexShrink: 0 }}>
                       {/* Selection Toggle - Prominent */}
                       <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : t.bgInput, border: selectedAsset.isSelected ? 'none' : `1px solid ${t.border}`, borderRadius: '10px', color: selectedAsset.isSelected ? '#fff' : t.text, fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px', transition: 'all 0.2s', boxShadow: selectedAsset.isSelected ? '0 2px 10px rgba(34,197,94,0.3)' : 'none' }}>
                         {selectedAsset.isSelected ? 'Selected' : '☆ Mark as Selected'}
@@ -7503,7 +7506,7 @@ export default function MainApp() {
                       {/* Due Date */}
                       {isProducer && (
                         <div style={{ marginBottom: '12px' }}>
-                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Due: Due Date</label>
+                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Due Date</label>
                           <input type="date" value={selectedAsset.dueDate?.split('T')[0] || ''} onChange={async (e) => { const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a); setSelectedAsset({ ...selectedAsset, dueDate }); await updateProject(selectedProject.id, { assets: updated }); if (selectedAsset.assignedTo && dueDate) { const assignee = editors.find(e => e.id === selectedAsset.assignedTo); if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`); } }} style={{ width: '100%', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px' }} />
                           {selectedAsset.dueDate && <div style={{ marginTop: '4px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>{new Date(selectedAsset.dueDate) < new Date() ? 'Overdue!' : `In ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days`}</div>}
                         </div>
@@ -7547,7 +7550,7 @@ export default function MainApp() {
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
                               <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '7px', background: t.bgInput, border: `1px dashed ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'border-color 0.2s' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
-                              {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '7px 12px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>{uploadingVersion ? <span className="spinner" style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }} /> : 'Upload'}</button>}
+                              {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '7px 12px', background: t.primary, border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>{uploadingVersion ? <span className="spinner" style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }} /> : 'Upload'}</button>}
                             </div>
                           </div>
                         ) : (
@@ -7567,7 +7570,7 @@ export default function MainApp() {
                           <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}> GDrive Link</label>
                           <div style={{ display: 'flex', gap: '4px' }}>
                             <Input theme={theme} value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '6px', fontSize: '10px' }} />
-                            <button onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} style={{ padding: '6px 10px', background: '#22c55e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>✓</button>
+                            <button onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} style={{ padding: '6px 10px', background: t.success, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>✓</button>
                           </div>
                         </div>
                       )}
@@ -7725,9 +7728,9 @@ export default function MainApp() {
                             <span style={{ fontSize: '9px', padding: '2px 8px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', borderRadius: '10px', fontWeight: '600' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
                           )}
                         </div>
-                        <div style={{ maxHeight: '200px', overflow: 'auto', marginBottom: '8px' }}>
+                        <div style={{ maxHeight: '140px', overflow: 'auto', marginBottom: '6px' }}>
                           {(selectedAsset.feedback || []).length === 0 ? (
-                            <div style={{ fontSize: '10px', color: t.textMuted, textAlign: 'center', padding: '8px 0' }}>No feedback yet.
+                            <div style={{ fontSize: '10px', color: t.textMuted, textAlign: 'center', padding: '6px 0' }}>No feedback yet
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', justifyContent: 'center', marginTop: '6px' }}>
                                 {['Approved', 'Needs revision', 'Love this', 'Change color', 'Crop differently', 'Too dark', 'Too bright'].map(q => (
                                   <button key={q} onClick={() => setNewFeedback(q)} style={{ padding: '3px 6px', background: `${t.primary}15`, border: `1px solid ${t.primary}30`, borderRadius: '10px', color: t.textMuted, fontSize: '8px', cursor: 'pointer' }}>{q}</button>
@@ -7744,7 +7747,7 @@ export default function MainApp() {
                                       <span style={{ fontSize: '9px', fontWeight: '600', color: t.text }}>{fb.userName}</span>
                                       <span style={{ fontSize: '8px', color: t.textMuted }}>{formatTimeAgo(fb.timestamp)}</span>
                                       {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
-                                        <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }} style={{ fontSize: '8px', color: '#6366f1', cursor: 'pointer', background: 'rgba(99,102,241,0.2)', padding: '1px 4px', borderRadius: '3px' }}>@ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}</span>
+                                        <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }} style={{ fontSize: '8px', color: t.primary, cursor: 'pointer', background: `${t.primary}30`, padding: '1px 4px', borderRadius: '3px' }}>@ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}</span>
                                       )}
                                     </div>
                                     <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.3)' : t.bgInput, border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.4)' : t.borderLight}`, borderRadius: '8px', padding: '1px 6px', fontSize: '8px', color: fb.isDone ? '#22c55e' : t.textMuted, cursor: 'pointer', flexShrink: 0 }}>{fb.isDone ? 'Done' : 'Done?'}</button>
@@ -7766,7 +7769,7 @@ export default function MainApp() {
                                 <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100, boxShadow: t.shadow }}>
                                   {filtered.map(member => (
                                     <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }} onMouseEnter={(e) => e.currentTarget.style.background = t.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600', color: '#fff' }}>{member.name?.[0]}</div>
+                                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: t.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600', color: '#fff' }}>{member.name?.[0]}</div>
                                       <span>{member.name}</span>
                                     </div>
                                   ))}
@@ -7774,7 +7777,7 @@ export default function MainApp() {
                               );
                             })()}
                           </div>
-                          <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '7px 10px', background: newFeedback.trim() ? '#6366f1' : t.bgInput, border: 'none', borderRadius: '6px', color: newFeedback.trim() ? '#fff' : t.textMuted, fontSize: '10px', fontWeight: '600', cursor: newFeedback.trim() ? 'pointer' : 'default' }}>Send</button>
+                          <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '7px 10px', background: newFeedback.trim() ? t.primary : t.bgInput, border: 'none', borderRadius: '6px', color: newFeedback.trim() ? '#fff' : t.textMuted, fontSize: '10px', fontWeight: '600', cursor: newFeedback.trim() ? 'pointer' : 'default' }}>Send</button>
                         </div>
                       </div>
                     </div>
@@ -7792,11 +7795,11 @@ export default function MainApp() {
             
             {/* Bottom Thumbnail Strip */}
             {sortedAssets.length > 1 && !isFullscreen && (
-              <div style={{ padding: '10px 16px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', overflowX: 'auto', flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+              <div style={{ padding: '10px 16px', background: t.bgSecondary, overflowX: 'auto', flexShrink: 0, borderTop: `1px solid ${t.border}` }}>
                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                   {sortedAssets.map((asset) => (
-                    <div key={asset.id} onClick={() => setSelectedAsset(asset)} style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', border: asset.id === selectedAsset.id ? '2px solid #6366f1' : '2px solid transparent', boxShadow: asset.id === selectedAsset.id ? '0 0 0 2px rgba(99,102,241,0.3)' : 'none', cursor: 'pointer', flexShrink: 0, opacity: asset.id === selectedAsset.id ? 1 : 0.5, position: 'relative', transition: 'opacity 0.2s, box-shadow 0.2s' }}>
-                      {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : asset.type === 'video' ? <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{asset.thumbnail ? <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '14px' }}>VID</span>}</div> : <div style={{ width: '100%', height: '100%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{asset.type === 'audio' ? '' : 'DOC'}</div>}
+                    <div key={asset.id} onClick={() => setSelectedAsset(asset)} style={{ width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', border: asset.id === selectedAsset.id ? `2px solid ${t.primary}` : `1px solid ${t.border}`, boxShadow: asset.id === selectedAsset.id ? `0 0 0 2px ${t.primary}40` : 'none', cursor: 'pointer', flexShrink: 0, opacity: asset.id === selectedAsset.id ? 1 : 0.6, position: 'relative', transition: 'opacity 0.2s, box-shadow 0.2s' }}>
+                      {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : asset.type === 'video' ? <div style={{ width: '100%', height: '100%', background: t.bgCard, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{asset.thumbnail ? <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '14px' }}>VID</span>}</div> : <div style={{ width: '100%', height: '100%', background: t.bgCard, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{asset.type === 'audio' ? '' : 'DOC'}</div>}
                       {asset.rating > 0 && <div style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 3px', fontSize: '8px' }}>{'★'.repeat(asset.rating)}</div>}
                       {asset.isSelected && <div style={{ position: 'absolute', top: '2px', right: '2px', background: '#22c55e', borderRadius: '3px', padding: '1px 3px', fontSize: '8px', color: '#fff' }}>{'\u2713'}</div>}
                     </div>
@@ -7809,13 +7812,13 @@ export default function MainApp() {
             {isMobile && !isFullscreen && (
               <div style={{ padding: '10px 16px', background: t.bgTertiary, borderTop: `1px solid ${t.border}`, display: 'flex', gap: '8px', flexShrink: 0 }}>
                 <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected }); }} style={{ flex: 1, padding: '10px', background: selectedAsset.isSelected ? '#22c55e' : t.bgInput, border: `1px solid ${selectedAsset.isSelected ? '#22c55e' : t.border}`, borderRadius: '8px', color: selectedAsset.isSelected ? '#fff' : t.text, fontSize: '11px' }}>{selectedAsset.isSelected ? 'Selected' : '☆ Select'}</button>
-                <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: '#6366f1', borderRadius: '8px', color: '#fff', fontSize: '11px', textAlign: 'center', textDecoration: 'none' }}>Download</a>
+                <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: t.primary, borderRadius: '8px', color: '#fff', fontSize: '11px', textAlign: 'center', textDecoration: 'none' }}>Download</a>
               </div>
             )}
             
             {/* Mobile Swipe Hint */}
             {isMobile && sortedAssets.length > 1 && !isFullscreen && (
-              <div style={{ textAlign: 'center', padding: '6px', fontSize: '10px', color: 'rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.5)' }}>← Swipe or use arrows →</div>
+              <div style={{ textAlign: 'center', padding: '6px', fontSize: '10px', color: t.textMuted, background: t.bgSecondary }}>← Swipe or use arrows →</div>
             )}
           </div>
           );
