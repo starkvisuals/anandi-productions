@@ -2136,7 +2136,7 @@ export default function MainApp() {
   };
 
   const Sidebar = () => {
-    const sidebarWidth = sidebarCollapsed ? '60px' : '220px';
+    const sidebarWidth = sidebarCollapsed ? '60px' : '240px';
     const navItems = [
       { id: 'dashboard', icon: 'dashboard', label: 'Dashboard', shortcut: '1' },
       { id: 'tasks', icon: 'tasks', label: 'My Tasks', shortcut: '2' },
@@ -2164,7 +2164,7 @@ export default function MainApp() {
         {/* Logo Section */}
         {!isMobile && (
           <div style={{
-            padding: sidebarCollapsed ? '14px 10px 12px' : '14px 16px 12px',
+            padding: sidebarCollapsed ? '16px 10px 14px' : '18px 16px 16px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -2220,10 +2220,10 @@ export default function MainApp() {
         {/* Navigation */}
         <nav style={{
           flex: 1,
-          padding: isMobile ? '6px 8px' : '4px 8px',
+          padding: isMobile ? '6px 8px' : '8px 10px',
           display: 'flex',
           flexDirection: isMobile ? 'row' : 'column',
-          gap: '2px',
+          gap: '4px',
           alignItems: isMobile ? 'center' : 'stretch',
           overflowY: isMobile ? 'visible' : 'auto'
         }}>
@@ -2306,7 +2306,7 @@ export default function MainApp() {
 
         {/* Bottom Section */}
         {!isMobile && (
-          <div style={{ padding: sidebarCollapsed ? '8px' : '10px 12px', borderTop: `1px solid ${t.borderLight}`, flexShrink: 0 }}>
+          <div style={{ padding: sidebarCollapsed ? '8px' : '12px 14px', borderTop: `1px solid ${t.borderLight}`, flexShrink: 0 }}>
             {/* User Profile Card */}
             {!sidebarCollapsed ? (
               <div style={{
@@ -2335,10 +2335,10 @@ export default function MainApp() {
             {/* Action buttons row */}
             <div style={{
               display: 'flex',
-              gap: '4px',
+              gap: '6px',
               marginBottom: '8px',
               flexDirection: sidebarCollapsed ? 'column' : 'row',
-              overflow: 'hidden'
+              flexWrap: 'wrap'
             }}>
               {/* Theme Toggle */}
               <button
@@ -6184,7 +6184,7 @@ export default function MainApp() {
     };
 
     return (
-      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '-60px' : '-200px') }}>
+      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '-60px' : '-240px') }}>
         {/* Main Content - full width, no sidebar */}
         <div style={{ flex: 1 }}>
           {/* Project Banner */}
@@ -8614,7 +8614,7 @@ export default function MainApp() {
       )}
       
       <Sidebar />
-      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '60px' : '200px'), background: t.bg, minHeight: '100vh', transition: 'margin-left 0.2s ease' }}>
+      <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '60px' : '240px'), background: t.bg, minHeight: '100vh', transition: 'margin-left 0.2s ease' }}>
         {/* Top Header Bar */}
         <header style={{
           position: 'sticky',
