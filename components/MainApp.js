@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, createContext, useContext } from 'react';
+import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { getProjects, getProject, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
 import { useKeyboardShortcuts, SHORTCUT_GROUPS } from '@/lib/useKeyboardShortcuts';
@@ -8141,12 +8141,11 @@ export default function MainApp() {
     );
   };
 
-  // Annotation Canvas Component with proper fitting and pinch zoom
+  // Annotation Canvas Component — Modern inline UX
   const AnnotationCanvas = ({ imageUrl, annotations = [], onChange }) => {
     const [annots, setAnnots] = useState(annotations);
     const [tool, setTool] = useState('rect');
     const [color, setColor] = useState('#ef4444');
-    const [newText, setNewText] = useState('');
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawStart, setDrawStart] = useState(null);
     const [currentPath, setCurrentPath] = useState([]);
@@ -8158,49 +8157,44 @@ export default function MainApp() {
     const [imageLoaded, setImageLoaded] = useState(false);
     const [imageDims, setImageDims] = useState({ width: 0, height: 0 });
     const [isPinching, setIsPinching] = useState(false);
-    const [pendingAnnot, setPendingAnnot] = useState(null); // For text modal
-    const [annotText, setAnnotText] = useState('');
+    const [inlineText, setInlineText] = useState('');
+    const [editingAnnotId, setEditingAnnotId] = useState(null);
+    const [newAnnotPos, setNewAnnotPos] = useState(null); // For inline text input after drawing
     const lastPinchDistRef = useRef(0);
     const containerRef = useRef(null);
     const imageContainerRef = useRef(null);
+    const inlineInputRef = useRef(null);
 
-    const COLORS = ['#ef4444', '#f97316', '#fbbf24', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff'];
+    const COLORS = ['#ef4444', '#f97316', '#fbbf24', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
     const TOOLS = [
-      { id: 'rect', icon: '▢', label: 'Rectangle' },
-      { id: 'circle', icon: '○', label: 'Circle' },
-      { id: 'arrow', icon: '→', label: 'Arrow' },
-      { id: 'freehand', icon: '✎', label: 'Draw' },
-      { id: 'text', icon: 'T', label: 'Text' },
+      { id: 'rect', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>, label: 'Rectangle' },
+      { id: 'circle', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>, label: 'Circle' },
+      { id: 'arrow', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg>, label: 'Arrow' },
+      { id: 'freehand', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>, label: 'Draw' },
+      { id: 'text', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4,7 4,4 20,4 20,7"/><line x1="9.5" y1="4" x2="9.5" y2="20"/><line x1="14.5" y1="4" x2="14.5" y2="20"/><line x1="7" y1="20" x2="17" y2="20"/></svg>, label: 'Text' },
     ];
 
-    // Handle image load
+    // Sync with external annotations prop
+    useEffect(() => { setAnnots(annotations); }, [annotations]);
+
     const handleImageLoad = (e) => {
       setImageLoaded(true);
       setImageDims({ width: e.target.naturalWidth, height: e.target.naturalHeight });
     };
 
-    // Get position relative to image container
     const getPos = (e) => {
       if (!imageContainerRef.current) return { x: 0, y: 0 };
       const rect = imageContainerRef.current.getBoundingClientRect();
       let clientX, clientY;
-      if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else if (e.changedTouches && e.changedTouches.length > 0) {
-        clientX = e.changedTouches[0].clientX;
-        clientY = e.changedTouches[0].clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
+      if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+      else if (e.changedTouches && e.changedTouches.length > 0) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; }
+      else { clientX = e.clientX; clientY = e.clientY; }
       return {
         x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
         y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100))
       };
     };
 
-    // Pinch zoom handlers
     const getTouchDist = (touches) => {
       if (touches.length < 2) return 0;
       const dx = touches[0].clientX - touches[1].clientX;
@@ -8209,76 +8203,31 @@ export default function MainApp() {
     };
 
     const handleTouchStart = (e) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        setIsPinching(true);
-        lastPinchDistRef.current = getTouchDist(e.touches);
-        return;
-      }
-      if (e.touches.length === 1 && !isPinching) {
-        handleStart(e);
-      }
+      if (e.touches.length === 2) { e.preventDefault(); setIsPinching(true); lastPinchDistRef.current = getTouchDist(e.touches); return; }
+      if (e.touches.length === 1 && !isPinching) handleStart(e);
     };
-
     const handleTouchMove = (e) => {
-      if (e.touches.length === 2 && isPinching) {
-        e.preventDefault();
-        const dist = getTouchDist(e.touches);
-        if (lastPinchDistRef.current > 0) {
-          const scale = dist / lastPinchDistRef.current;
-          setZoom(z => Math.max(50, Math.min(300, z * scale)));
-        }
-        lastPinchDistRef.current = dist;
-        return;
-      }
-      if (e.touches.length === 1 && !isPinching) {
-        handleMove(e);
-      }
+      if (e.touches.length === 2 && isPinching) { e.preventDefault(); const dist = getTouchDist(e.touches); if (lastPinchDistRef.current > 0) setZoom(z => Math.max(50, Math.min(300, z * (dist / lastPinchDistRef.current)))); lastPinchDistRef.current = dist; return; }
+      if (e.touches.length === 1 && !isPinching) handleMove(e);
     };
-
     const handleTouchEnd = (e) => {
-      if (e.touches.length < 2) {
-        setIsPinching(false);
-        lastPinchDistRef.current = 0;
-      }
-      if (e.touches.length === 0 && !isPinching) {
-        handleEnd(e);
-      }
+      if (e.touches.length < 2) { setIsPinching(false); lastPinchDistRef.current = 0; }
+      if (e.touches.length === 0 && !isPinching) handleEnd(e);
     };
 
     const handleStart = (e) => {
-      if (dragging || resizing || isPinching) return;
-      e.preventDefault();
-      e.stopPropagation();
+      if (dragging || resizing || isPinching || newAnnotPos) return;
+      e.preventDefault(); e.stopPropagation();
       const pos = getPos(e);
-      setDrawStart(pos);
-      setCurrentEnd(pos);
-      setIsDrawing(true);
+      setDrawStart(pos); setCurrentEnd(pos); setIsDrawing(true);
       if (tool === 'freehand') setCurrentPath([pos]);
+      setSelectedAnnot(null);
     };
 
     const handleMove = (e) => {
       if (isPinching) return;
-      
-      if (dragging) {
-        e.preventDefault();
-        const pos = getPos(e);
-        const updated = annots.map(a => a.id === dragging ? { ...a, x: Math.max(0, Math.min(100 - (a.width || 5), pos.x - (a.width || 5)/2)), y: Math.max(0, Math.min(100 - (a.height || 5), pos.y - (a.height || 5)/2)) } : a);
-        setAnnots(updated);
-        return;
-      }
-      if (resizing) {
-        e.preventDefault();
-        const pos = getPos(e);
-        const annot = annots.find(a => a.id === resizing);
-        if (annot) {
-          const w = Math.max(3, pos.x - annot.x);
-          const h = Math.max(3, pos.y - annot.y);
-          const updated = annots.map(a => a.id === resizing ? { ...a, width: w, height: h } : a);
-          setAnnots(updated);
-        }
-        return;
-      }
+      if (dragging) { e.preventDefault(); const pos = getPos(e); setAnnots(prev => prev.map(a => a.id === dragging ? { ...a, x: Math.max(0, Math.min(100 - (a.width || 5), pos.x - (a.width || 5)/2)), y: Math.max(0, Math.min(100 - (a.height || 5), pos.y - (a.height || 5)/2)) } : a)); return; }
+      if (resizing) { e.preventDefault(); const pos = getPos(e); setAnnots(prev => { const annot = prev.find(a => a.id === resizing); if (!annot) return prev; return prev.map(a => a.id === resizing ? { ...a, width: Math.max(3, pos.x - annot.x), height: Math.max(3, pos.y - annot.y) } : a); }); return; }
       if (!isDrawing || !drawStart) return;
       e.preventDefault();
       const pos = getPos(e);
@@ -8290,145 +8239,136 @@ export default function MainApp() {
       if (dragging) { setDragging(null); onChange(annots); return; }
       if (resizing) { setResizing(null); onChange(annots); return; }
       if (!isDrawing || !drawStart) return;
-      
+
       const pos = currentEnd || drawStart;
       const width = Math.abs(pos.x - drawStart.x);
       const height = Math.abs(pos.y - drawStart.y);
       const x = Math.min(pos.x, drawStart.x);
       const y = Math.min(pos.y, drawStart.y);
-
       const author = typeof userProfile !== 'undefined' ? userProfile?.name : 'You';
 
-      // For text tool, show immediately if text is already entered
-      if (tool === 'text' && newText.trim()) {
-        const newAnnot = { id: generateId(), type: 'text', x: drawStart.x, y: drawStart.y, text: newText, color, createdAt: new Date().toISOString(), author };
-        const updated = [...annots, newAnnot];
-        setAnnots(updated);
-        onChange(updated);
-        setNewText('');
+      if (tool === 'text') {
+        // Show inline text input at click position
+        setNewAnnotPos({ x: drawStart.x, y: drawStart.y, type: 'text', color, author });
+        setInlineText('');
+        setTimeout(() => inlineInputRef.current?.focus(), 50);
       } else if (tool === 'freehand' && currentPath.length > 2) {
-        // For freehand, show text modal to add description
-        const pending = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author };
-        setPendingAnnot(pending);
-        setAnnotText('');
+        const newAnnot = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author, text: '' };
+        setNewAnnotPos({ ...newAnnot, _isShape: true });
+        setInlineText('');
+        setTimeout(() => inlineInputRef.current?.focus(), 50);
       } else if (width > 2 || height > 2) {
-        // For shapes (rect, circle, arrow), show text modal
-        const pending = { id: generateId(), type: tool, x, y, width: Math.max(width, 5), height: Math.max(height, 5), color, createdAt: new Date().toISOString(), author };
-        setPendingAnnot(pending);
-        setAnnotText('');
+        const newAnnot = { id: generateId(), type: tool, x, y, width: Math.max(width, 5), height: Math.max(height, 5), color, createdAt: new Date().toISOString(), author, text: '' };
+        setNewAnnotPos({ ...newAnnot, _isShape: true });
+        setInlineText('');
+        setTimeout(() => inlineInputRef.current?.focus(), 50);
       }
 
-      setIsDrawing(false);
-      setDrawStart(null);
-      setCurrentEnd(null);
-      setCurrentPath([]);
+      setIsDrawing(false); setDrawStart(null); setCurrentEnd(null); setCurrentPath([]);
     };
 
-    // Confirm annotation with text
-    const confirmAnnotation = () => {
-      if (!pendingAnnot) return;
-      const finalAnnot = { ...pendingAnnot, text: annotText.trim() || 'No description' };
-      const updated = [...annots, finalAnnot];
+    const confirmInlineAnnotation = () => {
+      if (!newAnnotPos) return;
+      let newAnnot;
+      if (newAnnotPos._isShape) {
+        const { _isShape, ...rest } = newAnnotPos;
+        newAnnot = { ...rest, text: inlineText.trim() || '' };
+      } else {
+        if (!inlineText.trim()) { setNewAnnotPos(null); setInlineText(''); return; }
+        newAnnot = { id: generateId(), type: 'text', x: newAnnotPos.x, y: newAnnotPos.y, text: inlineText.trim(), color: newAnnotPos.color, createdAt: new Date().toISOString(), author: newAnnotPos.author };
+      }
+      const updated = [...annots, newAnnot];
       setAnnots(updated);
       onChange(updated);
-      setPendingAnnot(null);
-      setAnnotText('');
+      setNewAnnotPos(null); setInlineText('');
     };
 
-    // Cancel pending annotation
-    const cancelAnnotation = () => {
-      setPendingAnnot(null);
-      setAnnotText('');
-    };
+    const cancelInlineAnnotation = () => { setNewAnnotPos(null); setInlineText(''); };
 
-    const deleteAnnot = (id, e) => { 
+    const deleteAnnot = (id, e) => {
       if (e) e.stopPropagation();
-      const updated = annots.filter(a => a.id !== id); 
-      setAnnots(updated); 
-      onChange(updated); 
+      const updated = annots.filter(a => a.id !== id);
+      setAnnots(updated);
+      onChange(updated);
       setSelectedAnnot(null);
     };
 
     const renderAnnotation = (a) => {
       const isSelected = selectedAnnot === a.id;
-      
+      const labelStyle = { position: 'absolute', top: '-26px', left: '0', background: a.color, color: '#fff', padding: '3px 8px', borderRadius: '4px 4px 4px 0', fontSize: '10px', whiteSpace: 'nowrap', fontWeight: '600', zIndex: 11, pointerEvents: 'auto', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' };
+      const deleteBtn = isSelected ? <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-8px', right: '-8px', width: '20px', height: '20px', background: '#ef4444', border: '2px solid #fff', borderRadius: '50%', color: '#fff', fontSize: '11px', cursor: 'pointer', zIndex: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>×</button> : null;
+      const resizeHandle = isSelected ? <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '10px', height: '10px', background: '#fff', border: `2px solid ${a.color}`, borderRadius: '2px', cursor: 'se-resize', zIndex: 12 }} /> : null;
+
       if (a.type === 'freehand' && a.path) {
         const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        // Calculate bounding box for freehand
         const minX = Math.min(...a.path.map(p => p.x));
         const minY = Math.min(...a.path.map(p => p.y));
         return (
           <div key={a.id} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible' }}>
-              <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: '3px', pointerEvents: 'stroke', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }} />
+              <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: isSelected ? '4px' : '3px', pointerEvents: 'stroke', cursor: 'pointer', filter: isSelected ? `drop-shadow(0 0 3px ${a.color})` : 'none' }} onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }} />
             </svg>
-            {a.text && <div style={{ position: 'absolute', left: `${minX}%`, top: `${Math.max(0, minY - 5)}%`, transform: 'translateY(-100%)', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '11px', whiteSpace: 'nowrap', fontWeight: '600', zIndex: 11, pointerEvents: 'auto' }}>{a.text}</div>}
-            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', left: `${minX}%`, top: `${minY}%`, transform: 'translate(-50%, -50%)', width: '24px', height: '24px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '14px', cursor: 'pointer', zIndex: 12, pointerEvents: 'auto' }}>×</button>}
+            {a.text && <div style={{ ...labelStyle, left: `${minX}%`, top: `${Math.max(0, minY)}%`, transform: 'translateY(-100%)' }}>{a.text}</div>}
+            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', left: `${minX}%`, top: `${minY}%`, transform: 'translate(-50%, -50%)', width: '20px', height: '20px', background: '#ef4444', border: '2px solid #fff', borderRadius: '50%', color: '#fff', fontSize: '11px', cursor: 'pointer', zIndex: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.3)', pointerEvents: 'auto' }}>×</button>}
           </div>
         );
       }
 
       if (a.type === 'text') {
         return (
-          <div key={a.id} 
-            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, color: a.color, fontSize: '16px', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.9)', border: isSelected ? `2px dashed ${a.color}` : 'none', padding: '4px 8px', cursor: 'move', background: isSelected ? 'rgba(0,0,0,0.3)' : 'transparent', borderRadius: '4px', zIndex: 10 }}
+          <div key={a.id}
+            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, color: '#fff', fontSize: '13px', fontWeight: '600', padding: '4px 10px', cursor: 'move', background: a.color, borderRadius: '4px', zIndex: 10, border: isSelected ? '2px solid #fff' : 'none', boxShadow: isSelected ? `0 0 0 2px ${a.color}, 0 2px 8px rgba(0,0,0,0.3)` : '0 2px 6px rgba(0,0,0,0.3)', maxWidth: '200px', wordBreak: 'break-word' }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
             onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
             onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
             {a.text}
-            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '12px', cursor: 'pointer', lineHeight: '18px' }}>×</button>}
+            {deleteBtn}
           </div>
         );
       }
 
       if (a.type === 'circle') {
         return (
-          <div key={a.id} 
-            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `3px solid ${a.color}`, borderRadius: '50%', background: `${a.color}20`, cursor: 'move', boxSizing: 'border-box', zIndex: 10 }}
+          <div key={a.id}
+            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2.5px solid ${a.color}`, borderRadius: '50%', background: `${a.color}15`, cursor: 'move', boxSizing: 'border-box', zIndex: 10, boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${a.color}` : 'none' }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
             onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
             onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-            {a.text && <div style={{ position: 'absolute', top: '-28px', left: '0', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '11px', whiteSpace: 'nowrap', fontWeight: '600' }}>{a.text}</div>}
-            {isSelected && <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '14px', height: '14px', background: a.color, borderRadius: '3px', cursor: 'se-resize' }} />}
-            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>×</button>}
+            {a.text && <div style={labelStyle}>{a.text}</div>}
+            {resizeHandle}{deleteBtn}
           </div>
         );
       }
 
       if (a.type === 'arrow') {
-        const centerX = a.x + a.width / 2;
-        const centerY = a.y + a.height / 2;
         return (
           <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, cursor: 'move', zIndex: 10 }}
             onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
             onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
             onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-            {a.text && <div style={{ position: 'absolute', top: '-28px', left: '0', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '11px', whiteSpace: 'nowrap', fontWeight: '600', zIndex: 11 }}>{a.text}</div>}
+            {a.text && <div style={labelStyle}>{a.text}</div>}
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
               <defs><marker id={`arr-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs>
-              <line x1="0" y1="50" x2="100" y2="50" stroke={a.color} strokeWidth="3" markerEnd={`url(#arr-${a.id})`} vectorEffect="non-scaling-stroke" />
+              <line x1="0" y1="50" x2="100" y2="50" stroke={a.color} strokeWidth={isSelected ? '4' : '3'} markerEnd={`url(#arr-${a.id})`} vectorEffect="non-scaling-stroke" style={{ filter: isSelected ? `drop-shadow(0 0 3px ${a.color})` : 'none' }} />
             </svg>
-            {isSelected && <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '14px', height: '14px', background: a.color, borderRadius: '3px', cursor: 'se-resize', zIndex: 12 }} />}
-            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '12px', cursor: 'pointer', zIndex: 12 }}>×</button>}
+            {resizeHandle}{deleteBtn}
           </div>
         );
       }
 
-      // Rectangle
+      // Rectangle (default)
       return (
-        <div key={a.id} 
-          style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `3px solid ${a.color}`, borderRadius: '4px', background: `${a.color}20`, cursor: 'move', boxSizing: 'border-box', zIndex: 10 }}
+        <div key={a.id}
+          style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2.5px solid ${a.color}`, borderRadius: '3px', background: `${a.color}15`, cursor: 'move', boxSizing: 'border-box', zIndex: 10, boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${a.color}` : 'none' }}
           onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
           onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
           onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-          {a.text && <div style={{ position: 'absolute', top: '-28px', left: '0', background: a.color, padding: '4px 10px', borderRadius: '4px', fontSize: '11px', whiteSpace: 'nowrap', fontWeight: '600' }}>{a.text}</div>}
-          {isSelected && <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '14px', height: '14px', background: a.color, borderRadius: '3px', cursor: 'se-resize' }} />}
-          {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: 'none', borderRadius: '50%', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>×</button>}
+          {a.text && <div style={labelStyle}>{a.text}</div>}
+          {resizeHandle}{deleteBtn}
         </div>
       );
     };
 
-    // Draw preview shape
     const renderPreview = () => {
       if (!isDrawing || !drawStart || !currentEnd || tool === 'text') return null;
       if (tool === 'freehand' && currentPath.length > 1) {
@@ -8440,128 +8380,96 @@ export default function MainApp() {
       const w = Math.abs(currentEnd.x - drawStart.x);
       const h = Math.abs(currentEnd.y - drawStart.y);
       if (w < 1 && h < 1) return null;
-      return <div style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, border: `2px dashed ${color}`, borderRadius: tool === 'circle' ? '50%' : '4px', pointerEvents: 'none', opacity: 0.7, background: `${color}10` }} />;
+      return <div style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, border: `2px dashed ${color}`, borderRadius: tool === 'circle' ? '50%' : '3px', pointerEvents: 'none', opacity: 0.8, background: `${color}10` }} />;
     };
-
-    // Fit to container - reset zoom
-    const handleFitToContainer = () => setZoom(100);
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-        {/* Toolbar */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0, padding: '0 4px' }}>
-          <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
-            {TOOLS.map(t => (
-              <button key={t.id} onClick={() => setTool(t.id)} title={t.label}
-                style={{ width: '32px', height: '32px', background: tool === t.id ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
-                {t.icon}
+        {/* Modern Toolbar */}
+        <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', alignItems: 'center', flexShrink: 0, background: t.bgSecondary, borderBottom: `1px solid ${t.border}` }}>
+          <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '10px', padding: '3px' }}>
+            {TOOLS.map(tl => (
+              <button key={tl.id} onClick={() => setTool(tl.id)} title={tl.label}
+                style={{ width: '34px', height: '34px', background: tool === tl.id ? t.primary : 'transparent', border: 'none', borderRadius: '8px', color: tool === tl.id ? '#fff' : t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                {tl.icon}
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
+          <div style={{ width: '1px', height: '24px', background: t.border }} />
+          <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
             {COLORS.map(c => (
-              <button key={c} onClick={() => setColor(c)} style={{ width: '24px', height: '24px', background: c, border: color === c ? '2px solid #fff' : '2px solid transparent', borderRadius: '4px', cursor: 'pointer' }} />
+              <button key={c} onClick={() => setColor(c)} style={{ width: '22px', height: '22px', background: c, border: color === c ? '2.5px solid #fff' : '2px solid transparent', borderRadius: '50%', cursor: 'pointer', boxShadow: color === c ? `0 0 0 2px ${c}` : 'none', transition: 'all 0.15s' }} />
             ))}
           </div>
-          {(tool === 'text' || tool === 'rect' || tool === 'circle') && (
-            <Input theme={theme} value={newText} onChange={setNewText} placeholder={tool === 'text' ? 'Text...' : 'Label...'} style={{ width: '100px', padding: '6px 10px', fontSize: '11px' }} />
-          )}
-          {/* Zoom controls */}
-          <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px', marginLeft: 'auto' }}>
-            <button onClick={() => setZoom(z => Math.max(25, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>−</button>
-            <button onClick={handleFitToContainer} style={{ padding: '4px 8px', fontSize: '11px', color: 'rgba(255,255,255,0.7)', background: 'transparent', border: 'none', cursor: 'pointer' }}>{zoom}%</button>
-            <button onClick={() => setZoom(z => Math.min(300, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>+</button>
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '8px', padding: '3px', alignItems: 'center' }}>
+            <button onClick={() => setZoom(z => Math.max(50, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '15px' }}>-</button>
+            <button onClick={() => setZoom(100)} style={{ padding: '2px 8px', fontSize: '10px', color: t.textMuted, background: 'transparent', border: 'none', cursor: 'pointer', minWidth: '36px' }}>{zoom}%</button>
+            <button onClick={() => setZoom(z => Math.min(300, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '15px' }}>+</button>
           </div>
+          {annots.length > 0 && <span style={{ fontSize: '10px', color: t.textMuted, marginLeft: '4px' }}>{annots.length}</span>}
         </div>
 
-        {/* Image container - fits within available space */}
-        <div 
+        {/* Canvas Area */}
+        <div
           ref={containerRef}
-          style={{ 
-            flex: 1, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            overflow: zoom > 100 ? 'auto' : 'hidden',
-            background: '#0a0a0f',
-            borderRadius: '8px',
-            position: 'relative'
-          }}>
-          
-          {/* Loading spinner */}
+          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: zoom > 100 ? 'auto' : 'hidden', background: theme === 'dark' ? '#0a0a0f' : '#e5e7eb', position: 'relative' }}>
+
           {!imageLoaded && (
-            <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: t.textMuted }}>
+            <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: t.textMuted }}>
               <div className="spinner" style={{ width: 20, height: 20, border: `2px solid ${t.primary}`, borderTopColor: 'transparent', borderRadius: '50%' }} />
               <span style={{ fontSize: '11px' }}>Loading...</span>
             </div>
           )}
-          
-          {/* Image with annotations */}
-          <div 
+
+          <div
             ref={imageContainerRef}
-            onMouseDown={handleStart} 
-            onMouseMove={handleMove} 
-            onMouseUp={handleEnd} 
+            onMouseDown={handleStart}
+            onMouseMove={handleMove}
+            onMouseUp={handleEnd}
             onMouseLeave={handleEnd}
-            onTouchStart={handleTouchStart} 
-            onTouchMove={handleTouchMove} 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            onClick={() => setSelectedAnnot(null)}
-            style={{ 
-              position: 'relative',
-              cursor: 'crosshair', 
-              userSelect: 'none', 
-              touchAction: 'none',
-              transform: `scale(${zoom / 100})`,
-              transformOrigin: 'center center',
-              maxWidth: zoom <= 100 ? '100%' : 'none',
-              maxHeight: zoom <= 100 ? '100%' : 'none',
+            onClick={() => { setSelectedAnnot(null); if (!isDrawing) cancelInlineAnnotation(); }}
+            style={{
+              position: 'relative', cursor: 'crosshair', userSelect: 'none', touchAction: 'none',
+              transform: `scale(${zoom / 100})`, transformOrigin: 'center center',
+              maxWidth: zoom <= 100 ? '100%' : 'none', maxHeight: zoom <= 100 ? '100%' : 'none',
               transition: 'transform 0.1s ease-out'
             }}>
-            <img 
-              src={imageUrl} 
-              alt="" 
-              draggable={false}
-              onLoad={handleImageLoad}
-              style={{ 
+            <img
+              src={imageUrl} alt="" draggable={false} onLoad={handleImageLoad}
+              style={{
                 display: 'block',
                 maxWidth: zoom <= 100 ? '100%' : `${imageDims.width}px`,
-                maxHeight: zoom <= 100 ? 'calc(100vh - 350px)' : `${imageDims.height}px`,
-                width: 'auto',
-                height: 'auto',
-                objectFit: 'contain',
-                pointerEvents: 'none',
-                opacity: imageLoaded ? 1 : 0,
-                transition: 'opacity 0.2s'
-              }} 
+                maxHeight: zoom <= 100 ? 'calc(100vh - 200px)' : `${imageDims.height}px`,
+                width: 'auto', height: 'auto', objectFit: 'contain',
+                pointerEvents: 'none', opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.2s'
+              }}
             />
             {imageLoaded && annots.map(renderAnnotation)}
             {imageLoaded && renderPreview()}
+
+            {/* Inline text input — appears right on the image where you drew */}
+            {newAnnotPos && (
+              <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', left: `${newAnnotPos.x || newAnnotPos.path?.[0]?.x || 0}%`, top: `${(newAnnotPos.y || newAnnotPos.path?.[0]?.y || 0)}%`, transform: 'translateY(-100%)', zIndex: 20 }}>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: '#fff', borderRadius: '8px', padding: '4px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', border: `2px solid ${newAnnotPos.color}` }}>
+                  <input
+                    ref={inlineInputRef}
+                    value={inlineText}
+                    onChange={(e) => setInlineText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') confirmInlineAnnotation(); if (e.key === 'Escape') cancelInlineAnnotation(); }}
+                    placeholder="Add note..."
+                    style={{ width: '180px', padding: '6px 8px', border: 'none', outline: 'none', fontSize: '12px', background: 'transparent', color: '#111' }}
+                  />
+                  <button onClick={confirmInlineAnnotation} style={{ width: '28px', height: '28px', background: newAnnotPos.color, border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>+</button>
+                  <button onClick={cancelInlineAnnotation} style={{ width: '28px', height: '28px', background: '#e5e7eb', border: 'none', borderRadius: '6px', color: '#666', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>×</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-        
-        {annots.length > 0 && <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '6px', flexShrink: 0, textAlign: 'center' }}>{annots.length} annotation{annots.length !== 1 ? 's'  : ''} • Pinch to zoom</div>}
-        
-        {/* Text Modal for Annotation Description */}
-        {pendingAnnot && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }} onClick={cancelAnnotation}>
-            <div style={{ background: t.bgCard, borderRadius: '16px', padding: '24px', width: '90%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
-              <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600' }}> Add Description</h3>
-              <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.textMuted }}>What feedback do you want to give about this area?</p>
-              <textarea 
-                value={annotText} 
-                onChange={(e) => setAnnotText(e.target.value)} 
-                placeholder="E.g., Fix the color balance here, crop tighter, remove this element..." 
-                autoFocus
-                style={{ width: '100%', minHeight: '100px', padding: '12px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} 
-              />
-              <div style={{ display: 'flex', gap: '10px', marginTop: '16px', justifyContent: 'flex-end' }}>
-                <button onClick={cancelAnnotation} style={{ padding: '10px 20px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textMuted, fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={confirmAnnotation} style={{ padding: '10px 20px', background: pendingAnnot.color, border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Add Annotation</button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -8593,6 +8501,25 @@ export default function MainApp() {
       </div>
     );
   };
+
+  // Stable component references to prevent unmount/remount on parent state changes (e.g. theme toggle).
+  // Each ref holds the latest implementation; the useMemo wrapper keeps a stable function identity
+  // so React treats it as the same component across renders, preventing unmount/remount cycles.
+  // The wrapper calls the implementation directly (not via JSX) to avoid creating a new component type.
+  const _dashboardRef = useRef(null); _dashboardRef.current = Dashboard;
+  const StableDashboard = useMemo(() => (props) => _dashboardRef.current(props), []);
+  const _tasksViewRef = useRef(null); _tasksViewRef.current = TasksView;
+  const StableTasksView = useMemo(() => (props) => _tasksViewRef.current(props), []);
+  const _projectsListRef = useRef(null); _projectsListRef.current = ProjectsList;
+  const StableProjectsList = useMemo(() => (props) => _projectsListRef.current(props), []);
+  const _projectDetailRef = useRef(null); _projectDetailRef.current = ProjectDetail;
+  const StableProjectDetail = useMemo(() => (props) => _projectDetailRef.current(props), []);
+  const _calendarViewRef = useRef(null); _calendarViewRef.current = CalendarView;
+  const StableCalendarView = useMemo(() => (props) => _calendarViewRef.current(props), []);
+  const _teamManagementRef = useRef(null); _teamManagementRef.current = TeamManagement;
+  const StableTeamManagement = useMemo(() => (props) => _teamManagementRef.current(props), []);
+  const _downloadsViewRef = useRef(null); _downloadsViewRef.current = DownloadsView;
+  const StableDownloadsView = useMemo(() => (props) => _downloadsViewRef.current(props), []);
 
   // Main Render
   return (
@@ -8808,13 +8735,13 @@ export default function MainApp() {
 
         {/* Content with page transition */}
         <div key={view + (selectedProjectId || '')} className="animate-fadeIn" style={{ padding: isMobile ? '16px' : '24px' }}>
-          {view === 'dashboard' && <Dashboard />}
-          {view === 'tasks' && <TasksView />}
-          {view === 'projects' && !selectedProjectId && <ProjectsList />}
-          {view === 'projects' && selectedProjectId && <ProjectDetail />}
-          {view === 'calendar' && <CalendarView />}
-          {view === 'team' && <TeamManagement />}
-          {view === 'downloads' && <DownloadsView />}
+          {view === 'dashboard' && <StableDashboard />}
+          {view === 'tasks' && <StableTasksView />}
+          {view === 'projects' && !selectedProjectId && <StableProjectsList />}
+          {view === 'projects' && selectedProjectId && <StableProjectDetail />}
+          {view === 'calendar' && <StableCalendarView />}
+          {view === 'team' && <StableTeamManagement />}
+          {view === 'downloads' && <StableDownloadsView />}
         </div>
 
         {/* Keyboard Shortcut Cheat Sheet */}
