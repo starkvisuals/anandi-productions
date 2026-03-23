@@ -7279,61 +7279,61 @@ export default function MainApp() {
                             style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
                           >
                             {/* Zoom Controls - Top Right */}
-                            <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 20, display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '8px', padding: '4px' }}>
+                            <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 20, display: 'flex', gap: '2px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '10px', padding: '3px', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}>
                               <button
                                 onClick={() => { setZoomLevel(z => { const newZ = Math.max(0.25, Math.round((z - 0.1) * 10) / 10); if (newZ <= 1) setPanPosition({ x: 0, y: 0 }); return newZ; }); }}
-                                style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                style={{ width: '30px', height: '30px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.text, fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                 title="Zoom out (-)"
-                              >−</button>
+                              >-</button>
                               <button
                                 onClick={() => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); }}
-                                style={{ padding: '0 10px', height: '32px', background: zoomLevel === 1 ? 'rgba(99,102,241,0.3)' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: '500', minWidth: '50px' }}
+                                style={{ padding: '0 8px', height: '30px', background: zoomLevel === 1 ? `${t.primary}20` : 'transparent', border: 'none', borderRadius: '7px', color: t.text, fontSize: '11px', cursor: 'pointer', fontWeight: '500', minWidth: '44px' }}
                                 title="Fit to screen"
                               >{zoomLevel === 1 ? 'Fit' : Math.round(zoomLevel * 100) + '%'}</button>
                               <button
                                 onClick={() => { setZoomLevel(z => Math.min(5, Math.round((z + 0.1) * 10) / 10)); }}
-                                style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                style={{ width: '30px', height: '30px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.text, fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                 title="Zoom in (+)"
                               >+</button>
-                              <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)', margin: '4px 2px' }} />
-                              <button 
+                              <div style={{ width: '1px', background: t.border, margin: '4px 1px' }} />
+                              <button
                                 onClick={() => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); }}
-                                style={{ padding: '0 8px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}
+                                style={{ padding: '0 6px', height: '30px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textMuted, fontSize: '10px', cursor: 'pointer' }}
                                 title="Fit"
                               >Fit</button>
-                              <button 
+                              <button
                                 onClick={() => { setZoomLevel(3); setPanPosition({ x: 0, y: 0 }); }}
-                                style={{ padding: '0 8px', height: '32px', background: zoomLevel >= 3 ? 'rgba(99,102,241,0.3)' : 'transparent', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}
+                                style={{ padding: '0 6px', height: '30px', background: zoomLevel >= 3 ? `${t.primary}20` : 'transparent', border: 'none', borderRadius: '7px', color: t.textMuted, fontSize: '10px', cursor: 'pointer' }}
                                 title="3x zoom"
                               >3x</button>
                             </div>
 
                             {/* Floating Annotation Toolbar */}
                             {!isFullscreen && (
-                              <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '8px', padding: '4px' }}>
+                              <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: '2px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '10px', padding: '3px', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}>
                                 <button
                                   onClick={() => setAssetTab('annotate')}
-                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, transition: 'opacity 0.2s' }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = `${t.primary}20`; e.currentTarget.style.color = t.primary; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textSecondary; }}
                                   title="Draw annotation"
                                 >
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
                                 </button>
                                 <button
                                   onClick={() => setAssetTab('annotate')}
-                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, transition: 'opacity 0.2s' }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = `${t.primary}20`; e.currentTarget.style.color = t.primary; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textSecondary; }}
                                   title="Draw rectangle"
                                 >
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
                                 </button>
                                 <button
                                   onClick={() => setAssetTab('annotate')}
-                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, transition: 'opacity 0.2s' }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = `${t.primary}20`; e.currentTarget.style.color = t.primary; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textSecondary; }}
                                   title="Add text note"
                                 >
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 10H3"/><path d="M21 6H3"/><path d="M21 14H3"/><path d="M17 18H3"/></svg>
@@ -7345,7 +7345,7 @@ export default function MainApp() {
                             {isLoadingHighRes && (
                               <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 20, background: 'rgba(0,0,0,0.7)', borderRadius: '6px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div style={{ width: '14px', height: '14px', border: '2px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                                <span style={{ fontSize: '11px', color: '#fff' }}>Loading full resolution...</span>
+                                <span style={{ fontSize: '11px', color: t.textMuted }}>Loading full resolution...</span>
                               </div>
                             )}
                             
@@ -7459,38 +7459,49 @@ export default function MainApp() {
                                   <span style={{ fontSize: '11px', color: t.textMuted }}>Loading preview...</span>
                                 </div>
                               )}
-                              <img 
-                                src={zoomLevel > 1.5 && highResLoaded ? selectedAsset.url : (selectedAsset.preview || selectedAsset.thumbnail || selectedAsset.url)}
-                                alt={selectedAsset.name} 
-                                style={{ 
+                              {/* Low-res preview — always shown first, stays underneath */}
+                              <img
+                                src={selectedAsset.preview || selectedAsset.thumbnail || selectedAsset.url}
+                                alt={selectedAsset.name}
+                                style={{
                                   maxWidth: zoomLevel <= 1 ? '100%' : 'none',
                                   maxHeight: zoomLevel <= 1 ? '100%' : 'none',
                                   width: zoomLevel > 1 ? 'auto' : undefined,
                                   height: zoomLevel > 1 ? 'auto' : undefined,
-                                  objectFit: 'contain', 
-                                  borderRadius: '4px', 
-                                  opacity: imageLoading ? 0 : 1, 
-                                  transition: isDragging ? 'none' : 'opacity 0.2s',
+                                  objectFit: 'contain',
+                                  borderRadius: '4px',
+                                  opacity: imageLoading ? 0 : 1,
+                                  transition: 'opacity 0.2s',
                                   transform: `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`,
                                   transformOrigin: 'center center',
                                   userSelect: 'none',
                                   pointerEvents: 'none'
-                                }} 
-                                draggable={false}
-                                onLoad={() => {
-                                  setImageLoading(false);
-                                  if (isLoadingHighRes) {
-                                    setIsLoadingHighRes(false);
-                                    setHighResLoaded(true);
-                                  }
                                 }}
+                                draggable={false}
+                                onLoad={() => setImageLoading(false)}
                               />
-                              {/* Hidden high-res preloader */}
-                              {isLoadingHighRes && !highResLoaded && (
-                                <img 
+                              {/* High-res layer — fades in on top when loaded, no flash */}
+                              {(isLoadingHighRes || highResLoaded) && (
+                                <img
                                   src={selectedAsset.url}
                                   alt=""
-                                  style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1 }}
+                                  style={{
+                                    position: 'absolute',
+                                    top: 0, left: 0, right: 0, bottom: 0,
+                                    maxWidth: zoomLevel <= 1 ? '100%' : 'none',
+                                    maxHeight: zoomLevel <= 1 ? '100%' : 'none',
+                                    width: zoomLevel > 1 ? 'auto' : undefined,
+                                    height: zoomLevel > 1 ? 'auto' : undefined,
+                                    objectFit: 'contain',
+                                    borderRadius: '4px',
+                                    opacity: highResLoaded ? 1 : 0,
+                                    transition: 'opacity 0.3s ease-in',
+                                    transform: `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`,
+                                    transformOrigin: 'center center',
+                                    userSelect: 'none',
+                                    pointerEvents: 'none'
+                                  }}
+                                  draggable={false}
                                   onLoad={() => {
                                     setIsLoadingHighRes(false);
                                     setHighResLoaded(true);
@@ -7501,14 +7512,14 @@ export default function MainApp() {
                             
                             {/* Zoom hint for desktop */}
                             {!isMobile && zoomLevel === 1 && !imageLoading && (
-                              <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: 'rgba(255,255,255,0.7)', pointerEvents: 'none' }}>
+                              <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: t.textMuted, pointerEvents: 'none', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
                                 Scroll to zoom • Double-click to zoom • Drag to pan
                               </div>
                             )}
-                            
+
                             {/* Mobile hint */}
                             {isMobile && zoomLevel === 1 && !imageLoading && (
-                              <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: 'rgba(255,255,255,0.7)', pointerEvents: 'none' }}>
+                              <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: t.textMuted, pointerEvents: 'none', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
                                 Pinch to zoom • Double-tap to zoom
                               </div>
                             )}
@@ -8407,7 +8418,7 @@ export default function MainApp() {
           <div style={{ width: '1px', height: '24px', background: t.border }} />
           <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
             {COLORS.map(c => (
-              <button key={c} onClick={() => setColor(c)} style={{ width: '22px', height: '22px', background: c, border: color === c ? '2.5px solid #fff' : '2px solid transparent', borderRadius: '50%', cursor: 'pointer', boxShadow: color === c ? `0 0 0 2px ${c}` : 'none', transition: 'all 0.15s' }} />
+              <button key={c} onClick={() => setColor(c)} style={{ width: '22px', height: '22px', background: c, border: color === c ? `2.5px solid ${t.text}` : '2px solid transparent', borderRadius: '50%', cursor: 'pointer', boxShadow: color === c ? `0 0 0 2px ${c}` : 'none', transition: 'all 0.15s' }} />
             ))}
           </div>
           <div style={{ flex: 1 }} />
@@ -8462,17 +8473,17 @@ export default function MainApp() {
             {/* Inline text input — appears right on the image where you drew */}
             {newAnnotPos && (
               <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', left: `${newAnnotPos.x || newAnnotPos.path?.[0]?.x || 0}%`, top: `${(newAnnotPos.y || newAnnotPos.path?.[0]?.y || 0)}%`, transform: 'translateY(-100%)', zIndex: 20 }}>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: '#fff', borderRadius: '8px', padding: '4px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', border: `2px solid ${newAnnotPos.color}` }}>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: t.bgCard, borderRadius: '8px', padding: '4px', boxShadow: '0 4px 20px rgba(0,0,0,0.4)', border: `2px solid ${newAnnotPos.color}` }}>
                   <input
                     ref={inlineInputRef}
                     value={inlineText}
                     onChange={(e) => setInlineText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') confirmInlineAnnotation(); if (e.key === 'Escape') cancelInlineAnnotation(); }}
                     placeholder="Add note..."
-                    style={{ width: '180px', padding: '6px 8px', border: 'none', outline: 'none', fontSize: '12px', background: 'transparent', color: '#111' }}
+                    style={{ width: '180px', padding: '6px 8px', border: 'none', outline: 'none', fontSize: '12px', background: 'transparent', color: t.text }}
                   />
                   <button onClick={confirmInlineAnnotation} style={{ width: '28px', height: '28px', background: newAnnotPos.color, border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>+</button>
-                  <button onClick={cancelInlineAnnotation} style={{ width: '28px', height: '28px', background: '#e5e7eb', border: 'none', borderRadius: '6px', color: '#666', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>×</button>
+                  <button onClick={cancelInlineAnnotation} style={{ width: '28px', height: '28px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>×</button>
                 </div>
               </div>
             )}
