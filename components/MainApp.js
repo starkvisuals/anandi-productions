@@ -7459,55 +7459,61 @@ export default function MainApp() {
                                   <span style={{ fontSize: '11px', color: t.textMuted }}>Loading preview...</span>
                                 </div>
                               )}
-                              {/* Low-res preview — always shown first, stays underneath */}
-                              <img
-                                src={selectedAsset.preview || selectedAsset.thumbnail || selectedAsset.url}
-                                alt={selectedAsset.name}
-                                style={{
-                                  maxWidth: zoomLevel <= 1 ? '100%' : 'none',
-                                  maxHeight: zoomLevel <= 1 ? '100%' : 'none',
-                                  width: zoomLevel > 1 ? 'auto' : undefined,
-                                  height: zoomLevel > 1 ? 'auto' : undefined,
-                                  objectFit: 'contain',
-                                  borderRadius: '4px',
-                                  opacity: imageLoading ? 0 : 1,
-                                  transition: 'opacity 0.2s',
-                                  transform: `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`,
-                                  transformOrigin: 'center center',
-                                  userSelect: 'none',
-                                  pointerEvents: 'none'
-                                }}
-                                draggable={false}
-                                onLoad={() => setImageLoading(false)}
-                              />
-                              {/* High-res layer — fades in on top when loaded, no flash */}
-                              {(isLoadingHighRes || highResLoaded) && (
+                              {/* Image wrapper — transform applied once to wrapper, both layers stay aligned */}
+                              <div style={{
+                                position: 'relative',
+                                display: 'inline-block',
+                                transform: `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`,
+                                transformOrigin: 'center center',
+                                transition: isDragging ? 'none' : 'transform 0.05s ease-out',
+                                maxWidth: zoomLevel <= 1 ? '100%' : 'none',
+                                maxHeight: zoomLevel <= 1 ? '100%' : 'none',
+                              }}>
+                                {/* Low-res preview — always shown, sizes the wrapper */}
                                 <img
-                                  src={selectedAsset.url}
-                                  alt=""
+                                  src={selectedAsset.preview || selectedAsset.thumbnail || selectedAsset.url}
+                                  alt={selectedAsset.name}
                                   style={{
-                                    position: 'absolute',
-                                    top: 0, left: 0, right: 0, bottom: 0,
+                                    display: 'block',
                                     maxWidth: zoomLevel <= 1 ? '100%' : 'none',
-                                    maxHeight: zoomLevel <= 1 ? '100%' : 'none',
-                                    width: zoomLevel > 1 ? 'auto' : undefined,
-                                    height: zoomLevel > 1 ? 'auto' : undefined,
+                                    maxHeight: zoomLevel <= 1 ? 'calc(100vh - 260px)' : 'none',
+                                    width: 'auto',
+                                    height: 'auto',
                                     objectFit: 'contain',
                                     borderRadius: '4px',
-                                    opacity: highResLoaded ? 1 : 0,
-                                    transition: 'opacity 0.3s ease-in',
-                                    transform: `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`,
-                                    transformOrigin: 'center center',
+                                    opacity: imageLoading ? 0 : 1,
+                                    transition: 'opacity 0.2s',
                                     userSelect: 'none',
                                     pointerEvents: 'none'
                                   }}
                                   draggable={false}
-                                  onLoad={() => {
-                                    setIsLoadingHighRes(false);
-                                    setHighResLoaded(true);
-                                  }}
+                                  onLoad={() => setImageLoading(false)}
                                 />
-                              )}
+                                {/* High-res layer — same size, fades in on top, perfectly aligned */}
+                                {(isLoadingHighRes || highResLoaded) && (
+                                  <img
+                                    src={selectedAsset.url}
+                                    alt=""
+                                    style={{
+                                      position: 'absolute',
+                                      top: 0, left: 0,
+                                      width: '100%',
+                                      height: '100%',
+                                      objectFit: 'contain',
+                                      borderRadius: '4px',
+                                      opacity: highResLoaded ? 1 : 0,
+                                      transition: 'opacity 0.3s ease-in',
+                                      userSelect: 'none',
+                                      pointerEvents: 'none'
+                                    }}
+                                    draggable={false}
+                                    onLoad={() => {
+                                      setIsLoadingHighRes(false);
+                                      setHighResLoaded(true);
+                                    }}
+                                  />
+                                )}
+                              </div>
                             </div>
                             
                             {/* Zoom hint for desktop */}
