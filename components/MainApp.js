@@ -6148,7 +6148,14 @@ export default function MainApp() {
     
     // Can mark feedback done: producers, editors, video editors, freelancers - NOT clients
     const canMarkFeedbackDone = ['producer', 'admin', 'team-lead', 'editor', 'video-editor', 'colorist', 'animator', 'vfx-artist', 'sound-designer'].includes(userProfile?.role);
-    const handleSaveAnnotations = async (annotations) => { const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, annotations } : a); setSelectedAsset({ ...selectedAsset, annotations }); await updateProject(selectedProject.id, { assets: updated }); };
+    const handleSaveAnnotations = async (annotations) => {
+      const updatedAssets = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, annotations } : a);
+      // Update local state immediately so UI stays in sync
+      setSelectedAsset(prev => ({ ...prev, annotations }));
+      setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updatedAssets } : p));
+      // Persist to Firestore in background
+      try { await updateProject(selectedProject.id, { assets: updatedAssets }); } catch (e) { console.error('Save annotations error:', e); }
+    };
     const handleCreateLink = async () => { if (!newLinkName) { showToast('Enter name', 'error'); return; } const linkData = { name: newLinkName, type: newLinkType, createdBy: userProfile.id }; if (newLinkExpiry) linkData.expiresAt = new Date(newLinkExpiry).toISOString(); await createShareLink(selectedProject.id, linkData); await refreshProject(); setNewLinkName(''); setNewLinkExpiry(''); showToast('Link created!', 'success'); };
     const handleDeleteLink = async (linkId) => { const updated = (selectedProject.shareLinks || []).map(l => l.id === linkId ? { ...l, active: false } : l); await updateProject(selectedProject.id, { shareLinks: updated }); await refreshProject(); showToast('Link deleted', 'success'); };
     const copyLink = token => { navigator.clipboard.writeText(`${window.location.origin}/share/${token}`); showToast('Copied!', 'success'); };
@@ -7362,12 +7369,14 @@ export default function MainApp() {
                               }}
                               onWheel={(e) => {
                                 e.preventDefault();
-                                // Proportional zoom: trackpad gives small deltaY (~1-10), mouse wheel gives large (~100)
-                                const rawDelta = -e.deltaY;
-                                const sensitivity = Math.abs(e.deltaY) > 50 ? 0.15 : Math.abs(e.deltaY) * 0.008;
-                                const delta = rawDelta > 0 ? sensitivity : -sensitivity;
+                                // Smooth proportional zoom: use multiplicative scaling for consistent feel
+                                // Trackpad deltaY is typically 1-30, mouse wheel is 100+
+                                const absDelta = Math.abs(e.deltaY);
+                                // Small multiplier for smooth increments: trackpad ~1-3% per event, mouse wheel ~8%
+                                const factor = absDelta > 50 ? 1.08 : (1 + Math.min(absDelta * 0.003, 0.04));
+                                const direction = e.deltaY > 0 ? 1 / factor : factor;
                                 setZoomLevel(z => {
-                                  const newZoom = Math.max(0.5, Math.min(5, Math.round((z + delta) * 100) / 100));
+                                  const newZoom = Math.max(0.5, Math.min(5, Math.round(z * direction * 100) / 100));
                                   // Reset pan if zooming out to fit
                                   if (newZoom <= 1) setPanPosition({ x: 0, y: 0 });
                                   // Load high-res if zooming in past threshold
@@ -7431,8 +7440,8 @@ export default function MainApp() {
                                 if (e.touches.length === 0) setIsDragging(false);
                               }}
                               onDoubleClick={() => {
-                                if (zoomLevel === 1) {
-                                  setZoomLevel(2.5);
+                                if (zoomLevel < 1.5) {
+                                  setZoomLevel(2);
                                   if (!highResLoaded && selectedAsset.url !== selectedAsset.preview) {
                                     setIsLoadingHighRes(true);
                                   }
@@ -7461,7 +7470,7 @@ export default function MainApp() {
                                   objectFit: 'contain', 
                                   borderRadius: '4px', 
                                   opacity: imageLoading ? 0 : 1, 
-                                  transition: isDragging ? 'none' : 'transform 0.15s ease-out, opacity 0.2s',
+                                  transition: isDragging ? 'none' : 'opacity 0.2s',
                                   transform: `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`,
                                   transformOrigin: 'center center',
                                   userSelect: 'none',
@@ -8435,8 +8444,7 @@ export default function MainApp() {
             style={{
               position: 'relative', cursor: 'crosshair', userSelect: 'none', touchAction: 'none',
               transform: `scale(${zoom / 100})`, transformOrigin: 'center center',
-              maxWidth: zoom <= 100 ? '100%' : 'none', maxHeight: zoom <= 100 ? '100%' : 'none',
-              transition: 'transform 0.1s ease-out'
+              maxWidth: zoom <= 100 ? '100%' : 'none', maxHeight: zoom <= 100 ? '100%' : 'none'
             }}>
             <img
               src={imageUrl} alt="" draggable={false} onLoad={handleImageLoad}
