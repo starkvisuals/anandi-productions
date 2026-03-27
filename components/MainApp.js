@@ -6708,8 +6708,10 @@ export default function MainApp() {
                                 await refreshProject(); 
                                 showToast('Deleted', 'success'); 
                               }} 
-                              style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(239,68,68,0.9)', border: 'none', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}
-                            ></button>
+                              style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s, background 0.15s' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.8)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.6)'}
+                            >{Icons.trash('rgba(255,255,255,0.9)')}</button>
                           )}
                           {a.isSelected && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#22c55e', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', zIndex: 5, fontWeight: '600', color: '#fff' }}>Selected</div>}
                           {hasNewVersion && <div style={{ position: 'absolute', top: a.isSelected ? '38px' : '10px', right: '10px', background: '#f97316', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', zIndex: 5, fontWeight: '600' }}>v{a.currentVersion}</div>}
@@ -7403,7 +7405,7 @@ export default function MainApp() {
 
               {/* Right Navigation Arrow */}
               {hasNext && (
-                <button onClick={goToNext} className="hover-lift" style={{ position: 'absolute', right: isMobile || isFullscreen ? '20px' : '300px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '40px' : '52px', height: isMobile ? '40px' : '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '18px' : '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s, transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>›</button>
+                <button onClick={goToNext} className="hover-lift" style={{ position: 'absolute', right: isMobile || isFullscreen ? '20px' : '340px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '40px' : '52px', height: isMobile ? '40px' : '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '18px' : '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s, transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>›</button>
               )}
               
               {/* Preview/Annotate Tab */}
@@ -8020,15 +8022,15 @@ export default function MainApp() {
                   
                   {/* RIGHT: Details Sidebar */}
                   {!isMobile && !isFullscreen && (
-                    <div style={{ width: '280px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', padding: '12px', flexShrink: 0 }}>
+                    <div style={{ width: '320px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', padding: '16px', flexShrink: 0 }}>
                       {/* Selection Toggle - Prominent */}
-                      <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : t.bgInput, border: selectedAsset.isSelected ? 'none' : `1px solid ${t.border}`, borderRadius: '10px', color: selectedAsset.isSelected ? '#fff' : t.text, fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '14px', transition: 'all 0.2s', boxShadow: selectedAsset.isSelected ? '0 2px 10px rgba(34,197,94,0.3)' : 'none' }}>
+                      <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : t.bgInput, border: selectedAsset.isSelected ? 'none' : `1px solid ${t.border}`, borderRadius: '10px', color: selectedAsset.isSelected ? '#fff' : t.text, fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '16px', transition: 'all 0.2s', boxShadow: selectedAsset.isSelected ? '0 2px 10px rgba(34,197,94,0.3)' : 'none' }}>
                         {selectedAsset.isSelected ? 'Selected' : '☆ Mark as Selected'}
                       </button>
                       
                       {/* Tags */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Tags</label>
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '8px' }}>Tags</label>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                           {PREDEFINED_TAGS.map(tag => {
                             const isActive = (selectedAsset.tags || []).includes(tag.id);
@@ -8040,8 +8042,8 @@ export default function MainApp() {
                       </div>
                       
                       {/* Status */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Status</label>
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '6px' }}>Status</label>
                         <Select theme={theme} value={selectedAsset.status} onChange={v => handleUpdateStatus(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
                           {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
                         </Select>
@@ -8049,8 +8051,8 @@ export default function MainApp() {
                       
                       {/* Assign */}
                       {isProducer && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Assign To</label>
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '6px' }}>Assign To</label>
                           <Select theme={theme} value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
                             <option value="">-- Unassigned --</option>
                             {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -8060,8 +8062,8 @@ export default function MainApp() {
                       
                       {/* Due Date */}
                       {isProducer && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Due Date</label>
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '6px' }}>Due Date</label>
                           <input type="date" value={selectedAsset.dueDate?.split('T')[0] || ''} onChange={async (e) => { const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a); setSelectedAsset({ ...selectedAsset, dueDate }); await updateProject(selectedProject.id, { assets: updated }); if (selectedAsset.assignedTo && dueDate) { const assignee = editors.find(e => e.id === selectedAsset.assignedTo); if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`); } }} style={{ width: '100%', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px' }} />
                           {selectedAsset.dueDate && <div style={{ marginTop: '4px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>{new Date(selectedAsset.dueDate) < new Date() ? 'Overdue!' : `In ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days`}</div>}
                         </div>
@@ -8082,8 +8084,8 @@ export default function MainApp() {
                         const canUploadVersion = isProducer || userRoles.some(r => allowedRoles.includes(r));
                         
                         return canUploadVersion ? (
-                          <div style={{ marginBottom: '12px', padding: '12px', background: t.bgInput, borderRadius: '10px', border: `1px solid ${t.borderLight}` }}>
-                            <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
+                          <div style={{ marginBottom: '16px', padding: '14px', background: t.bgInput, borderRadius: '12px', border: `1px solid ${t.borderLight}` }}>
+                            <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Versions</span>
                               <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.2)' : t.bgHover, color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.textSecondary, borderRadius: '10px', fontSize: '9px', fontWeight: '700', border: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '1px solid rgba(249,115,22,0.3)' : `1px solid ${t.borderLight}` }}>v{selectedAsset.currentVersion}</span>
                             </div>
@@ -8109,8 +8111,8 @@ export default function MainApp() {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ marginBottom: '12px', padding: '12px', background: t.bgInput, borderRadius: '10px', border: `1px solid ${t.borderLight}` }}>
-                            <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
+                          <div style={{ marginBottom: '16px', padding: '14px', background: t.bgInput, borderRadius: '12px', border: `1px solid ${t.borderLight}` }}>
+                            <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Versions</span>
                               <span style={{ padding: '3px 8px', background: t.bgHover, borderRadius: '10px', fontSize: '9px', fontWeight: '700', color: t.textSecondary, border: `1px solid ${t.borderLight}` }}>v{selectedAsset.currentVersion}</span>
                             </div>
@@ -8121,19 +8123,19 @@ export default function MainApp() {
                       
                       {/* GDrive Link */}
                       {selectedAsset.status === 'approved' && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}> GDrive Link</label>
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '6px' }}> GDrive Link</label>
                           <div style={{ display: 'flex', gap: '4px' }}>
                             <Input theme={theme} value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '6px', fontSize: '10px' }} />
                             <button onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} style={{ padding: '6px 10px', background: t.success, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>✓</button>
                           </div>
                         </div>
                       )}
-                      {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '8px', background: 'rgba(34,197,94,0.15)', borderRadius: '6px', color: '#22c55e', fontSize: '10px', textAlign: 'center', textDecoration: 'none', marginBottom: '12px', fontWeight: '600' }}> Open High-Res</a>}
+                      {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '10px', background: 'rgba(34,197,94,0.15)', borderRadius: '8px', color: '#22c55e', fontSize: '11px', textAlign: 'center', textDecoration: 'none', marginBottom: '16px', fontWeight: '600' }}> Open High-Res</a>}
                       
                       {/* File Details */}
-                      <div style={{ background: t.bgInput, borderRadius: '10px', padding: '12px', marginBottom: '12px', fontSize: '10px', border: `1px solid ${t.borderLight}` }}>
-                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: t.text }}> File Details</div>
+                      <div style={{ background: t.bgInput, borderRadius: '12px', padding: '14px', marginBottom: '16px', fontSize: '11px', border: `1px solid ${t.borderLight}` }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: t.text }}> File Details</div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Size</span><span style={{ color: t.textSecondary }}>{formatFileSize(selectedAsset.fileSize)}</span></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Type</span><span style={{ color: t.textSecondary }}>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: t.textMuted }}>Uploaded</span><span style={{ color: t.textSecondary }}>{formatDate(selectedAsset.uploadedAt)}</span></div>
@@ -8192,7 +8194,7 @@ export default function MainApp() {
                       
                       {/* High-Res Downloads Section */}
                       {selectedAsset.status === 'approved' && (selectedAsset.highResFiles?.length > 0 || isProducer) && (
-                        <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
+                        <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '16px' }}>
                           <div style={{ fontSize: '10px', fontWeight: '600', color: '#22c55e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             High-Res Downloads
                             {!selectedAsset.highResFiles?.length && <span style={{ color: '#ef4444', fontWeight: 'normal' }}>Not uploaded yet</span>}
@@ -8214,7 +8216,7 @@ export default function MainApp() {
                       
                       {/* Editor: Upload High-Res Files */}
                       {selectedAsset.status === 'approved' && !isProducer && userProfile?.role !== 'client' && (
-                        <div style={{ background: t.bgInput, borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
+                        <div style={{ background: t.bgInput, borderRadius: '10px', padding: '12px', marginBottom: '16px' }}>
                           <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px' }}> Upload High-Res Files</div>
                           {(selectedProject.requiredFormats || []).length > 0 ? (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
@@ -8266,7 +8268,7 @@ export default function MainApp() {
                       )}
                       
                       {/* Actions */}
-                      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                         <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', borderRadius: '10px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none', transition: 'transform 0.2s, box-shadow 0.2s', boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>Download Preview</a>
                       </div>
                       
@@ -8276,14 +8278,14 @@ export default function MainApp() {
                       )}
 
                       {/* Feedback Section */}
-                      <div style={{ marginTop: '14px', borderTop: `1px solid ${t.borderLight}`, paddingTop: '14px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
+                      <div style={{ marginTop: '16px', borderTop: `1px solid ${t.borderLight}`, paddingTop: '16px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
                           <span>Feedback ({selectedAsset.feedback?.length || 0})</span>
                           {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
                             <span style={{ fontSize: '9px', padding: '2px 8px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', borderRadius: '10px', fontWeight: '600' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
                           )}
                         </div>
-                        <div style={{ maxHeight: '140px', overflow: 'auto', marginBottom: '6px' }}>
+                        <div style={{ maxHeight: '200px', overflow: 'auto', marginBottom: '8px' }}>
                           {(selectedAsset.feedback || []).length === 0 ? (
                             <div style={{ fontSize: '10px', color: t.textMuted, textAlign: 'center', padding: '6px 0' }}>No feedback yet
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', justifyContent: 'center', marginTop: '6px' }}>
