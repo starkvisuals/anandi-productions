@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { getProjects, getProject, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
 import { useKeyboardShortcuts, SHORTCUT_GROUPS } from '@/lib/useKeyboardShortcuts';
@@ -5466,6 +5466,17 @@ export default function MainApp() {
     const feedbackInputRef = useRef(null);
     const [videoTime, setVideoTime] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
+    const [videoPlaying, setVideoPlaying] = useState(false);
+    const [videoVolume, setVideoVolume] = useState(1);
+    const [videoMuted, setVideoMuted] = useState(false);
+    const [videoPlaybackRate, setVideoPlaybackRate] = useState(1);
+    const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+    const [videoControlsVisible, setVideoControlsVisible] = useState(true);
+    const [videoHoverTime, setVideoHoverTime] = useState(null);
+    const [videoHoverX, setVideoHoverX] = useState(0);
+    const [videoBuffered, setVideoBuffered] = useState(0);
+    const videoControlsTimer = useRef(null);
+    const scrubBarRef = useRef(null);
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -5473,6 +5484,32 @@ export default function MainApp() {
     const [imageLoading, setImageLoading] = useState(true);
     const [showSelectionOverview, setShowSelectionOverview] = useState(false);
     const hlsRef = useRef(null);
+    const [highlightedFeedbackId, setHighlightedFeedbackId] = useState(null);
+    const [shuttleSpeed, setShuttleSpeed] = useState(0); // -4,-2,-1,0,1,2,4
+    const [isScrubbing, setIsScrubbing] = useState(false);
+    const videoContainerRef = useRef(null);
+    const [videoFocused, setVideoFocused] = useState(false);
+    const videoTimeRAF = useRef(null);
+    const handleVideoTimeUpdate = useCallback((e) => {
+      if (videoTimeRAF.current) return;
+      videoTimeRAF.current = requestAnimationFrame(() => {
+        setVideoTime(e.target.currentTime);
+        videoTimeRAF.current = null;
+      });
+    }, []);
+    const videoFeedbackMarkers = useMemo(() => (selectedAsset?.feedback || []).filter(fb => fb.videoTimestamp != null), [selectedAsset?.feedback]);
+    const visibleVideoAnnotations = useMemo(() => {
+      if (!selectedAsset?.annotations || selectedAsset?.type !== 'video') return [];
+      return selectedAsset.annotations.filter(a => a.videoTimestamp != null && Math.abs(a.videoTimestamp - videoTime) < 0.5);
+    }, [selectedAsset?.annotations, selectedAsset?.type, videoTime]);
+    const handleVideoScrubMove = useCallback((e) => {
+      if (!scrubBarRef.current) return;
+      const rect = scrubBarRef.current.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      setVideoHoverTime(pct * (videoDuration || 0));
+      setVideoHoverX(e.clientX - rect.left);
+      if (isScrubbing && videoRef.current) videoRef.current.currentTime = pct * (videoDuration || 0);
+    }, [videoDuration, isScrubbing]);
     
     // Zoom system state
     const [zoomLevel, setZoomLevel] = useState(1);
@@ -5552,6 +5589,79 @@ export default function MainApp() {
       };
     }, [selectedAsset?.muxPlaybackId, selectedAsset?.id]);
 
+    // Close speed menu on outside click
+    useEffect(() => {
+      if (!showSpeedMenu) return;
+      const handleClick = () => setShowSpeedMenu(false);
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }, [showSpeedMenu]);
+
+    // Global mouse up to stop scrubbing
+    useEffect(() => {
+      if (!isScrubbing) return;
+      const handleUp = () => setIsScrubbing(false);
+      const handleMove = (e) => {
+        if (!scrubBarRef.current || !videoRef.current) return;
+        const rect = scrubBarRef.current.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        videoRef.current.currentTime = pct * (videoDuration || 0);
+      };
+      window.addEventListener('mouseup', handleUp);
+      window.addEventListener('mousemove', handleMove);
+      return () => { window.removeEventListener('mouseup', handleUp); window.removeEventListener('mousemove', handleMove); };
+    }, [isScrubbing, videoDuration]);
+
+    // Reverse shuttle emulation (HTML5 video doesn't support negative playbackRate)
+    useEffect(() => {
+      if (shuttleSpeed >= 0 || !videoRef.current) return;
+      const vid = videoRef.current;
+      vid.pause();
+      const step = Math.abs(shuttleSpeed) / 24; // frames per tick based on shuttle speed
+      const interval = setInterval(() => {
+        if (vid.currentTime <= 0) { clearInterval(interval); setShuttleSpeed(0); setVideoPlaying(false); return; }
+        vid.currentTime = Math.max(0, vid.currentTime - step);
+      }, 1000 / 24);
+      return () => clearInterval(interval);
+    }, [shuttleSpeed]);
+
+    // Auto-hide video controls after 3s inactivity
+    useEffect(() => {
+      if (!selectedAsset || selectedAsset.type !== 'video') return;
+      const resetTimer = () => {
+        setVideoControlsVisible(true);
+        if (videoControlsTimer.current) clearTimeout(videoControlsTimer.current);
+        videoControlsTimer.current = setTimeout(() => {
+          if (videoPlaying) setVideoControlsVisible(false);
+        }, 3000);
+      };
+      const container = videoContainerRef.current;
+      if (!container) return;
+      const handleEnter = () => setVideoControlsVisible(true);
+      const handleLeave = () => { if (videoPlaying) setVideoControlsVisible(false); };
+      container.addEventListener('mousemove', resetTimer);
+      container.addEventListener('mouseenter', handleEnter);
+      container.addEventListener('mouseleave', handleLeave);
+      resetTimer();
+      return () => {
+        container.removeEventListener('mousemove', resetTimer);
+        container.removeEventListener('mouseenter', handleEnter);
+        container.removeEventListener('mouseleave', handleLeave);
+        if (videoControlsTimer.current) clearTimeout(videoControlsTimer.current);
+      };
+    }, [selectedAsset?.id, selectedAsset?.type, videoPlaying]);
+
+    // Update buffered range
+    useEffect(() => {
+      if (!videoRef.current || selectedAsset?.type !== 'video') return;
+      const vid = videoRef.current;
+      const updateBuffered = () => {
+        if (vid.buffered.length > 0) setVideoBuffered(vid.buffered.end(vid.buffered.length - 1));
+      };
+      vid.addEventListener('progress', updateBuffered);
+      return () => vid.removeEventListener('progress', updateBuffered);
+    }, [selectedAsset?.id, selectedAsset?.type]);
+
     // Reset zoom when asset changes
     useEffect(() => {
       setZoomLevel(1);
@@ -5571,11 +5681,30 @@ export default function MainApp() {
       const handleKeyNav = async (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         
-        // Arrow navigation
-        if (e.key === 'ArrowLeft' && currentIndex > 0) {
-          setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex - 1]);
-        } else if (e.key === 'ArrowRight' && currentIndex < sortedAssets.length - 1) {
-          setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex + 1]);
+        // Arrow navigation — but NOT when video is focused (frame stepping takes priority)
+        if (selectedAsset.type === 'video' && videoFocused && videoRef.current) {
+          const vid = videoRef.current;
+          if (e.shiftKey && e.key === 'ArrowLeft') {
+            e.preventDefault();
+            vid.currentTime = Math.max(0, vid.currentTime - 1);
+          } else if (e.shiftKey && e.key === 'ArrowRight') {
+            e.preventDefault();
+            vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 1);
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            vid.pause(); setVideoPlaying(false); setShuttleSpeed(0);
+            vid.currentTime = Math.max(0, vid.currentTime - 1/24);
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            vid.pause(); setVideoPlaying(false); setShuttleSpeed(0);
+            vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 1/24);
+          }
+        } else {
+          if (e.key === 'ArrowLeft' && currentIndex > 0) {
+            setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex - 1]);
+          } else if (e.key === 'ArrowRight' && currentIndex < sortedAssets.length - 1) {
+            setImageLoading(true); setSelectedAsset(sortedAssets[currentIndex + 1]);
+          }
         }
         
         // 1-5 for ratings
@@ -5601,8 +5730,12 @@ export default function MainApp() {
           showToast(newSelected ? 'Selected' : 'Deselected', 'success');
         }
         
-        // Escape to close lightbox
+        // Escape — exit annotation mode first, then close lightbox
         if (e.key === 'Escape') {
+          if (assetTab === 'annotate') {
+            setAssetTab('preview');
+            return;
+          }
           setSelectedAsset(null);
         }
         
@@ -5635,10 +5768,80 @@ export default function MainApp() {
             setPanPosition({ x: 0, y: 0 });
           }
         }
+
+        // Video keyboard shortcuts — J/K/L shuttle system (disabled during annotation)
+        if (selectedAsset.type === 'video' && videoRef.current && assetTab !== 'annotate') {
+          const vid = videoRef.current;
+          // K or Space = toggle play/pause, reset shuttle
+          if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
+            e.preventDefault();
+            setShuttleSpeed(0);
+            vid.playbackRate = 1;
+            setVideoPlaybackRate(1);
+            if (vid.paused) { vid.play(); setVideoPlaying(true); } else { vid.pause(); setVideoPlaying(false); }
+          }
+          // J = reverse shuttle (-1x, -2x, -4x)
+          if (e.key === 'j' || e.key === 'J') {
+            e.preventDefault();
+            setShuttleSpeed(prev => {
+              const speeds = [0, -1, -2, -4];
+              const idx = speeds.indexOf(prev);
+              const newSpeed = idx >= 0 && idx < speeds.length - 1 ? speeds[idx + 1] : speeds[speeds.length - 1];
+              if (newSpeed === 0) { vid.pause(); setVideoPlaying(false); }
+              else { vid.pause(); setVideoPlaying(false); }
+              return newSpeed;
+            });
+          }
+          // L = forward shuttle (1x, 2x, 4x)
+          if (e.key === 'l' || e.key === 'L') {
+            e.preventDefault();
+            setShuttleSpeed(prev => {
+              const speeds = [0, 1, 2, 4];
+              const idx = speeds.indexOf(prev);
+              const newSpeed = idx >= 0 && idx < speeds.length - 1 ? speeds[idx + 1] : speeds[speeds.length - 1];
+              vid.playbackRate = newSpeed; setVideoPlaybackRate(newSpeed);
+              vid.play(); setVideoPlaying(true);
+              return newSpeed;
+            });
+          }
+          // , and . = frame step (kept for compatibility)
+          if (e.key === ',') {
+            e.preventDefault();
+            vid.pause(); setVideoPlaying(false); setShuttleSpeed(0);
+            vid.currentTime = Math.max(0, vid.currentTime - 1/24);
+          }
+          if (e.key === '.') {
+            e.preventDefault();
+            vid.pause(); setVideoPlaying(false); setShuttleSpeed(0);
+            vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 1/24);
+          }
+          // [ and ] = speed decrease/increase
+          if (e.key === '[') {
+            e.preventDefault();
+            const speeds = [0.25, 0.5, 1, 1.5, 2, 4];
+            const idx = speeds.indexOf(vid.playbackRate);
+            if (idx > 0) { vid.playbackRate = speeds[idx - 1]; setVideoPlaybackRate(speeds[idx - 1]); }
+          }
+          if (e.key === ']') {
+            e.preventDefault();
+            const speeds = [0.25, 0.5, 1, 1.5, 2, 4];
+            const idx = speeds.indexOf(vid.playbackRate);
+            if (idx < speeds.length - 1) { vid.playbackRate = speeds[idx + 1]; setVideoPlaybackRate(speeds[idx + 1]); }
+          }
+        }
       };
       window.addEventListener('keydown', handleKeyNav);
       return () => window.removeEventListener('keydown', handleKeyNav);
-    }, [selectedAsset, selectedProject, selectedCat, isFullscreen, assetTab, zoomLevel]);
+    }, [selectedAsset, selectedProject, selectedCat, isFullscreen, assetTab, zoomLevel, videoPlaying, videoPlaybackRate, videoFocused]);
+
+    // Auto-pause video when entering annotation mode
+    useEffect(() => {
+      if (assetTab === 'annotate' && selectedAsset?.type === 'video' && videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+        setVideoPlaying(false);
+        setShuttleSpeed(0);
+      }
+    }, [assetTab, selectedAsset?.type]);
 
     if (!selectedProject) return null;
     const cats = selectedProject.categories || [];
@@ -6155,6 +6358,21 @@ export default function MainApp() {
       setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updatedAssets } : p));
       // Persist to Firestore in background
       try { await updateProject(selectedProject.id, { assets: updatedAssets }); } catch (e) { console.error('Save annotations error:', e); }
+    };
+    const handleSaveVideoAnnotations = async (annotations) => {
+      // Tag each new annotation with the current video timestamp
+      const timestamp = videoTime;
+      const tagged = annotations.map(a => a.videoTimestamp != null ? a : { ...a, videoTimestamp: timestamp });
+      // Merge: keep all annotations NOT at this timestamp, then add the updated ones
+      const allAnnotations = selectedAsset.annotations || [];
+      const otherAnnotations = allAnnotations.filter(
+        a => !(a.videoTimestamp != null && Math.abs(a.videoTimestamp - timestamp) < 0.5)
+      );
+      const merged = [...otherAnnotations, ...tagged];
+      const updatedAssets = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, annotations: merged } : a);
+      setSelectedAsset(prev => ({ ...prev, annotations: merged }));
+      setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updatedAssets } : p));
+      try { await updateProject(selectedProject.id, { assets: updatedAssets }); } catch (e) { console.error('Save video annotations error:', e); }
     };
     const handleCreateLink = async () => { if (!newLinkName) { showToast('Enter name', 'error'); return; } const linkData = { name: newLinkName, type: newLinkType, createdBy: userProfile.id }; if (newLinkExpiry) linkData.expiresAt = new Date(newLinkExpiry).toISOString(); await createShareLink(selectedProject.id, linkData); await refreshProject(); setNewLinkName(''); setNewLinkExpiry(''); showToast('Link created!', 'success'); };
     const handleDeleteLink = async (linkId) => { const updated = (selectedProject.shareLinks || []).map(l => l.id === linkId ? { ...l, active: false } : l); await updateProject(selectedProject.id, { shareLinks: updated }); await refreshProject(); showToast('Link deleted', 'success'); };
@@ -7243,28 +7461,256 @@ export default function MainApp() {
                   {/* CENTER: Preview/Annotation Area */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: t.bg, minWidth: 0, overflow: 'hidden' }}>
                     {/* Content Area */}
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '8px 40px' : '16px 70px', overflow: 'hidden' }}>
+                    <div onClick={(e) => { if (assetTab === 'annotate' && e.target === e.currentTarget) setAssetTab('preview'); }} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '8px 40px' : '16px 70px', overflow: 'hidden' }}>
                       {selectedAsset.type === 'video' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-                          {selectedAsset.muxPlaybackId ? (
-                            <video ref={videoRef} controls playsInline poster={selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`} onTimeUpdate={(e) => setVideoTime(e.target.currentTime)} onLoadedMetadata={(e) => setVideoDuration(e.target.duration)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', background: '#000', borderRadius: '8px' }}>
-                              <source src={`https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`} type="application/x-mpegURL" />
-                            </video>
-                          ) : selectedAsset.muxUploadId && !selectedAsset.url ? (
-                            <div style={{ textAlign: 'center', padding: '40px' }}>
-                              <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-                              <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video...</div>
-                              <button onClick={async () => { try { const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`); const data = await res.json(); if (data.asset?.playbackId) { const updatedAssets = selectedProject.assets.map(a => a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a); await updateProject(selectedProject.id, { assets: updatedAssets }); await refreshProject(); showToast('Ready!', 'success'); } else { showToast('Still processing...', 'info'); } } catch (e) { showToast('Check failed', 'error'); } }} style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>Check</button>
-                              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                            </div>
-                          ) : (
-                            <video ref={videoRef} src={selectedAsset.url} controls playsInline onTimeUpdate={(e) => setVideoTime(e.target.currentTime)} onLoadedMetadata={(e) => setVideoDuration(e.target.duration)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
-                          )}
-                          {/* Timecode */}
-                          <div style={{ marginTop: '10px', padding: '6px 12px', background: 'rgba(0,0,0,0.7)', borderRadius: '6px', fontSize: '12px', fontFamily: 'monospace', color: '#22c55e' }}>
-                            {formatTimecode(videoTime)} / {formatTimecode(videoDuration)}
+                        selectedAsset.muxUploadId && !selectedAsset.url && !selectedAsset.muxPlaybackId ? (
+                          <div style={{ textAlign: 'center', padding: '40px' }}>
+                            <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                            <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video...</div>
+                            <button onClick={async () => { try { const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`); const data = await res.json(); if (data.asset?.playbackId) { const updatedAssets = selectedProject.assets.map(a => a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a); await updateProject(selectedProject.id, { assets: updatedAssets }); await refreshProject(); showToast('Ready!', 'success'); } else { showToast('Still processing...', 'info'); } } catch (e) { showToast('Check failed', 'error'); } }} style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>Check</button>
+                            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                           </div>
+                        ) : (
+                        /* === CUSTOM VIDEO PLAYER (Frame.io-style) === */
+                        <div
+                          ref={videoContainerRef}
+                          tabIndex={0}
+                          onFocus={() => setVideoFocused(true)}
+                          onBlur={() => setVideoFocused(false)}
+                          onClick={() => videoContainerRef.current?.focus()}
+                          style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', outline: 'none', cursor: 'pointer' }}
+                        >
+                          {/* Video Element (no native controls) */}
+                          <video
+                            ref={videoRef} playsInline
+                            src={selectedAsset.muxPlaybackId ? undefined : selectedAsset.url}
+                            poster={selectedAsset.muxPlaybackId ? (selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`) : undefined}
+                            onTimeUpdate={handleVideoTimeUpdate}
+                            onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
+                            onPlay={() => setVideoPlaying(true)}
+                            onPause={() => setVideoPlaying(false)}
+                            onEnded={() => { setVideoPlaying(false); setShuttleSpeed(0); }}
+                            onClick={(e) => { e.stopPropagation(); const vid = videoRef.current; if (vid.paused) { vid.play(); } else { vid.pause(); } }}
+                            style={{ maxWidth: '100%', maxHeight: 'calc(100% - 80px)', objectFit: 'contain', background: '#000', borderRadius: '8px 8px 0 0' }}
+                          >
+                            {selectedAsset.muxPlaybackId && <source src={`https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`} type="application/x-mpegURL" />}
+                          </video>
+
+                          {/* Big Play Button Overlay (when paused) */}
+                          {!videoPlaying && videoDuration > 0 && (
+                            <div onClick={(e) => { e.stopPropagation(); videoRef.current?.play(); }} style={{ position: 'absolute', top: 'calc(50% - 40px)', left: '50%', transform: 'translate(-50%, -50%)', width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.15s, background 0.15s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.8)'; e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.1)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.6)'; e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)'; }}>
+                              <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><polygon points="6,4 20,12 6,20"/></svg>
+                            </div>
+                          )}
+
+                          {/* Shuttle Speed Indicator */}
+                          {shuttleSpeed !== 0 && (
+                            <div style={{ position: 'absolute', top: '16px', right: '16px', padding: '6px 14px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', borderRadius: '8px', fontSize: '14px', fontWeight: '700', fontFamily: 'monospace', color: shuttleSpeed < 0 ? '#f59e0b' : '#22c55e', letterSpacing: '0.5px' }}>
+                              {shuttleSpeed < 0 ? '◀◀' : '▶▶'} {Math.abs(shuttleSpeed)}x
+                            </div>
+                          )}
+
+                          {/* === Control Bar === */}
+                          <div style={{
+                            position: 'relative', width: '100%', maxWidth: '100%',
+                            background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+                            borderRadius: '0 0 8px 8px', padding: '0',
+                            opacity: videoControlsVisible || !videoPlaying ? 1 : 0,
+                            transition: 'opacity 0.3s ease',
+                            pointerEvents: videoControlsVisible || !videoPlaying ? 'auto' : 'none'
+                          }}>
+
+                            {/* Scrub Bar with Comment Markers */}
+                            <div style={{ padding: '8px 12px 0 12px' }}>
+                              <div
+                                ref={scrubBarRef}
+                                onMouseDown={(e) => {
+                                  setIsScrubbing(true);
+                                  const rect = scrubBarRef.current.getBoundingClientRect();
+                                  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                                  if (videoRef.current) videoRef.current.currentTime = pct * (videoDuration || 0);
+                                }}
+                                onMouseMove={handleVideoScrubMove}
+                                onMouseUp={() => setIsScrubbing(false)}
+                                onMouseLeave={() => { if (!isScrubbing) setVideoHoverTime(null); }}
+                                onTouchStart={(e) => {
+                                  setIsScrubbing(true);
+                                  const rect = scrubBarRef.current.getBoundingClientRect();
+                                  const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+                                  if (videoRef.current) videoRef.current.currentTime = pct * (videoDuration || 0);
+                                }}
+                                onTouchMove={(e) => {
+                                  e.preventDefault();
+                                  const rect = scrubBarRef.current.getBoundingClientRect();
+                                  const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+                                  if (videoRef.current) videoRef.current.currentTime = pct * (videoDuration || 0);
+                                }}
+                                onTouchEnd={() => setIsScrubbing(false)}
+                                className="video-scrub-bar"
+                                style={{ position: 'relative', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', userSelect: 'none' }}
+                              >
+                                {/* Track bg — expands on hover via CSS class */}
+                                <div className="scrub-track" style={{ position: 'absolute', left: 0, right: 0, height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', top: '50%', transform: 'translateY(-50%)', transition: 'height 0.15s' }} />
+                                {/* Buffered */}
+                                <div className="scrub-track" style={{ position: 'absolute', left: 0, height: '4px', background: 'rgba(255,255,255,0.25)', borderRadius: '2px', top: '50%', transform: 'translateY(-50%)', width: `${videoDuration ? (videoBuffered / videoDuration) * 100 : 0}%`, transition: 'width 0.3s, height 0.15s' }} />
+                                {/* Progress */}
+                                <div className="scrub-track" style={{ position: 'absolute', left: 0, height: '4px', background: '#6366f1', borderRadius: '2px', top: '50%', transform: 'translateY(-50%)', width: `${videoDuration ? (videoTime / videoDuration) * 100 : 0}%`, transition: 'height 0.15s' }} />
+                                {/* Playhead */}
+                                <div style={{ position: 'absolute', left: `${videoDuration ? (videoTime / videoDuration) * 100 : 0}%`, top: '50%', transform: 'translate(-50%, -50%)', width: '12px', height: '12px', borderRadius: '50%', background: '#6366f1', border: '2px solid #fff', boxShadow: '0 0 6px rgba(0,0,0,0.5)', transition: isScrubbing ? 'none' : 'left 0.1s', zIndex: 3 }} />
+
+                                {/* Comment Markers — with expanded hit area */}
+                                {videoFeedbackMarkers.map(fb => (
+                                  <div
+                                    key={fb.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (videoRef.current) videoRef.current.currentTime = fb.videoTimestamp;
+                                      setHighlightedFeedbackId(fb.id);
+                                      setTimeout(() => setHighlightedFeedbackId(null), 3000);
+                                    }}
+                                    title={`${fb.userName}: ${fb.text.substring(0, 50)}${fb.text.length > 50 ? '...' : ''}`}
+                                    style={{
+                                      position: 'absolute',
+                                      left: `${videoDuration ? (fb.videoTimestamp / videoDuration) * 100 : 0}%`,
+                                      top: '50%', transform: 'translate(-50%, -50%)',
+                                      width: '24px', height: '24px', borderRadius: '50%',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      zIndex: 2, cursor: 'pointer'
+                                    }}
+                                  >
+                                    <div style={{
+                                      width: '8px', height: '8px', borderRadius: '50%',
+                                      background: fb.isDone ? '#22c55e' : '#f59e0b',
+                                      border: '1.5px solid rgba(0,0,0,0.5)',
+                                      boxShadow: highlightedFeedbackId === fb.id ? `0 0 8px 2px ${fb.isDone ? '#22c55e' : '#f59e0b'}` : '0 1px 3px rgba(0,0,0,0.4)',
+                                      transition: 'box-shadow 0.2s, transform 0.15s',
+                                      transform: highlightedFeedbackId === fb.id ? 'scale(1.4)' : 'scale(1)'
+                                    }} />
+                                  </div>
+                                ))}
+
+                                {/* Hover Timecode Tooltip — clamped to bounds */}
+                                {videoHoverTime !== null && scrubBarRef.current && (
+                                  <div style={{ position: 'absolute', bottom: '22px', left: `${Math.max(30, Math.min(videoHoverX, scrubBarRef.current.getBoundingClientRect().width - 30))}px`, transform: 'translateX(-50%)', padding: '3px 8px', background: 'rgba(0,0,0,0.9)', borderRadius: '4px', fontSize: '10px', fontFamily: 'monospace', color: '#fff', whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10 }}>
+                                    {formatTimecode(videoHoverTime)}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {/* Scrub bar hover expansion CSS */}
+                            <style>{`.video-scrub-bar:hover .scrub-track { height: 6px !important; }`}</style>
+
+                            {/* Controls Row */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px 10px 12px' }}>
+                              {/* Play/Pause */}
+                              <button aria-label={videoPlaying ? 'Pause' : 'Play'} onClick={(e) => { e.stopPropagation(); const vid = videoRef.current; if (vid.paused) { vid.play(); } else { vid.pause(); } setShuttleSpeed(0); }} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                {videoPlaying ? (
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                                ) : (
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><polygon points="6,4 20,12 6,20"/></svg>
+                                )}
+                              </button>
+
+                              {/* Frame Back */}
+                              <button aria-label="Previous frame" onClick={(e) => { e.stopPropagation(); const vid = videoRef.current; vid.pause(); setVideoPlaying(false); setShuttleSpeed(0); vid.currentTime = Math.max(0, vid.currentTime - 1/24); }} title="Frame back (←)" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', fontSize: '12px', borderRadius: '4px', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+                              </button>
+
+                              {/* Frame Forward */}
+                              <button aria-label="Next frame" onClick={(e) => { e.stopPropagation(); const vid = videoRef.current; vid.pause(); setVideoPlaying(false); setShuttleSpeed(0); vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 1/24); }} title="Frame forward (→)" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', fontSize: '12px', borderRadius: '4px', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9,6 15,12 9,18"/></svg>
+                              </button>
+
+                              {/* Timecode */}
+                              <div style={{ padding: '2px 10px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', color: '#22c55e', background: 'rgba(0,0,0,0.4)', letterSpacing: '0.5px', flexShrink: 0 }}>
+                                {formatTimecode(videoTime)} <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span> {formatTimecode(videoDuration)}
+                              </div>
+
+                              <div style={{ flex: 1 }} />
+
+                              {/* Volume */}
+                              <button aria-label={videoMuted ? 'Unmute' : 'Mute'} onClick={(e) => { e.stopPropagation(); const newMuted = !videoMuted; setVideoMuted(newMuted); if (videoRef.current) videoRef.current.muted = newMuted; }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                {videoMuted || videoVolume === 0 ? (
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5" fill="currentColor"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                                ) : (
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5" fill="currentColor"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+                                )}
+                              </button>
+                              <input
+                                type="range" min="0" max="1" step="0.05"
+                                value={videoMuted ? 0 : videoVolume}
+                                onChange={(e) => { e.stopPropagation(); const v = parseFloat(e.target.value); setVideoVolume(v); setVideoMuted(v === 0); if (videoRef.current) { videoRef.current.volume = v; videoRef.current.muted = v === 0; } }}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ width: '60px', height: '3px', cursor: 'pointer', accentColor: '#6366f1' }}
+                              />
+
+                              {/* Speed */}
+                              <div style={{ position: 'relative' }}>
+                                <button aria-label={`Playback speed ${videoPlaybackRate}x`} onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(!showSpeedMenu); }} style={{ background: videoPlaybackRate !== 1 ? 'rgba(99,102,241,0.3)' : 'none', border: videoPlaybackRate !== 1 ? '1px solid rgba(99,102,241,0.5)' : 'none', borderRadius: '4px', color: videoPlaybackRate !== 1 ? '#a5b4fc' : 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '2px 6px', fontSize: '10px', fontWeight: '600', fontFamily: 'monospace' }}>
+                                  {videoPlaybackRate}x
+                                </button>
+                                {showSpeedMenu && (
+                                  <div style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: '4px', background: 'rgba(20,20,30,0.95)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '4px', minWidth: '60px', zIndex: 100 }}>
+                                    {[0.25, 0.5, 1, 1.5, 2, 4].map(spd => (
+                                      <div key={spd} onClick={(e) => { e.stopPropagation(); if (videoRef.current) { videoRef.current.playbackRate = spd; setVideoPlaybackRate(spd); } setShowSpeedMenu(false); setShuttleSpeed(0); }} style={{ padding: '5px 10px', fontSize: '11px', color: videoPlaybackRate === spd ? '#6366f1' : 'rgba(255,255,255,0.7)', fontWeight: videoPlaybackRate === spd ? '700' : '400', cursor: 'pointer', borderRadius: '4px', fontFamily: 'monospace', textAlign: 'center' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                        {spd}x
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Fullscreen */}
+                              <button aria-label="Toggle fullscreen" onClick={(e) => { e.stopPropagation(); setIsFullscreen(!isFullscreen); }} title="Fullscreen (F)" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15,3 21,3 21,9"/><polyline points="9,21 3,21 3,15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                              </button>
+                            </div>
+
+                            {/* Keyboard Shortcut Hint */}
+                            {videoFocused && !videoPlaying && videoDuration > 0 && assetTab !== 'annotate' && (
+                              <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', padding: '6px 12px', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', borderRadius: '6px', fontSize: '9px', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', pointerEvents: 'none', display: 'flex', gap: '10px' }}>
+                                <span><b style={{ color: 'rgba(255,255,255,0.8)' }}>J/K/L</b> shuttle</span>
+                                <span><b style={{ color: 'rgba(255,255,255,0.8)' }}>←→</b> frame</span>
+                                <span><b style={{ color: 'rgba(255,255,255,0.8)' }}>⇧←→</b> 1s</span>
+                                <span><b style={{ color: 'rgba(255,255,255,0.8)' }}>,.</b> frame</span>
+                                <span><b style={{ color: 'rgba(255,255,255,0.8)' }}>[]</b> speed</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Video Annotation Overlay — pauses video and overlays drawing tools */}
+                          {assetTab === 'annotate' && (
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 'calc(100% - 80px)', zIndex: 15 }}>
+                              {/* Annotating frame badge */}
+                              <div style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 25, padding: '4px 12px', background: 'rgba(99,102,241,0.9)', borderRadius: '20px', fontSize: '10px', color: '#fff', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(8px)', pointerEvents: 'none' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                                Annotating at {formatTimecode(videoTime)}
+                              </div>
+                              <AnnotationCanvas
+                                videoOverlay={true}
+                                annotations={visibleVideoAnnotations}
+                                onChange={handleSaveVideoAnnotations}
+                              />
+                            </div>
+                          )}
+
+                          {/* Readonly video annotation markers — show at matching timestamps during preview */}
+                          {assetTab === 'preview' && visibleVideoAnnotations.length > 0 && (
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 'calc(100% - 80px)', pointerEvents: 'none', zIndex: 5 }}>
+                              {visibleVideoAnnotations.map(a => {
+                                if (a.type === 'freehand' && a.path) {
+                                  const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                                  return <svg key={a.id} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}><path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: '3px' }} /></svg>;
+                                }
+                                if (a.type === 'text') return <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, color: '#fff', fontSize: '13px', fontWeight: '600', padding: '4px 10px', background: a.color, borderRadius: '4px', maxWidth: '200px', wordBreak: 'break-word', boxShadow: '0 2px 6px rgba(0,0,0,0.3)', pointerEvents: 'none', opacity: 0.85 }}>{a.text}</div>;
+                                if (a.type === 'circle') return <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2.5px solid ${a.color}`, borderRadius: '50%', background: `${a.color}15`, boxSizing: 'border-box', pointerEvents: 'none', opacity: 0.85 }} />;
+                                if (a.type === 'arrow') return <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, pointerEvents: 'none', opacity: 0.85 }}><svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}><defs><marker id={`vo-arr-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs><line x1="0" y1="50" x2="100" y2="50" stroke={a.color} strokeWidth="3" markerEnd={`url(#vo-arr-${a.id})`} vectorEffect="non-scaling-stroke" /></svg></div>;
+                                return <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2.5px solid ${a.color}`, borderRadius: '3px', background: `${a.color}15`, boxSizing: 'border-box', pointerEvents: 'none', opacity: 0.85 }} />;
+                              })}
+                            </div>
+                          )}
                         </div>
+                        )
                       ) : selectedAsset.type === 'audio' ? (
                         <div style={{ textAlign: 'center' }}>
                           <div style={{ marginBottom: '20px', opacity: 0.5 }}><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg></div>
@@ -7513,9 +7959,42 @@ export default function MainApp() {
                                     }}
                                   />
                                 )}
+                                {/* Readonly annotation overlay — shows existing annotations in preview mode */}
+                                {(selectedAsset.annotations || []).length > 0 && (
+                                  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
+                                    {(selectedAsset.annotations || []).map(a => {
+                                      if (a.type === 'freehand' && a.path) {
+                                        const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                                        return (
+                                          <svg key={a.id} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}>
+                                            <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: '3px' }} />
+                                          </svg>
+                                        );
+                                      }
+                                      if (a.type === 'text') {
+                                        return <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, color: '#fff', fontSize: '13px', fontWeight: '600', padding: '4px 10px', background: a.color, borderRadius: '4px', maxWidth: '200px', wordBreak: 'break-word', boxShadow: '0 2px 6px rgba(0,0,0,0.3)', pointerEvents: 'none', opacity: 0.85 }}>{a.text}</div>;
+                                      }
+                                      if (a.type === 'circle') {
+                                        return <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2.5px solid ${a.color}`, borderRadius: '50%', background: `${a.color}15`, boxSizing: 'border-box', pointerEvents: 'none', opacity: 0.85 }} />;
+                                      }
+                                      if (a.type === 'arrow') {
+                                        return (
+                                          <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, pointerEvents: 'none', opacity: 0.85 }}>
+                                            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                                              <defs><marker id={`ro-arr-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs>
+                                              <line x1="0" y1="50" x2="100" y2="50" stroke={a.color} strokeWidth="3" markerEnd={`url(#ro-arr-${a.id})`} vectorEffect="non-scaling-stroke" />
+                                            </svg>
+                                          </div>
+                                        );
+                                      }
+                                      // Rectangle (default)
+                                      return <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2.5px solid ${a.color}`, borderRadius: '3px', background: `${a.color}15`, boxSizing: 'border-box', pointerEvents: 'none', opacity: 0.85 }} />;
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            
+
                             {/* Zoom hint for desktop */}
                             {!isMobile && zoomLevel === 1 && !imageLoading && (
                               <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', padding: '6px 12px', fontSize: '10px', color: t.textMuted, pointerEvents: 'none', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
@@ -7814,16 +8293,16 @@ export default function MainApp() {
                               </div>
                             </div>
                           ) : (selectedAsset.feedback || []).map(fb => (
-                            <div key={fb.id} style={{ display: 'flex', gap: '6px', marginBottom: '6px', opacity: fb.isDone ? 0.6 : 1 }}>
+                            <div key={fb.id} id={`feedback-${fb.id}`} style={{ display: 'flex', gap: '6px', marginBottom: '6px', opacity: fb.isDone ? 0.6 : 1, transition: 'all 0.3s', ...(highlightedFeedbackId === fb.id ? { background: `${t.primary}20`, borderRadius: '8px', padding: '4px', margin: '-4px -4px 2px -4px', boxShadow: `0 0 0 2px ${t.primary}40` } : {}) }}>
                               <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: fb.isDone ? 'rgba(34,197,94,0.3)' : `${t.primary}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '700', flexShrink: 0, color: t.text, marginTop: '2px' }}>{fb.userName?.[0] || '?'}</div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ padding: '6px 8px', background: fb.isDone ? 'rgba(34,197,94,0.08)' : t.bgInput, borderRadius: '2px 8px 8px 8px', border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.2)' : t.borderLight}` }}>
+                                <div style={{ padding: '6px 8px', background: fb.isDone ? 'rgba(34,197,94,0.08)' : t.bgInput, borderRadius: '2px 8px 8px 8px', border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.2)' : highlightedFeedbackId === fb.id ? t.primary : t.borderLight}` }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}>
                                       <span style={{ fontSize: '9px', fontWeight: '600', color: t.text }}>{fb.userName}</span>
                                       <span style={{ fontSize: '8px', color: t.textMuted }}>{formatTimeAgo(fb.timestamp)}</span>
                                       {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
-                                        <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.play(); } }} style={{ fontSize: '8px', color: t.primary, cursor: 'pointer', background: `${t.primary}30`, padding: '1px 4px', borderRadius: '3px' }}>@ {Math.floor(fb.videoTimestamp / 60)}:{String(Math.floor(fb.videoTimestamp % 60)).padStart(2, '0')}</span>
+                                        <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.pause(); setVideoPlaying(false); } setHighlightedFeedbackId(fb.id); setTimeout(() => setHighlightedFeedbackId(null), 3000); }} style={{ fontSize: '8px', color: t.primary, cursor: 'pointer', background: `${t.primary}30`, padding: '1px 4px', borderRadius: '3px', fontFamily: 'monospace' }}>@ {formatTimecode(fb.videoTimestamp)}</span>
                                       )}
                                     </div>
                                     <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.3)' : t.bgInput, border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.4)' : t.borderLight}`, borderRadius: '8px', padding: '1px 6px', fontSize: '8px', color: fb.isDone ? '#22c55e' : t.textMuted, cursor: 'pointer', flexShrink: 0 }}>{fb.isDone ? 'Done' : 'Done?'}</button>
@@ -8168,7 +8647,8 @@ export default function MainApp() {
   };
 
   // Annotation Canvas Component — Modern inline UX
-  const AnnotationCanvas = ({ imageUrl, annotations = [], onChange }) => {
+  // videoOverlay: if true, renders as transparent overlay (no image, used for video annotation)
+  const AnnotationCanvas = ({ imageUrl, annotations = [], onChange, videoOverlay = false }) => {
     const [annots, setAnnots] = useState(annotations);
     const [tool, setTool] = useState('rect');
     const [color, setColor] = useState('#ef4444');
@@ -8202,6 +8682,9 @@ export default function MainApp() {
 
     // Sync with external annotations prop
     useEffect(() => { setAnnots(annotations); }, [annotations]);
+
+    // In video overlay mode, image is always "loaded" (we overlay on video)
+    useEffect(() => { if (videoOverlay) setImageLoaded(true); }, [videoOverlay]);
 
     const handleImageLoad = (e) => {
       setImageLoaded(true);
@@ -8428,20 +8911,22 @@ export default function MainApp() {
             ))}
           </div>
           <div style={{ flex: 1 }} />
-          <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '8px', padding: '3px', alignItems: 'center' }}>
-            <button onClick={() => setZoom(z => Math.max(50, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '15px' }}>-</button>
-            <button onClick={() => setZoom(100)} style={{ padding: '2px 8px', fontSize: '10px', color: t.textMuted, background: 'transparent', border: 'none', cursor: 'pointer', minWidth: '36px' }}>{zoom}%</button>
-            <button onClick={() => setZoom(z => Math.min(300, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '15px' }}>+</button>
-          </div>
+          {!videoOverlay && (
+            <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '8px', padding: '3px', alignItems: 'center' }}>
+              <button onClick={() => setZoom(z => Math.max(50, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '15px' }}>-</button>
+              <button onClick={() => setZoom(100)} style={{ padding: '2px 8px', fontSize: '10px', color: t.textMuted, background: 'transparent', border: 'none', cursor: 'pointer', minWidth: '36px' }}>{zoom}%</button>
+              <button onClick={() => setZoom(z => Math.min(300, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '15px' }}>+</button>
+            </div>
+          )}
           {annots.length > 0 && <span style={{ fontSize: '10px', color: t.textMuted, marginLeft: '4px' }}>{annots.length}</span>}
         </div>
 
         {/* Canvas Area */}
         <div
           ref={containerRef}
-          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: zoom > 100 ? 'auto' : 'hidden', background: theme === 'dark' ? '#0a0a0f' : '#e5e7eb', position: 'relative' }}>
+          style={{ flex: 1, display: 'flex', alignItems: videoOverlay ? 'stretch' : 'center', justifyContent: videoOverlay ? 'stretch' : 'center', overflow: videoOverlay ? 'hidden' : (zoom > 100 ? 'auto' : 'hidden'), background: videoOverlay ? 'transparent' : (theme === 'dark' ? '#0a0a0f' : '#e5e7eb'), position: 'relative' }}>
 
-          {!imageLoaded && (
+          {!imageLoaded && !videoOverlay && (
             <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: t.textMuted }}>
               <div className="spinner" style={{ width: 20, height: 20, border: `2px solid ${t.primary}`, borderTopColor: 'transparent', borderRadius: '50%' }} />
               <span style={{ fontSize: '11px' }}>Loading...</span>
@@ -8459,20 +8944,26 @@ export default function MainApp() {
             onTouchEnd={handleTouchEnd}
             onClick={() => { setSelectedAnnot(null); if (!isDrawing) cancelInlineAnnotation(); }}
             style={{
-              position: 'relative', cursor: 'crosshair', userSelect: 'none', touchAction: 'none',
-              transform: `scale(${zoom / 100})`, transformOrigin: 'center center',
-              maxWidth: zoom <= 100 ? '100%' : 'none', maxHeight: zoom <= 100 ? '100%' : 'none'
+              position: videoOverlay ? 'absolute' : 'relative',
+              top: videoOverlay ? 0 : undefined, left: videoOverlay ? 0 : undefined,
+              width: videoOverlay ? '100%' : undefined, height: videoOverlay ? '100%' : undefined,
+              cursor: 'crosshair', userSelect: 'none', touchAction: 'none',
+              transform: videoOverlay ? 'none' : `scale(${zoom / 100})`, transformOrigin: 'center center',
+              maxWidth: videoOverlay ? '100%' : (zoom <= 100 ? '100%' : 'none'), maxHeight: videoOverlay ? '100%' : (zoom <= 100 ? '100%' : 'none'),
+              zIndex: videoOverlay ? 10 : undefined
             }}>
-            <img
-              src={imageUrl} alt="" draggable={false} onLoad={handleImageLoad}
-              style={{
-                display: 'block',
-                maxWidth: zoom <= 100 ? '100%' : `${imageDims.width}px`,
-                maxHeight: zoom <= 100 ? 'calc(100vh - 200px)' : `${imageDims.height}px`,
-                width: 'auto', height: 'auto', objectFit: 'contain',
-                pointerEvents: 'none', opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.2s'
-              }}
-            />
+            {!videoOverlay && (
+              <img
+                src={imageUrl} alt="" draggable={false} onLoad={handleImageLoad}
+                style={{
+                  display: 'block',
+                  maxWidth: zoom <= 100 ? '100%' : `${imageDims.width}px`,
+                  maxHeight: zoom <= 100 ? 'calc(100vh - 200px)' : `${imageDims.height}px`,
+                  width: 'auto', height: 'auto', objectFit: 'contain',
+                  pointerEvents: 'none', opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.2s'
+                }}
+              />
+            )}
             {imageLoaded && annots.map(renderAnnotation)}
             {imageLoaded && renderPreview()}
 
