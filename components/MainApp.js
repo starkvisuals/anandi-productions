@@ -5444,6 +5444,8 @@ export default function MainApp() {
     const [editProjectData, setEditProjectData] = useState({ name: '', client: '', categories: [], requiredFormats: [], requiredSizes: [], maxRevisions: 0 });
     const [selectedAsset, setSelectedAsset] = useState(null);
     const [assetTab, setAssetTab] = useState('preview');
+    const [sidebarSection, setSidebarSection] = useState({ assignment: true, versions: true, feedback: true, details: false });
+    const [sidebarActionsOpen, setSidebarActionsOpen] = useState(false);
     const [selectedAssets, setSelectedAssets] = useState(new Set());
     const [uploadFiles, setUploadFiles] = useState([]);
     const [uploadProgress, setUploadProgress] = useState({});
@@ -8020,322 +8022,315 @@ export default function MainApp() {
                     {/* Feedback moved to right sidebar */}
                   </div>
                   
-                  {/* RIGHT: Details Sidebar */}
+                  {/* RIGHT: Details Sidebar — Glassmorphic Collapsible Panels */}
                   {!isMobile && !isFullscreen && (
-                    <div style={{ width: '320px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', padding: '16px', flexShrink: 0 }}>
-                      {/* Selection Toggle - Prominent */}
-                      <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ width: '100%', padding: '12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : t.bgInput, border: selectedAsset.isSelected ? 'none' : `1px solid ${t.border}`, borderRadius: '10px', color: selectedAsset.isSelected ? '#fff' : t.text, fontSize: '12px', cursor: 'pointer', fontWeight: '600', marginBottom: '16px', transition: 'all 0.2s', boxShadow: selectedAsset.isSelected ? '0 2px 10px rgba(34,197,94,0.3)' : 'none' }}>
-                        {selectedAsset.isSelected ? 'Selected' : '☆ Mark as Selected'}
-                      </button>
-                      
-                      {/* Tags */}
-                      <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '8px' }}>Tags</label>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          {PREDEFINED_TAGS.map(tag => {
-                            const isActive = (selectedAsset.tags || []).includes(tag.id);
-                            return (
-                              <button key={tag.id} onClick={async () => { const newTags = isActive ? (selectedAsset.tags || []).filter(t => t !== tag.id) : [...(selectedAsset.tags || []), tag.id]; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, tags: newTags } : a); setSelectedAsset({ ...selectedAsset, tags: newTags }); await updateProject(selectedProject.id, { assets: updated }); }} style={{ padding: '3px 8px', background: isActive ? `${tag.color}30` : t.bgInput, border: `1px solid ${isActive ? tag.color : t.border}`, borderRadius: '10px', color: isActive ? tag.color : t.textMuted, fontSize: '9px', cursor: 'pointer', fontWeight: '500' }}>{tag.label}</button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      
-                      {/* Status */}
-                      <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '6px' }}>Status</label>
-                        <Select theme={theme} value={selectedAsset.status} onChange={v => handleUpdateStatus(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
-                          {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
-                        </Select>
-                      </div>
-                      
-                      {/* Assign */}
-                      {isProducer && (
-                        <div style={{ marginBottom: '16px' }}>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '6px' }}>Assign To</label>
-                          <Select theme={theme} value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
-                            <option value="">-- Unassigned --</option>
-                            {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                          </Select>
-                        </div>
-                      )}
-                      
-                      {/* Due Date */}
-                      {isProducer && (
-                        <div style={{ marginBottom: '16px' }}>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '6px' }}>Due Date</label>
-                          <input type="date" value={selectedAsset.dueDate?.split('T')[0] || ''} onChange={async (e) => { const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a); setSelectedAsset({ ...selectedAsset, dueDate }); await updateProject(selectedProject.id, { assets: updated }); if (selectedAsset.assignedTo && dueDate) { const assignee = editors.find(e => e.id === selectedAsset.assignedTo); if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`); } }} style={{ width: '100%', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px' }} />
-                          {selectedAsset.dueDate && <div style={{ marginTop: '4px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>{new Date(selectedAsset.dueDate) < new Date() ? 'Overdue!' : `In ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days`}</div>}
-                        </div>
-                      )}
-                      
-                      {/* Version Upload - permission based */}
-                      {(() => {
-                        const allowedRoles = selectedProject.versionUploadRoles || ['producer', 'editor'];
-                        const roleMap = { 
-                          'producer': ['producer', 'admin', 'team-lead'],
-                          'editor': ['editor', 'photo-editor', 'video-editor'],
-                          'colorist': ['colorist', 'color-grader'],
-                          'vfx': ['vfx', 'vfx-artist', 'motion-graphics'],
-                          'retoucher': ['retoucher'],
-                          'sound': ['sound', 'sound-designer', 'audio-engineer']
-                        };
-                        const userRoles = Object.entries(roleMap).filter(([, mapped]) => mapped.includes(userProfile?.role)).map(([key]) => key);
-                        const canUploadVersion = isProducer || userRoles.some(r => allowedRoles.includes(r));
-                        
-                        return canUploadVersion ? (
-                          <div style={{ marginBottom: '16px', padding: '14px', background: t.bgInput, borderRadius: '12px', border: `1px solid ${t.borderLight}` }}>
-                            <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Versions</span>
-                              <span style={{ padding: '3px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.2)' : t.bgHover, color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.textSecondary, borderRadius: '10px', fontSize: '9px', fontWeight: '700', border: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '1px solid rgba(249,115,22,0.3)' : `1px solid ${t.borderLight}` }}>v{selectedAsset.currentVersion}</span>
-                            </div>
-                            {/* Visual version list */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
-                              {(selectedAsset.versions || []).map((v, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', background: v.version === selectedAsset.currentVersion ? 'rgba(99,102,241,0.12)' : 'transparent', borderRadius: '6px', border: v.version === selectedAsset.currentVersion ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent' }}>
-                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', background: t.bgHover, flexShrink: 0 }}>
-                                    {v.thumbnail ? <img src={v.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: t.textMuted }}>v{v.version}</div>}
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: '10px', fontWeight: '600', color: v.version === selectedAsset.currentVersion ? '#6366f1' : t.textSecondary }}>Version {v.version}</div>
-                                    {v.uploadedAt && <div style={{ fontSize: '8px', color: t.textMuted }}>{formatTimeAgo(v.uploadedAt)}</div>}
-                                  </div>
-                                  {v.version === selectedAsset.currentVersion && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
-                                </div>
-                              ))}
-                            </div>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
-                              <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '7px', background: t.bgInput, border: `1px dashed ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'border-color 0.2s' }}>{versionFile ? versionFile.name.substring(0, 10) + '...' : '+ New Version'}</button>
-                              {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '7px 12px', background: t.primary, border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>{uploadingVersion ? <span className="spinner" style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }} /> : 'Upload'}</button>}
-                            </div>
+                    <div style={{ width: '320px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', flexShrink: 0 }}>
+                      {/* Sidebar Header — Always visible */}
+                      <div style={{ padding: '16px 16px 12px', borderBottom: `1px solid ${t.borderLight}` }}>
+                        {/* Asset name + type */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${t.primary}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: t.primary, flexShrink: 0 }}>
+                            {selectedAsset.type === 'image' ? '🖼' : selectedAsset.type === 'video' ? '🎬' : selectedAsset.type === 'audio' ? '🎵' : '📄'}
                           </div>
-                        ) : (
-                          <div style={{ marginBottom: '16px', padding: '14px', background: t.bgInput, borderRadius: '12px', border: `1px solid ${t.borderLight}` }}>
-                            <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Versions</span>
-                              <span style={{ padding: '3px 8px', background: t.bgHover, borderRadius: '10px', fontSize: '9px', fontWeight: '700', color: t.textSecondary, border: `1px solid ${t.borderLight}` }}>v{selectedAsset.currentVersion}</span>
-                            </div>
-                            <div style={{ fontSize: '9px', color: t.textMuted }}>{(selectedAsset.versions || []).map((v, i) => <span key={i}>{i > 0 && ' → '}v{v.version}</span>)}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedAsset.name}</div>
+                            <div style={{ fontSize: '10px', color: t.textMuted }}>v{selectedAsset.currentVersion} • {selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</div>
                           </div>
-                        );
-                      })()}
-                      
-                      {/* GDrive Link */}
-                      {selectedAsset.status === 'approved' && (
-                        <div style={{ marginBottom: '16px' }}>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: t.textMuted, marginBottom: '6px' }}> GDrive Link</label>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            <Input theme={theme} value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste link" style={{ flex: 1, padding: '6px', fontSize: '10px' }} />
-                            <button onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} style={{ padding: '6px 10px', background: t.success, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>✓</button>
-                          </div>
-                        </div>
-                      )}
-                      {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '10px', background: 'rgba(34,197,94,0.15)', borderRadius: '8px', color: '#22c55e', fontSize: '11px', textAlign: 'center', textDecoration: 'none', marginBottom: '16px', fontWeight: '600' }}> Open High-Res</a>}
-                      
-                      {/* File Details */}
-                      <div style={{ background: t.bgInput, borderRadius: '12px', padding: '14px', marginBottom: '16px', fontSize: '11px', border: `1px solid ${t.borderLight}` }}>
-                        <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: t.text }}> File Details</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Size</span><span style={{ color: t.textSecondary }}>{formatFileSize(selectedAsset.fileSize)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}><span style={{ color: t.textMuted }}>Type</span><span style={{ color: t.textSecondary }}>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: t.textMuted }}>Uploaded</span><span style={{ color: t.textSecondary }}>{formatDate(selectedAsset.uploadedAt)}</span></div>
-                      </div>
-                      
-                      {/* Deliverables Checklist */}
-                      {((selectedProject.requiredFormats?.length > 0) || (selectedProject.requiredSizes?.length > 0)) && (
-                        <div style={{ background: t.bgInput, borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
-                          <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            Required Deliverables
-                            {selectedAsset.revisionRound > 0 && <span style={{ padding: '2px 6px', background: '#f97316', borderRadius: '4px', fontSize: '8px' }}>R{selectedAsset.revisionRound}</span>}
-                          </div>
-                          {/* Required Formats */}
-                          {selectedProject.requiredFormats?.length > 0 && (
-                            <div style={{ marginBottom: '8px' }}>
-                              <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '4px' }}>Formats:</div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                {selectedProject.requiredFormats.map(fmtId => {
-                                  const fmt = [...FILE_FORMATS.photo, ...FILE_FORMATS.video].find(f => f.id === fmtId);
-                                  const isUploaded = (selectedAsset.uploadedFormats || []).includes(fmtId);
-                                  return fmt ? (
-                                    <span key={fmtId} style={{ padding: '2px 6px', background: isUploaded ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.1)', border: `1px solid ${isUploaded ? '#22c55e' : '#ef4444'}`, borderRadius: '4px', fontSize: '8px', color: isUploaded ? '#22c55e' : '#ef4444' }}>
-                                      {isUploaded ? '✓' : '○'} {fmt.label.split(' ')[0]}
-                                    </span>
-                                  ) : null;
-                                })}
+                          {/* Three-dot actions menu */}
+                          <div style={{ position: 'relative' }}>
+                            <button onClick={() => setSidebarActionsOpen(!sidebarActionsOpen)} style={{ width: '28px', height: '28px', background: 'transparent', border: `1px solid ${t.borderLight}`, borderRadius: '8px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>⋯</button>
+                            {sidebarActionsOpen && (<>
+                              <div onClick={() => setSidebarActionsOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} />
+                              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: `${t.bgCard}F0`, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: `1px solid ${t.border}`, borderRadius: '10px', padding: '4px', minWidth: '160px', zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                                <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '6px', textDecoration: 'none', color: t.text, fontSize: '11px' }} onMouseEnter={e => e.currentTarget.style.background = t.bgHover} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{Icons.download(t.textSecondary)} Download Preview</a>
+                                {selectedAsset.gdriveLink && <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '6px', textDecoration: 'none', color: t.text, fontSize: '11px' }} onMouseEnter={e => e.currentTarget.style.background = t.bgHover} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>🔗 Open High-Res</a>}
+                                <div onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('Link copied!', 'success'); setSidebarActionsOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', color: t.text, fontSize: '11px' }} onMouseEnter={e => e.currentTarget.style.background = t.bgHover} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>📋 Copy Share Link</div>
+                                {isProducer && <>
+                                  <div style={{ height: '1px', background: t.borderLight, margin: '4px 0' }} />
+                                  <div onClick={async () => { setSidebarActionsOpen(false); if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAsset.name}`, timestamp: new Date().toISOString() }; await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', color: '#ef4444', fontSize: '11px' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{Icons.trash('#ef4444')} Delete Asset</div>
+                                </>}
                               </div>
-                            </div>
-                          )}
-                          {/* Required Sizes */}
-                          {selectedProject.requiredSizes?.length > 0 && (
-                            <div>
-                              <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '4px' }}>Sizes:</div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                {selectedProject.requiredSizes.map(sizeId => {
-                                  const size = [...SIZE_PRESETS.photo, ...SIZE_PRESETS.video].find(s => s.id === sizeId);
-                                  const isUploaded = (selectedAsset.uploadedSizes || []).includes(sizeId);
-                                  return size ? (
-                                    <span key={sizeId} style={{ padding: '2px 6px', background: isUploaded ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.1)', border: `1px solid ${isUploaded ? '#22c55e' : '#ef4444'}`, borderRadius: '4px', fontSize: '8px', color: isUploaded ? '#22c55e' : '#ef4444' }}>
-                                      {isUploaded ? '✓' : '○'} {size.label.split(' ')[0]}
-                                    </span>
-                                  ) : null;
-                                })}
-                              </div>
-                            </div>
-                          )}
-                          {/* Max Revisions Info */}
-                          {selectedProject.maxRevisions > 0 && (
-                            <div style={{ marginTop: '8px', fontSize: '9px', color: (selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions ? '#ef4444' : t.textMuted }}>
-                              Revisions: {selectedAsset.revisionRound || 0} / {selectedProject.maxRevisions}
-                              {(selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions && ' Limit reached'}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* High-Res Downloads Section */}
-                      {selectedAsset.status === 'approved' && (selectedAsset.highResFiles?.length > 0 || isProducer) && (
-                        <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '16px' }}>
-                          <div style={{ fontSize: '10px', fontWeight: '600', color: '#22c55e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            High-Res Downloads
-                            {!selectedAsset.highResFiles?.length && <span style={{ color: '#ef4444', fontWeight: 'normal' }}>Not uploaded yet</span>}
+                            </>)}
                           </div>
-                          {selectedAsset.highResFiles?.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              {selectedAsset.highResFiles.map((file, idx) => (
-                                <a key={idx} href={file.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', background: t.bgCard, borderRadius: '4px', textDecoration: 'none', color: t.text, fontSize: '10px' }}>
-                                  <span>{file.formatLabel || file.format}</span>
-                                  <span style={{ color: '#22c55e' }}>{Icons.download('#22c55e')}</span>
-                                </a>
+                        </div>
+                        {/* Status pill + round indicator */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {(() => { const sc = { pending: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' }, selected: { bg: 'rgba(59,130,246,0.15)', color: '#3b82f6' }, assigned: { bg: 'rgba(99,102,241,0.15)', color: '#6366f1' }, 'in-progress': { bg: 'rgba(168,85,247,0.15)', color: '#a855f7' }, 'review-ready': { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' }, 'changes-requested': { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' }, approved: { bg: 'rgba(34,197,94,0.15)', color: '#22c55e' }, delivered: { bg: 'rgba(6,182,212,0.15)', color: '#06b6d4' } }; const s = sc[selectedAsset.status] || sc.pending; return <span style={{ padding: '4px 10px', background: s.bg, color: s.color, borderRadius: '20px', fontSize: '10px', fontWeight: '600' }}>{STATUS[selectedAsset.status]?.label || 'Pending'}</span>; })()}
+                          {selectedAsset.revisionRound > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {Array.from({ length: selectedProject.maxRevisions || 3 }).map((_, i) => (
+                                <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i < (selectedAsset.revisionRound || 0) ? '#8b5cf6' : `${t.textMuted}40`, transition: 'background 0.2s' }} />
                               ))}
+                              <span style={{ fontSize: '9px', color: t.textMuted, marginLeft: '2px' }}>R{selectedAsset.revisionRound}</span>
                             </div>
-                          ) : isProducer ? (
-                            <div style={{ fontSize: '9px', color: t.textMuted }}>Waiting for editor to upload high-res files</div>
-                          ) : null}
-                        </div>
-                      )}
-                      
-                      {/* Editor: Upload High-Res Files */}
-                      {selectedAsset.status === 'approved' && !isProducer && userProfile?.role !== 'client' && (
-                        <div style={{ background: t.bgInput, borderRadius: '10px', padding: '12px', marginBottom: '16px' }}>
-                          <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px' }}> Upload High-Res Files</div>
-                          {(selectedProject.requiredFormats || []).length > 0 ? (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                              {selectedProject.requiredFormats.map(fmtId => {
-                                const fmt = [...FILE_FORMATS.photo, ...FILE_FORMATS.video].find(f => f.id === fmtId);
-                                const isUploaded = selectedAsset.highResFiles?.some(f => f.format === fmtId);
-                                return fmt ? (
-                                  <label key={fmtId} style={{ padding: '4px 8px', background: isUploaded ? 'rgba(34,197,94,0.2)' : t.bgCard, border: `1px solid ${isUploaded ? '#22c55e' : t.border}`, borderRadius: '6px', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <input type="file" style={{ display: 'none' }} onChange={async (e) => {
-                                      const file = e.target.files?.[0];
-                                      if (!file) return;
-                                      try {
-                                        showToast('Uploading...', 'info');
-                                        const path = `projects/${selectedProject.id}/highres/${selectedAsset.id}/${fmtId}-${file.name}`;
-                                        const sRef = ref(storage, path);
-                                        await uploadBytesResumable(sRef, file);
-                                        const url = await getDownloadURL(sRef);
-                                        const highResFile = { format: fmtId, formatLabel: fmt.label, url, fileName: file.name, uploadedAt: new Date().toISOString() };
-                                        const existingFiles = (selectedAsset.highResFiles || []).filter(f => f.format !== fmtId);
-                                        const updatedAsset = { ...selectedAsset, highResFiles: [...existingFiles, highResFile] };
-                                        const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? updatedAsset : a);
-                                        await updateProject(selectedProject.id, { assets: updated });
-                                        setSelectedAsset(updatedAsset);
-                                        await refreshProject();
-                                        showToast(`${fmt.label} uploaded!`, 'success');
-                                        
-                                        // Check if all required formats are uploaded
-                                        const allUploaded = selectedProject.requiredFormats.every(f => [...existingFiles, highResFile].some(h => h.format === f));
-                                        if (allUploaded) {
-                                          // Notify client
-                                          const clientsToNotify = team.filter(m => ['client', 'producer'].includes(m.role));
-                                          for (const client of clientsToNotify) {
-                                            if (client.email) {
-                                              sendEmailNotification(client.email, `High-res files ready: ${selectedAsset.name}`, `All required formats for "${selectedAsset.name}" have been uploaded and are ready for download.`);
-                                            }
-                                          }
-                                        }
-                                      } catch (err) { showToast('Upload failed', 'error'); }
-                                    }} />
-                                    {isUploaded ? '✓' : '+'} {fmt.label.split(' ')[0]}
-                                  </label>
-                                ) : null;
-                              })}
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: '9px', color: t.textMuted }}>No specific formats required</div>
                           )}
+                          <div style={{ flex: 1 }} />
+                          <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ padding: '4px 12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'transparent', border: selectedAsset.isSelected ? 'none' : `1px solid ${t.border}`, borderRadius: '20px', color: selectedAsset.isSelected ? '#fff' : t.textMuted, fontSize: '10px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}>{selectedAsset.isSelected ? '✓ Selected' : '☆ Select'}</button>
                         </div>
-                      )}
-                      
-                      {/* Actions */}
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                        <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', borderRadius: '10px', color: '#fff', fontSize: '11px', fontWeight: '600', textAlign: 'center', textDecoration: 'none', transition: 'transform 0.2s, box-shadow 0.2s', boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>Download Preview</a>
                       </div>
-                      
-                      {/* Delete */}
-                      {isProducer && (
-                        <button onClick={async () => { if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAsset.name}`, timestamp: new Date().toISOString() }; await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ width: '100%', padding: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>Delete</button>
-                      )}
 
-                      {/* Feedback Section */}
-                      <div style={{ marginTop: '16px', borderTop: `1px solid ${t.borderLight}`, paddingTop: '16px' }}>
-                        <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: t.text }}>
-                          <span>Feedback ({selectedAsset.feedback?.length || 0})</span>
-                          {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
-                            <span style={{ fontSize: '9px', padding: '2px 8px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', borderRadius: '10px', fontWeight: '600' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} pending</span>
+                      {/* Collapsible Sections Container */}
+                      <div style={{ padding: '12px' }}>
+
+                        {/* Section 1: Assignment */}
+                        {(() => { const [assignOpen, setAssignOpen] = [true, null]; return null; })() /* Assignment is always open inline */}
+                        <div style={{ marginBottom: '12px', background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '14px', overflow: 'hidden' }}>
+                          <button onClick={() => setSidebarSection(s => ({ ...s, assignment: !s.assignment }))} style={{ width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '12px', fontWeight: '600' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Assignment
+                              {selectedAsset.assignedTo && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: '600', background: `${t.primary}20`, color: t.primary }}>{editors.find(e => e.id === selectedAsset.assignedTo)?.name?.split(' ')[0] || 'Assigned'}</span>}
+                            </div>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.assignment ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
+                          </button>
+                          {sidebarSection.assignment && (
+                            <div style={{ padding: '0 14px 14px 14px' }}>
+                              {isProducer && (
+                                <>
+                                  <div style={{ marginBottom: '10px' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Status</label>
+                                    <Select theme={theme} value={selectedAsset.status} onChange={v => handleUpdateStatus(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
+                                      {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+                                    </Select>
+                                  </div>
+                                  <div style={{ marginBottom: '10px' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Assign To</label>
+                                    <Select theme={theme} value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
+                                      <option value="">-- Unassigned --</option>
+                                      {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                    </Select>
+                                  </div>
+                                  <div style={{ marginBottom: '10px' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Due Date</label>
+                                    <input type="date" value={selectedAsset.dueDate?.split('T')[0] || ''} onChange={async (e) => { const dueDate = e.target.value ? new Date(e.target.value).toISOString() : null; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, dueDate } : a); setSelectedAsset({ ...selectedAsset, dueDate }); await updateProject(selectedProject.id, { assets: updated }); if (selectedAsset.assignedTo && dueDate) { const assignee = editors.find(e => e.id === selectedAsset.assignedTo); if (assignee?.email) sendEmailNotification(assignee.email, `Due date set: ${selectedAsset.name}`, `Due: ${formatDate(dueDate)}`); } }} style={{ width: '100%', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '11px', boxSizing: 'border-box' }} />
+                                    {selectedAsset.dueDate && <div style={{ marginTop: '4px', fontSize: '10px', color: new Date(selectedAsset.dueDate) < new Date() ? '#ef4444' : '#22c55e', fontWeight: '600' }}>{new Date(selectedAsset.dueDate) < new Date() ? 'Overdue!' : `In ${Math.ceil((new Date(selectedAsset.dueDate) - new Date()) / (1000 * 60 * 60 * 24))} days`}</div>}
+                                  </div>
+                                </>
+                              )}
+                              {/* Tags */}
+                              <div>
+                                <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Tags</label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                  {PREDEFINED_TAGS.map(tag => {
+                                    const isActive = (selectedAsset.tags || []).includes(tag.id);
+                                    return (
+                                      <button key={tag.id} onClick={async () => { const newTags = isActive ? (selectedAsset.tags || []).filter(t => t !== tag.id) : [...(selectedAsset.tags || []), tag.id]; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, tags: newTags } : a); setSelectedAsset({ ...selectedAsset, tags: newTags }); await updateProject(selectedProject.id, { assets: updated }); }} style={{ padding: '3px 8px', background: isActive ? `${tag.color}30` : t.bgInput, border: `1px solid ${isActive ? tag.color : t.border}`, borderRadius: '10px', color: isActive ? tag.color : t.textMuted, fontSize: '9px', cursor: 'pointer', fontWeight: '500', transition: 'all 0.15s' }}>{tag.label}</button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
                           )}
                         </div>
-                        <div style={{ maxHeight: '200px', overflow: 'auto', marginBottom: '8px' }}>
-                          {(selectedAsset.feedback || []).length === 0 ? (
-                            <div style={{ fontSize: '10px', color: t.textMuted, textAlign: 'center', padding: '6px 0' }}>No feedback yet
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', justifyContent: 'center', marginTop: '6px' }}>
-                                {['Approved', 'Needs revision', 'Love this', 'Change color', 'Crop differently', 'Too dark', 'Too bright'].map(q => (
-                                  <button key={q} onClick={() => setNewFeedback(q)} style={{ padding: '3px 6px', background: `${t.primary}15`, border: `1px solid ${t.primary}30`, borderRadius: '10px', color: t.textMuted, fontSize: '8px', cursor: 'pointer' }}>{q}</button>
+
+                        {/* Section 2: Versions */}
+                        <div style={{ marginBottom: '12px', background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '14px', overflow: 'hidden' }}>
+                          <button onClick={() => setSidebarSection(s => ({ ...s, versions: !s.versions }))} style={{ width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '12px', fontWeight: '600' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Versions
+                              <span style={{ padding: '2px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.2)' : t.bgHover, color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.textSecondary, borderRadius: '10px', fontSize: '9px', fontWeight: '700' }}>v{selectedAsset.currentVersion}</span>
+                            </div>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.versions ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
+                          </button>
+                          {sidebarSection.versions && (
+                            <div style={{ padding: '0 14px 14px 14px' }}>
+                              {/* Version stack */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
+                                {(selectedAsset.versions || []).map((v, i) => (
+                                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: v.version === selectedAsset.currentVersion ? 'rgba(99,102,241,0.12)' : 'transparent', borderRadius: '8px', border: v.version === selectedAsset.currentVersion ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent', transition: 'background 0.15s' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', background: t.bgHover, flexShrink: 0 }}>
+                                      {v.thumbnail ? <img src={v.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: t.textMuted, fontWeight: '600' }}>v{v.version}</div>}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: '11px', fontWeight: '600', color: v.version === selectedAsset.currentVersion ? '#6366f1' : t.textSecondary }}>Version {v.version}</div>
+                                      {v.uploadedAt && <div style={{ fontSize: '9px', color: t.textMuted }}>{formatTimeAgo(v.uploadedAt)}</div>}
+                                    </div>
+                                    {v.version === selectedAsset.currentVersion && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
+                                  </div>
                                 ))}
                               </div>
-                            </div>
-                          ) : (selectedAsset.feedback || []).map(fb => (
-                            <div key={fb.id} id={`feedback-${fb.id}`} style={{ display: 'flex', gap: '6px', marginBottom: '6px', opacity: fb.isDone ? 0.6 : 1, transition: 'all 0.3s', ...(highlightedFeedbackId === fb.id ? { background: `${t.primary}20`, borderRadius: '8px', padding: '4px', margin: '-4px -4px 2px -4px', boxShadow: `0 0 0 2px ${t.primary}40` } : {}) }}>
-                              <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: fb.isDone ? 'rgba(34,197,94,0.3)' : `${t.primary}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '700', flexShrink: 0, color: t.text, marginTop: '2px' }}>{fb.userName?.[0] || '?'}</div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ padding: '6px 8px', background: fb.isDone ? 'rgba(34,197,94,0.08)' : t.bgInput, borderRadius: '2px 8px 8px 8px', border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.2)' : highlightedFeedbackId === fb.id ? t.primary : t.borderLight}` }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}>
-                                      <span style={{ fontSize: '9px', fontWeight: '600', color: t.text }}>{fb.userName}</span>
-                                      <span style={{ fontSize: '8px', color: t.textMuted }}>{formatTimeAgo(fb.timestamp)}</span>
-                                      {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
-                                        <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.pause(); setVideoPlaying(false); } setHighlightedFeedbackId(fb.id); setTimeout(() => setHighlightedFeedbackId(null), 3000); }} style={{ fontSize: '8px', color: t.primary, cursor: 'pointer', background: `${t.primary}30`, padding: '1px 4px', borderRadius: '3px', fontFamily: 'monospace' }}>@ {formatTimecode(fb.videoTimestamp)}</span>
-                                      )}
-                                    </div>
-                                    <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.3)' : t.bgInput, border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.4)' : t.borderLight}`, borderRadius: '8px', padding: '1px 6px', fontSize: '8px', color: fb.isDone ? '#22c55e' : t.textMuted, cursor: 'pointer', flexShrink: 0 }}>{fb.isDone ? 'Done' : 'Done?'}</button>
+                              {/* Compare button */}
+                              {(selectedAsset.versions || []).length > 1 && (
+                                <button onClick={() => setAssetTab('compare')} style={{ width: '100%', padding: '7px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '10px', cursor: 'pointer', marginBottom: '8px', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = t.primary} onMouseLeave={e => e.currentTarget.style.borderColor = t.border}>Compare Versions</button>
+                              )}
+                              {/* Upload new version */}
+                              {(() => {
+                                const allowedRoles = selectedProject.versionUploadRoles || ['producer', 'editor'];
+                                const roleMap = { 'producer': ['producer', 'admin', 'team-lead'], 'editor': ['editor', 'photo-editor', 'video-editor'], 'colorist': ['colorist', 'color-grader'], 'vfx': ['vfx', 'vfx-artist', 'motion-graphics'], 'retoucher': ['retoucher'], 'sound': ['sound', 'sound-designer', 'audio-engineer'] };
+                                const userRoles = Object.entries(roleMap).filter(([, mapped]) => mapped.includes(userProfile?.role)).map(([key]) => key);
+                                const canUploadVersion = isProducer || userRoles.some(r => allowedRoles.includes(r));
+                                return canUploadVersion ? (
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <input ref={versionInputRef} type="file" style={{ display: 'none' }} onChange={e => setVersionFile(e.target.files?.[0] || null)} />
+                                    <button onClick={() => versionInputRef.current?.click()} style={{ flex: 1, padding: '8px', background: t.bgInput, border: `1px dashed ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '10px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versionFile ? versionFile.name.substring(0, 15) + '...' : '+ Upload New Version'}</button>
+                                    {versionFile && <button onClick={handleUploadVersion} disabled={uploadingVersion} style={{ padding: '8px 14px', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>{uploadingVersion ? '...' : 'Upload'}</button>}
                                   </div>
-                                  <div style={{ fontSize: '10px', color: t.textSecondary }}>{fb.text}</div>
+                                ) : null;
+                              })()}
+                              {/* GDrive Link */}
+                              {selectedAsset.status === 'approved' && isProducer && (
+                                <div style={{ marginTop: '8px' }}>
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <Input theme={theme} value={selectedAsset.gdriveLink || ''} onChange={v => setSelectedAsset({ ...selectedAsset, gdriveLink: v })} placeholder="Paste GDrive link..." style={{ flex: 1, padding: '6px 8px', fontSize: '10px' }} />
+                                    <button onClick={() => handleSetGdriveLink(selectedAsset.id, selectedAsset.gdriveLink)} style={{ padding: '6px 10px', background: t.success, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>✓</button>
+                                  </div>
                                 </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Section 3: Feedback */}
+                        <div style={{ marginBottom: '12px', background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '14px', overflow: 'hidden' }}>
+                          <button onClick={() => setSidebarSection(s => ({ ...s, feedback: !s.feedback }))} style={{ width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '12px', fontWeight: '600' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Feedback
+                              {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
+                                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: '600', background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length}</span>
+                              )}
+                            </div>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.feedback ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
+                          </button>
+                          {sidebarSection.feedback && (
+                            <div style={{ padding: '0 14px 14px 14px' }}>
+                              <div style={{ maxHeight: '220px', overflow: 'auto', marginBottom: '8px' }}>
+                                {(selectedAsset.feedback || []).length === 0 ? (
+                                  <div style={{ fontSize: '11px', color: t.textMuted, textAlign: 'center', padding: '12px 0' }}>No feedback yet
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
+                                      {['Approved', 'Needs revision', 'Love this', 'Change color', 'Crop differently'].map(q => (
+                                        <button key={q} onClick={() => setNewFeedback(q)} style={{ padding: '4px 8px', background: `${t.primary}15`, border: `1px solid ${t.primary}30`, borderRadius: '10px', color: t.textMuted, fontSize: '9px', cursor: 'pointer' }}>{q}</button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (selectedAsset.feedback || []).map(fb => (
+                                  <div key={fb.id} id={`feedback-${fb.id}`} style={{ display: 'flex', gap: '8px', marginBottom: '8px', opacity: fb.isDone ? 0.6 : 1, transition: 'all 0.3s', ...(highlightedFeedbackId === fb.id ? { background: `${t.primary}20`, borderRadius: '10px', padding: '6px', margin: '-6px -6px 2px -6px', boxShadow: `0 0 0 2px ${t.primary}40` } : {}) }}>
+                                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: fb.isDone ? 'rgba(34,197,94,0.3)' : `${t.primary}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', flexShrink: 0, color: t.text, marginTop: '2px' }}>{fb.userName?.[0] || '?'}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ padding: '8px 10px', background: fb.isDone ? 'rgba(34,197,94,0.08)' : t.bgInput, borderRadius: '4px 12px 12px 12px', border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.2)' : highlightedFeedbackId === fb.id ? t.primary : t.borderLight}` }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0 }}>
+                                            <span style={{ fontSize: '10px', fontWeight: '600', color: t.text }}>{fb.userName}</span>
+                                            <span style={{ fontSize: '9px', color: t.textMuted }}>{formatTimeAgo(fb.timestamp)}</span>
+                                            {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
+                                              <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.pause(); setVideoPlaying(false); } setHighlightedFeedbackId(fb.id); setTimeout(() => setHighlightedFeedbackId(null), 3000); }} style={{ fontSize: '9px', color: t.primary, cursor: 'pointer', background: `${t.primary}20`, padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>@ {formatTimecode(fb.videoTimestamp)}</span>
+                                            )}
+                                          </div>
+                                          <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.3)' : t.bgInput, border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.4)' : t.borderLight}`, borderRadius: '8px', padding: '2px 8px', fontSize: '9px', color: fb.isDone ? '#22c55e' : t.textMuted, cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>{fb.isDone ? '✓ Done' : 'Done?'}</button>
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: t.textSecondary, lineHeight: '1.4' }}>{fb.text}</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {/* Feedback input */}
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', position: 'relative' }}>
+                                {selectedAsset.type === 'video' && <span style={{ fontSize: '9px', color: t.primary, background: `${t.primary}20`, padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', flexShrink: 0 }}>{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
+                                <div style={{ flex: 1, position: 'relative' }}>
+                                  <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }} placeholder="Add feedback... (@mention)" style={{ width: '100%', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '10px', color: t.text, fontSize: '11px', boxSizing: 'border-box', transition: 'border-color 0.15s' }} onFocus={e => e.target.style.borderColor = t.primary} onBlur={e => e.target.style.borderColor = t.borderLight} />
+                                  {showMentions && (() => {
+                                    const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
+                                    const filtered = allMentionable.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5);
+                                    return (
+                                      <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: `${t.bgCard}F0`, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: `1px solid ${t.border}`, borderRadius: '10px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                                        {filtered.map(member => (
+                                          <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', transition: 'background 0.1s' }} onMouseEnter={(e) => e.currentTarget.style.background = t.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: `${t.primary}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '600', color: t.primary }}>{member.name?.[0]}</div>
+                                            <span style={{ color: t.text }}>{member.name}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                                <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '8px 12px', background: newFeedback.trim() ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : t.bgInput, border: 'none', borderRadius: '10px', color: newFeedback.trim() ? '#fff' : t.textMuted, fontSize: '10px', fontWeight: '600', cursor: newFeedback.trim() ? 'pointer' : 'default', transition: 'all 0.15s' }}>Send</button>
                               </div>
                             </div>
-                          ))}
+                          )}
                         </div>
-                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', position: 'relative' }}>
-                          {selectedAsset.type === 'video' && <span style={{ fontSize: '8px', color: t.textMuted, flexShrink: 0 }}>{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
-                          <div style={{ flex: 1, position: 'relative' }}>
-                            <input ref={feedbackInputRef} value={newFeedback} onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }} onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }} placeholder="Add feedback..." style={{ width: '100%', padding: '7px 8px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '6px', color: t.text, fontSize: '10px', boxSizing: 'border-box' }} />
-                            {showMentions && (() => {
-                              const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
-                              const filtered = allMentionable.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5);
-                              return (
-                                <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100, boxShadow: t.shadow }}>
-                                  {filtered.map(member => (
-                                    <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }} onMouseEnter={(e) => e.currentTarget.style.background = t.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: t.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600', color: '#fff' }}>{member.name?.[0]}</div>
-                                      <span>{member.name}</span>
+
+                        {/* Section 4: File Details (collapsed by default) */}
+                        <div style={{ marginBottom: '12px', background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '14px', overflow: 'hidden' }}>
+                          <button onClick={() => setSidebarSection(s => ({ ...s, details: !s.details }))} style={{ width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '12px', fontWeight: '600' }}>
+                            <span>File Details</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.details ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
+                          </button>
+                          {sidebarSection.details && (
+                            <div style={{ padding: '0 14px 14px 14px', fontSize: '11px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span style={{ color: t.textMuted }}>Size</span><span style={{ color: t.textSecondary }}>{formatFileSize(selectedAsset.fileSize)}</span></div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span style={{ color: t.textMuted }}>Type</span><span style={{ color: t.textSecondary }}>{selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</span></div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span style={{ color: t.textMuted }}>Uploaded</span><span style={{ color: t.textSecondary }}>{formatDate(selectedAsset.uploadedAt)}</span></div>
+                              {/* Deliverables Checklist */}
+                              {((selectedProject.requiredFormats?.length > 0) || (selectedProject.requiredSizes?.length > 0)) && (
+                                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${t.borderLight}` }}>
+                                  <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: t.text }}>Required Deliverables</div>
+                                  {selectedProject.requiredFormats?.length > 0 && (
+                                    <div style={{ marginBottom: '6px' }}>
+                                      <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '4px' }}>Formats:</div>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                        {selectedProject.requiredFormats.map(fmtId => {
+                                          const fmt = [...FILE_FORMATS.photo, ...FILE_FORMATS.video].find(f => f.id === fmtId);
+                                          const isUploaded = (selectedAsset.uploadedFormats || []).includes(fmtId);
+                                          return fmt ? <span key={fmtId} style={{ padding: '2px 6px', background: isUploaded ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.1)', border: `1px solid ${isUploaded ? '#22c55e' : '#ef4444'}`, borderRadius: '4px', fontSize: '9px', color: isUploaded ? '#22c55e' : '#ef4444' }}>{isUploaded ? '✓' : '○'} {fmt.label.split(' ')[0]}</span> : null;
+                                        })}
+                                      </div>
                                     </div>
-                                  ))}
+                                  )}
+                                  {selectedProject.requiredSizes?.length > 0 && (
+                                    <div>
+                                      <div style={{ fontSize: '9px', color: t.textMuted, marginBottom: '4px' }}>Sizes:</div>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                        {selectedProject.requiredSizes.map(sizeId => {
+                                          const size = [...SIZE_PRESETS.photo, ...SIZE_PRESETS.video].find(s => s.id === sizeId);
+                                          const isUploaded = (selectedAsset.uploadedSizes || []).includes(sizeId);
+                                          return size ? <span key={sizeId} style={{ padding: '2px 6px', background: isUploaded ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.1)', border: `1px solid ${isUploaded ? '#22c55e' : '#ef4444'}`, borderRadius: '4px', fontSize: '9px', color: isUploaded ? '#22c55e' : '#ef4444' }}>{isUploaded ? '✓' : '○'} {size.label.split(' ')[0]}</span> : null;
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {selectedProject.maxRevisions > 0 && (
+                                    <div style={{ marginTop: '6px', fontSize: '10px', color: (selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions ? '#ef4444' : t.textMuted }}>
+                                      Revisions: {selectedAsset.revisionRound || 0} / {selectedProject.maxRevisions}
+                                      {(selectedAsset.revisionRound || 0) >= selectedProject.maxRevisions && ' — Limit reached'}
+                                    </div>
+                                  )}
                                 </div>
-                              );
-                            })()}
-                          </div>
-                          <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '7px 10px', background: newFeedback.trim() ? t.primary : t.bgInput, border: 'none', borderRadius: '6px', color: newFeedback.trim() ? '#fff' : t.textMuted, fontSize: '10px', fontWeight: '600', cursor: newFeedback.trim() ? 'pointer' : 'default' }}>Send</button>
+                              )}
+                              {/* High-Res Downloads */}
+                              {selectedAsset.status === 'approved' && selectedAsset.highResFiles?.length > 0 && (
+                                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${t.borderLight}` }}>
+                                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#22c55e', marginBottom: '6px' }}>High-Res Downloads</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {selectedAsset.highResFiles.map((file, idx) => (
+                                      <a key={idx} href={file.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', background: t.bgInput, borderRadius: '6px', textDecoration: 'none', color: t.text, fontSize: '10px', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = t.bgHover} onMouseLeave={e => e.currentTarget.style.background = t.bgInput}>
+                                        <span>{file.formatLabel || file.format}</span>
+                                        <span style={{ color: '#22c55e', fontSize: '12px' }}>↓</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Editor High-Res Upload */}
+                              {selectedAsset.status === 'approved' && !isProducer && userProfile?.role !== 'client' && (selectedProject.requiredFormats || []).length > 0 && (
+                                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${t.borderLight}` }}>
+                                  <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px' }}>Upload High-Res</div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                    {selectedProject.requiredFormats.map(fmtId => {
+                                      const fmt = [...FILE_FORMATS.photo, ...FILE_FORMATS.video].find(f => f.id === fmtId);
+                                      const isUploaded = selectedAsset.highResFiles?.some(f => f.format === fmtId);
+                                      return fmt ? (
+                                        <label key={fmtId} style={{ padding: '4px 8px', background: isUploaded ? 'rgba(34,197,94,0.2)' : t.bgInput, border: `1px solid ${isUploaded ? '#22c55e' : t.border}`, borderRadius: '6px', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                          <input type="file" style={{ display: 'none' }} onChange={async (e) => {
+                                            const file = e.target.files?.[0]; if (!file) return;
+                                            try { showToast('Uploading...', 'info'); const path = `projects/${selectedProject.id}/highres/${selectedAsset.id}/${fmtId}-${file.name}`; const sRef = ref(storage, path); await uploadBytesResumable(sRef, file); const url = await getDownloadURL(sRef); const highResFile = { format: fmtId, formatLabel: fmt.label, url, fileName: file.name, uploadedAt: new Date().toISOString() }; const existingFiles = (selectedAsset.highResFiles || []).filter(f => f.format !== fmtId); const updatedAsset = { ...selectedAsset, highResFiles: [...existingFiles, highResFile] }; const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? updatedAsset : a); await updateProject(selectedProject.id, { assets: updated }); setSelectedAsset(updatedAsset); await refreshProject(); showToast(`${fmt.label} uploaded!`, 'success'); const allUploaded = selectedProject.requiredFormats.every(f => [...existingFiles, highResFile].some(h => h.format === f)); if (allUploaded) { team.filter(m => ['client', 'producer'].includes(m.role)).forEach(c => { if (c.email) sendEmailNotification(c.email, `High-res files ready: ${selectedAsset.name}`, `All required formats uploaded.`); }); } } catch (err) { showToast('Upload failed', 'error'); }
+                                          }} />
+                                          {isUploaded ? '✓' : '+'} {fmt.label.split(' ')[0]}
+                                        </label>
+                                      ) : null;
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
+
                       </div>
                     </div>
                   )}
