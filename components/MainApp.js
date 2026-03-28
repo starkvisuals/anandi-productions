@@ -9420,11 +9420,11 @@ export default function MainApp() {
       
       <Sidebar />
       <div style={{ marginLeft: isMobile ? '0' : (sidebarCollapsed ? '60px' : '240px'), background: t.bg, minHeight: '100vh', transition: 'margin-left 0.2s ease' }}>
-        {/* Top Header Bar — hidden when asset detail lightbox is open */}
+        {/* Top Header Bar */}
         <header style={{
           position: 'sticky',
           top: 0,
-          zIndex: selectedAsset ? 0 : 100,
+          zIndex: 100,
           height: '56px',
           background: t.bg,
           borderBottom: `1px solid ${t.border}`,
@@ -9505,7 +9505,7 @@ export default function MainApp() {
         </header>
 
         {/* Content with page transition */}
-        <div key={view + (selectedProjectId || '')} className={selectedAsset ? '' : 'animate-fadeIn'} style={{ padding: isMobile ? '16px' : '24px' }}>
+        <div key={view + (selectedProjectId || '')} style={{ padding: isMobile ? '16px' : '24px' }}>
           {view === 'dashboard' && <StableDashboard />}
           {view === 'tasks' && <StableTasksView />}
           {view === 'projects' && !selectedProjectId && <StableProjectsList />}
