@@ -7,6 +7,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Logo from './Logo';
+import CreateProjectModal from './CreateProjectModal';
 import dynamic from 'next/dynamic';
 
 // Dynamic import MuxPlayer to avoid SSR issues
@@ -4325,8 +4326,6 @@ export default function MainApp() {
   const ProjectsList = () => {
     const [search, setSearch] = useState('');
     const [showCreate, setShowCreate] = useState(false);
-    const [newProj, setNewProj] = useState({ name: '', client: '', type: 'photoshoot', deadline: '', selectedCats: ['statics'] });
-    const [creating, setCreating] = useState(false);
     const [projectTab, setProjectTab] = useState('all');
 
     // Filter by search and tab
@@ -4335,18 +4334,34 @@ export default function MainApp() {
     const allFilteredProjects = projects.filter(p => !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client?.toLowerCase().includes(search.toLowerCase()));
     const displayProjects = projectTab === 'all' ? allFilteredProjects : projectTab === 'active' ? activeProjects : completedProjects;
 
-    const handleCreate = async () => {
-      if (!newProj.name || !newProj.client) { showToast('Fill name & client', 'error'); return; }
-      setCreating(true);
+    const handleCreate = async (config) => {
       try {
-        const cats = DEFAULT_CATEGORIES.filter(c => newProj.selectedCats.includes(c.id));
-        const proj = await createProject({ name: newProj.name, client: newProj.client, type: newProj.type, deadline: newProj.deadline, status: 'active', categories: cats, assets: [], assignedTeam: [{ odId: userProfile.id, odRole: userProfile.role, isOwner: true }], clientContacts: [], shareLinks: [], activityLog: [{ id: generateId(), type: 'created', message: `Project created by ${userProfile.name}`, userId: userProfile.id, timestamp: new Date().toISOString() }], createdBy: userProfile.id, createdByName: userProfile.name, selectionConfirmed: false, workflowPhase: 'selection' });
+        const proj = await createProject({
+          name: config.name, client: config.client, type: config.type, deadline: config.deadline,
+          status: 'active', categories: config.categories || [], assets: [],
+          assignedTeam: [
+            { odId: userProfile.id, odRole: userProfile.role, isOwner: true },
+            ...(config.individuals || []).map(m => ({ odId: m.id, odRole: m.role })),
+          ],
+          clientContacts: [], shareLinks: [],
+          workflowType: config.workflowType || 'standard',
+          maxRevisions: config.maxRevisions || 3,
+          autoTurnaround: config.autoTurnaround !== false,
+          turnaroundHours: config.turnaroundHours || 24,
+          approvalChain: config.approvalChain || ['producer', 'client'],
+          teamGroups: config.teamGroups || [],
+          deliverableFormats: config.deliverableFormats || [],
+          deliverableSizes: config.deliverableSizes || [],
+          templateId: config.templateId || null,
+          agencyContacts: [],
+          activityLog: [{ id: generateId(), type: 'created', message: `Project created by ${userProfile.name}`, userId: userProfile.id, timestamp: new Date().toISOString() }],
+          createdBy: userProfile.id, createdByName: userProfile.name,
+          selectionConfirmed: false, workflowPhase: 'selection',
+        });
         setProjects([proj, ...projects]);
-        setNewProj({ name: '', client: '', type: 'photoshoot', deadline: '', selectedCats: ['statics'] });
         setShowCreate(false);
         showToast('Project created!', 'success');
-      } catch (e) { showToast('Failed', 'error'); }
-      setCreating(false);
+      } catch (e) { showToast('Failed to create project', 'error'); throw e; }
     };
     
     const handleToggleProjectStatus = async (projId, e) => {
@@ -4528,18 +4543,12 @@ export default function MainApp() {
           </div>
         )}
         {showCreate && (
-          <Modal theme={theme} title="Create Project" onClose={() => setShowCreate(false)}>
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
-              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Name *</label><Input theme={theme} value={newProj.name} onChange={v => setNewProj({ ...newProj, name: v })} placeholder="e.g., RasikaD Photoshoot" /></div>
-              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Client *</label><Input theme={theme} value={newProj.client} onChange={v => setNewProj({ ...newProj, client: v })} placeholder="e.g., Client Name" /></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Type</label><Select theme={theme} value={newProj.type} onChange={v => setNewProj({ ...newProj, type: v })}><option value="photoshoot">Photoshoot</option><option value="ad-film">Ad Film</option><option value="toolkit">Toolkit</option><option value="product-video">Product Video</option><option value="social-media">Social Media</option><option value="corporate">Corporate Video</option><option value="music-video">Music Video</option><option value="brand-film">Brand Film</option><option value="reels">Reels/Shorts</option><option value="ecommerce">E-Commerce</option><option value="event">Event Coverage</option><option value="documentary">Documentary</option></Select></div>
-                <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Deadline</label><Input theme={theme} type="date" value={newProj.deadline} onChange={v => setNewProj({ ...newProj, deadline: v })} /></div>
-              </div>
-              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>Categories</label><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{DEFAULT_CATEGORIES.map(cat => <div key={cat.id} onClick={() => setNewProj(p => ({ ...p, selectedCats: p.selectedCats.includes(cat.id) ? p.selectedCats.filter(x => x !== cat.id) : [...p.selectedCats, cat.id] }))} style={{ padding: '8px 12px', background: newProj.selectedCats.includes(cat.id) ? `${cat.color}30` : t.bgInput, border: `1px solid ${newProj.selectedCats.includes(cat.id) ? cat.color : t.border}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: newProj.selectedCats.includes(cat.id) ? cat.color : t.textSecondary }}>{cat.icon} {cat.name}</div>)}</div></div>
-              <Btn theme={theme} onClick={handleCreate} disabled={!newProj.name || !newProj.client || creating}>{creating ? <><span className="spinner" style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }} /> Creating...</> : 'Create'}</Btn>
-            </div>
-          </Modal>
+          <CreateProjectModal
+            theme={theme}
+            onClose={() => setShowCreate(false)}
+            onCreate={handleCreate}
+            teamMembers={[...coreTeam, ...freelancers].filter(m => m.id !== userProfile?.id)}
+          />
         )}
       </div>
     );
