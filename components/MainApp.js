@@ -6456,7 +6456,7 @@ export default function MainApp() {
           </div>
 
           {/* Action Bar: Categories (left) + Actions (right) */}
-          <div style={{ padding: '10px 16px', background: t.bgSecondary, borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', position: 'sticky', top: 0, zIndex: 30 }}>
+          <div style={{ padding: '10px 16px', background: t.bgSecondary, borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', position: 'sticky', top: '56px', zIndex: 30 }}>
             {/* Category pill tabs - horizontally scrollable */}
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', flex: 1, paddingBottom: '2px', scrollbarWidth: 'none' }}>
               <button onClick={() => setSelectedCat(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: !selectedCat ? `${t.primary}20` : t.bgCard, color: !selectedCat ? t.primary : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${!selectedCat ? t.primary + '40' : t.border}`, transition: 'all 0.2s ease' }}>
@@ -9182,7 +9182,6 @@ export default function MainApp() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 24px',
-          backdropFilter: 'blur(12px)',
         }}>
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
