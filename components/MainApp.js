@@ -6141,49 +6141,67 @@ export default function MainApp() {
         
         // Check if there's pending feedback (indicates a revision cycle)
         const hasPendingFeedback = (selectedAsset.feedback || []).some(f => !f.isDone);
-        const currentRound = selectedAsset.revisionRound || 0;
+        const currentRound = selectedAsset.revisionRound || 1;
         const newRound = hasPendingFeedback ? currentRound + 1 : currentRound;
-        
+
         // Check max revisions limit
         const maxRevisions = selectedProject.maxRevisions || 0;
         if (maxRevisions > 0 && newRound > maxRevisions) {
-          showToast(`Max revisions (${maxRevisions}) reached!`, 'error');
+          showToast(`Max revisions (${maxRevisions}) reached! Request additional rounds from producer.`, 'error');
           setUploadingVersion(false);
           return;
         }
-        
-        const newVersion = { 
-          version: selectedAsset.currentVersion + 1, 
-          url, 
-          uploadedAt: new Date().toISOString(), 
+
+        const newVersion = {
+          version: selectedAsset.currentVersion + 1,
+          url,
+          uploadedAt: new Date().toISOString(),
           uploadedBy: userProfile.name,
-          revisionRound: newRound 
+          revisionRound: newRound
         };
-        
-        // Mark all pending feedback as done when new version is uploaded
-        const updatedFeedback = (selectedAsset.feedback || []).map(f => f.isDone ? f : { ...f, resolvedInVersion: selectedAsset.currentVersion + 1 });
-        
-        const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { 
-          ...a, 
-          url, 
-          thumbnail: a.type === 'image' ? url : a.thumbnail, 
-          versions: [...(a.versions || []), newVersion], 
-          currentVersion: selectedAsset.currentVersion + 1, 
+
+        // Mark all pending feedback as resolved when new version is uploaded
+        const updatedFeedback = (selectedAsset.feedback || []).map(f => f.isDone ? f : { ...f, isDone: true, resolvedInVersion: selectedAsset.currentVersion + 1 });
+
+        // Build round history
+        const roundHistory = [...(selectedAsset.roundHistory || [])];
+        if (hasPendingFeedback && newRound > currentRound) {
+          roundHistory.push({
+            round: currentRound,
+            feedbackCount: (selectedAsset.feedback || []).filter(f => (f.round || 1) === currentRound).length,
+            resolvedAt: new Date().toISOString(),
+            versionId: selectedAsset.currentVersion + 1,
+          });
+        }
+
+        // Clear turnaround deadline on version upload
+        const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? {
+          ...a,
+          url,
+          thumbnail: a.type === 'image' ? url : a.thumbnail,
+          versions: [...(a.versions || []), newVersion],
+          currentVersion: selectedAsset.currentVersion + 1,
           status: 'review-ready',
           revisionRound: newRound,
-          feedback: updatedFeedback
+          feedback: updatedFeedback,
+          roundHistory,
+          turnaroundDeadline: null,
         } : a);
+
+        const activities = [{
+          id: generateId(),
+          type: 'version',
+          message: `${userProfile.name} uploaded v${selectedAsset.currentVersion + 1} of ${selectedAsset.name}${newRound > currentRound ? ` (Revision R${newRound})` : ''}`,
+          timestamp: new Date().toISOString()
+        }];
+        if (newRound > currentRound) {
+          activities.push({ id: generateId(), type: 'round', message: `Round ${newRound} started for ${selectedAsset.name}`, timestamp: new Date().toISOString() });
+        }
+        const activity = activities[0];
         
-        const activity = { 
-          id: generateId(), 
-          type: 'version', 
-          message: `${userProfile.name} uploaded v${selectedAsset.currentVersion + 1} of ${selectedAsset.name}${newRound > currentRound ? ` (Revision R${newRound})` : ''}`, 
-          timestamp: new Date().toISOString() 
-        };
-        
-        await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] });
+        await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), ...activities] });
         await refreshProject();
-        setSelectedAsset({ ...selectedAsset, url, versions: [...(selectedAsset.versions || []), newVersion], currentVersion: selectedAsset.currentVersion + 1, status: 'review-ready', revisionRound: newRound, feedback: updatedFeedback });
+        setSelectedAsset({ ...selectedAsset, url, versions: [...(selectedAsset.versions || []), newVersion], currentVersion: selectedAsset.currentVersion + 1, status: 'review-ready', revisionRound: newRound, feedback: updatedFeedback, roundHistory, turnaroundDeadline: null });
         setVersionFile(null);
         showToast(`v${selectedAsset.currentVersion + 1} uploaded!${newRound > currentRound ? ` Round ${newRound}` : ''}`, 'success');
         
@@ -6281,17 +6299,51 @@ export default function MainApp() {
       setShowSelectionOverview(false);
       showToast(`Selection confirmed! ${editorsToNotify.length} editor(s) notified `, 'success');
     };
-    const handleUpdateStatus = async (assetId, status) => { 
+    const handleUpdateStatus = async (assetId, status) => {
       const asset = (selectedProject.assets || []).find(a => a.id === assetId);
-      const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, status } : a); 
-      const activity = { id: generateId(), type: 'status', message: `${userProfile.name} changed ${asset?.name || 'asset'} to ${status}`, timestamp: new Date().toISOString() };
-      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); 
-      await refreshProject(); 
-      if (selectedAsset) setSelectedAsset({ ...selectedAsset, status }); 
+      let finalStatus = status;
+      let extraFields = {};
+
+      // Auto-handoff: when marked 'review-ready', check handoff chain
+      if (status === 'review-ready' && asset) {
+        const chains = selectedProject.handoffChains || [];
+        const applicableChain = chains.find(c => c.scope === 'all' || c.scopeId === asset.category);
+        if (applicableChain && applicableChain.stages?.length > 0) {
+          const currentTeamGroup = asset.assignedTeamGroupId;
+          const sortedStages = [...applicableChain.stages].sort((a, b) => a.order - b.order);
+          const currentIdx = currentTeamGroup ? sortedStages.findIndex(s => s.teamGroupId === currentTeamGroup) : -1;
+          const nextStage = sortedStages[currentIdx + 1];
+          if (nextStage) {
+            // Hand off to next team
+            const nextGroup = (selectedProject.teamGroups || []).find(g => g.id === nextStage.teamGroupId);
+            const nextAssignee = nextGroup?.leadId || nextGroup?.members?.[0]?.id || null;
+            extraFields = {
+              assignedTeamGroupId: nextStage.teamGroupId,
+              assignedTeamGroupName: nextStage.teamGroupName,
+              assignedTo: nextAssignee,
+              pipelineStage: currentIdx + 1,
+            };
+            finalStatus = 'assigned';
+            // Notify next team
+            if (nextGroup?.members) {
+              for (const m of nextGroup.members) {
+                const member = [...coreTeam, ...freelancers].find(u => u.id === m.id);
+                if (member?.email) sendEmailNotification(member.email, `Handoff: ${asset.name}`, `Asset "${asset.name}" has been handed off to ${nextStage.teamGroupName} for the next stage.`);
+              }
+            }
+          }
+        }
+      }
+
+      const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, status: finalStatus, ...extraFields } : a);
+      const activity = { id: generateId(), type: status === 'review-ready' && extraFields.assignedTeamGroupName ? 'handoff' : 'status', message: extraFields.assignedTeamGroupName ? `${userProfile.name} completed ${asset?.name || 'asset'} → handed off to ${extraFields.assignedTeamGroupName}` : `${userProfile.name} changed ${asset?.name || 'asset'} to ${status}`, timestamp: new Date().toISOString() };
+      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] });
+      await refreshProject();
+      if (selectedAsset) setSelectedAsset({ ...selectedAsset, status: finalStatus, ...extraFields });
       // Notify assigned person on status change
       if (asset?.assignedTo) {
         const assignee = editors.find(e => e.id === asset.assignedTo);
-        if (assignee?.email) sendEmailNotification(assignee.email, `Status changed: ${asset.name}`, `New status: ${status}`);
+        if (assignee?.email) sendEmailNotification(assignee.email, `Status changed: ${asset.name}`, `New status: ${finalStatus}`);
       }
     };
     const handleAssign = async (assetId, editorId) => { 
@@ -6320,14 +6372,17 @@ export default function MainApp() {
         if (mentionedUser && !mentions.find(m => m.id === mentionedUser.id)) mentions.push(mentionedUser);
       }
       
-      const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false, mentions: mentions.map(m => m.id) }; 
+      const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false, mentions: mentions.map(m => m.id), round: selectedAsset.revisionRound || 1 };
       const updatedFeedback = [...(selectedAsset.feedback || []), fb];
+      // Set turnaround deadline if auto-turnaround enabled
+      const turnaroundHrs = selectedProject.turnaroundHours || 24;
+      const turnaroundDeadline = selectedProject.autoTurnaround !== false ? new Date(Date.now() + turnaroundHrs * 60 * 60 * 1000).toISOString() : selectedAsset.turnaroundDeadline;
       // Update local state first to keep modal open
-      setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback, status: 'changes-requested' }); 
-      setNewFeedback(''); 
+      setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback, status: 'changes-requested', turnaroundDeadline });
+      setNewFeedback('');
       setShowMentions(false);
       // Then update database in background with activity log
-      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback, status: 'changes-requested' } : a); 
+      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback, status: 'changes-requested', turnaroundDeadline } : a);
       const activity = { id: generateId(), type: 'feedback', message: `${userProfile.name} added feedback on ${selectedAsset.name}${mentions.length > 0 ? ` (mentioned ${mentions.map(m => m.name).join(', ')})` : ''}`, timestamp: new Date().toISOString() };
       await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); 
       
@@ -6787,31 +6842,134 @@ export default function MainApp() {
 
             {tab === 'team' && (
               <div>
-                {/* Project Team - Project Level Assignment */}
+                {/* Team Groups */}
+                {(selectedProject.teamGroups || []).length > 0 && (
+                  <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginBottom: '16px' }}>
+                    <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h3 style={{ margin: 0, fontSize: '14px' }}>Team Groups ({(selectedProject.teamGroups || []).length})</h3>
+                      {isProducer && <Btn theme={theme} onClick={() => {
+                        const name = prompt('New team group name:');
+                        if (!name?.trim()) return;
+                        const newGroup = { id: generateId(), name: name.trim(), members: [], leadId: null };
+                        const groups = [...(selectedProject.teamGroups || []), newGroup];
+                        updateProject(selectedProject.id, { teamGroups: groups }).then(() => refreshProject());
+                        showToast(`Group "${name.trim()}" created`, 'success');
+                      }} small>+ Add Group</Btn>}
+                    </div>
+                    <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {(selectedProject.teamGroups || []).map(group => (
+                        <div key={group.id} style={{ background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '12px', padding: '14px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: t.text }}>{group.name}</div>
+                            {isProducer && (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button onClick={() => {
+                                  const memberId = prompt('Enter member email to add:');
+                                  if (!memberId) return;
+                                  const member = [...coreTeam, ...freelancers].find(m => m.email?.toLowerCase() === memberId.toLowerCase());
+                                  if (!member) { showToast('Member not found', 'error'); return; }
+                                  if (group.members.some(m => m.id === member.id)) { showToast('Already in group', 'error'); return; }
+                                  const groups = (selectedProject.teamGroups || []).map(g => g.id === group.id ? { ...g, members: [...g.members, { id: member.id, name: member.name, role: member.role }] } : g);
+                                  updateProject(selectedProject.id, { teamGroups: groups }).then(() => refreshProject());
+                                  showToast(`${member.name} added`, 'success');
+                                }} style={{ padding: '4px 8px', background: `${t.primary}15`, border: `1px solid ${t.primary}30`, borderRadius: '6px', color: t.primary, fontSize: '10px', cursor: 'pointer' }}>+ Member</button>
+                                <button onClick={async () => {
+                                  if (!confirm(`Delete group "${group.name}"?`)) return;
+                                  const groups = (selectedProject.teamGroups || []).filter(g => g.id !== group.id);
+                                  await updateProject(selectedProject.id, { teamGroups: groups });
+                                  await refreshProject();
+                                  showToast('Group deleted', 'success');
+                                }} style={{ padding: '4px 8px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>✕</button>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {(group.members || []).length === 0 && <span style={{ fontSize: '11px', color: t.textMuted }}>No members yet</span>}
+                            {(group.members || []).map(m => (
+                              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: t.bgInput, borderRadius: '20px', fontSize: '11px', color: t.text }}>
+                                <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: `${t.primary}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{m.name?.[0]}</span>
+                                {m.name}
+                                {group.leadId === m.id && <span style={{ fontSize: '8px', background: `${t.warning}30`, color: t.warning, padding: '1px 5px', borderRadius: '4px' }}>Lead</span>}
+                                {isProducer && <>
+                                  <span onClick={async () => {
+                                    const groups = (selectedProject.teamGroups || []).map(g => g.id === group.id ? { ...g, leadId: g.leadId === m.id ? null : m.id } : g);
+                                    await updateProject(selectedProject.id, { teamGroups: groups });
+                                    await refreshProject();
+                                  }} style={{ cursor: 'pointer', fontSize: '10px', color: t.textMuted }} title="Toggle lead">⭐</span>
+                                  <span onClick={async () => {
+                                    const groups = (selectedProject.teamGroups || []).map(g => g.id === group.id ? { ...g, members: g.members.filter(gm => gm.id !== m.id), leadId: g.leadId === m.id ? null : g.leadId } : g);
+                                    await updateProject(selectedProject.id, { teamGroups: groups });
+                                    await refreshProject();
+                                  }} style={{ cursor: 'pointer', color: t.textMuted, fontSize: '12px' }}>×</span>
+                                </>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Handoff Chains */}
+                {isProducer && (selectedProject.teamGroups || []).length >= 2 && (
+                  <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginBottom: '16px' }}>
+                    <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h3 style={{ margin: 0, fontSize: '14px' }}>Handoff Pipeline</h3>
+                      <Btn theme={theme} onClick={async () => {
+                        const chains = [...(selectedProject.handoffChains || []), { id: generateId(), scope: 'all', scopeId: null, stages: (selectedProject.teamGroups || []).map((g, i) => ({ teamGroupId: g.id, teamGroupName: g.name, order: i })) }];
+                        await updateProject(selectedProject.id, { handoffChains: chains });
+                        await refreshProject();
+                        showToast('Pipeline created', 'success');
+                      }} small>+ Add Pipeline</Btn>
+                    </div>
+                    <div style={{ padding: '14px' }}>
+                      {(selectedProject.handoffChains || []).length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '20px', color: t.textMuted, fontSize: '12px' }}>
+                          No handoff pipelines configured. When Team A marks an asset complete, it auto-assigns to Team B.
+                        </div>
+                      )}
+                      {(selectedProject.handoffChains || []).map(chain => (
+                        <div key={chain.id} style={{ background: t.bgInput, borderRadius: '10px', padding: '12px', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '11px', color: t.textMuted }}>Scope: {chain.scope === 'all' ? 'All Assets' : chain.scopeId}</span>
+                            <button onClick={async () => {
+                              const chains = (selectedProject.handoffChains || []).filter(c => c.id !== chain.id);
+                              await updateProject(selectedProject.id, { handoffChains: chains });
+                              await refreshProject();
+                            }} style={{ background: 'none', border: 'none', color: t.danger, cursor: 'pointer', fontSize: '14px' }}>×</button>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            {(chain.stages || []).sort((a, b) => a.order - b.order).map((stage, i) => (
+                              <div key={stage.teamGroupId} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ padding: '5px 12px', background: `${t.primary}20`, border: `1px solid ${t.primary}40`, borderRadius: '8px', fontSize: '11px', color: t.primary, fontWeight: '600' }}>{stage.teamGroupName}</span>
+                                {i < (chain.stages || []).length - 1 && <span style={{ color: t.textMuted, fontSize: '16px' }}>→</span>}
+                              </div>
+                            ))}
+                            <span style={{ padding: '5px 12px', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', fontSize: '11px', color: '#22c55e', fontWeight: '600' }}>Review</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Project Team - Flat Member List */}
                 <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
                   <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '14px' }}>Project Team ({team.length})</h3>
+                    <h3 style={{ margin: 0, fontSize: '14px' }}>Project Members ({team.length})</h3>
                     {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Member</Btn>}
                   </div>
                   <div style={{ padding: '14px' }}>
                     {team.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted }}>
-                        <div style={{ marginBottom: '10px', opacity: 0.5 }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
-                        <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members assigned to this project</div>
+                        <div style={{ fontSize: '13px', marginBottom: '8px' }}>No team members assigned</div>
                         {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Team Member</Btn>}
                       </div>
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
                         {team.map(m => (
-                          <div key={m.id} style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '14px', 
-                            padding: '14px', 
-                            background: t.bgInput, 
-                            borderRadius: '10px',
-                            border: m.isOwner ? '1px solid rgba(249,115,22,0.3)' : `1px solid ${t.border}`
-                          }}>
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', background: t.bgInput, borderRadius: '10px', border: m.isOwner ? '1px solid rgba(249,115,22,0.3)' : `1px solid ${t.border}` }}>
                             <Avatar user={m} size={44} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -6822,16 +6980,13 @@ export default function MainApp() {
                               <div style={{ marginTop: '6px' }}><RoleBadge role={m.role} /></div>
                             </div>
                             {isProducer && !m.isOwner && (
-                              <button 
-                                onClick={async () => {
-                                  if (!confirm(`Remove ${m.name} from this project?`)) return;
-                                  const updatedTeam = (selectedProject.assignedTeam || []).filter(t => t.odId !== m.id);
-                                  await updateProject(selectedProject.id, { assignedTeam: updatedTeam });
-                                  await refreshProject();
-                                  showToast(`${m.name} removed`, 'success');
-                                }}
-                                style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}
-                              >✕</button>
+                              <button onClick={async () => {
+                                if (!confirm(`Remove ${m.name} from this project?`)) return;
+                                const updatedTeam = (selectedProject.assignedTeam || []).filter(t => t.odId !== m.id);
+                                await updateProject(selectedProject.id, { assignedTeam: updatedTeam });
+                                await refreshProject();
+                                showToast(`${m.name} removed`, 'success');
+                              }} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>✕</button>
                             )}
                           </div>
                         ))}
@@ -8065,14 +8220,19 @@ export default function MainApp() {
                         {/* Status pill + round indicator */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {(() => { const sc = { pending: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' }, selected: { bg: 'rgba(59,130,246,0.15)', color: '#3b82f6' }, assigned: { bg: 'rgba(99,102,241,0.15)', color: '#6366f1' }, 'in-progress': { bg: 'rgba(168,85,247,0.15)', color: '#a855f7' }, 'review-ready': { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' }, 'changes-requested': { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' }, approved: { bg: 'rgba(34,197,94,0.15)', color: '#22c55e' }, delivered: { bg: 'rgba(6,182,212,0.15)', color: '#06b6d4' } }; const s = sc[selectedAsset.status] || sc.pending; return <span style={{ padding: '4px 10px', background: s.bg, color: s.color, borderRadius: '20px', fontSize: '10px', fontWeight: '600' }}>{STATUS[selectedAsset.status]?.label || 'Pending'}</span>; })()}
-                          {selectedAsset.revisionRound > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              {Array.from({ length: selectedProject.maxRevisions || 3 }).map((_, i) => (
-                                <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i < (selectedAsset.revisionRound || 0) ? '#8b5cf6' : `${t.textMuted}40`, transition: 'background 0.2s' }} />
-                              ))}
-                              <span style={{ fontSize: '9px', color: t.textMuted, marginLeft: '2px' }}>R{selectedAsset.revisionRound}</span>
-                            </div>
-                          )}
+                          {(() => {
+                            const round = selectedAsset.revisionRound || 1;
+                            const maxR = selectedProject.maxRevisions || 3;
+                            const atLimit = round >= maxR;
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {Array.from({ length: maxR }).map((_, i) => (
+                                  <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i < round ? (atLimit ? '#ef4444' : '#8b5cf6') : `${t.textMuted}40`, transition: 'background 0.2s' }} />
+                                ))}
+                                <span style={{ fontSize: '9px', color: atLimit ? '#ef4444' : t.textMuted, marginLeft: '2px', fontWeight: atLimit ? '700' : '400' }}>R{round}/{maxR}</span>
+                              </div>
+                            );
+                          })()}
                           <div style={{ flex: 1 }} />
                           <button onClick={() => { handleToggleSelect(selectedAsset.id); setSelectedAsset({ ...selectedAsset, isSelected: !selectedAsset.isSelected, status: !selectedAsset.isSelected ? 'selected' : 'pending' }); }} style={{ padding: '4px 12px', background: selectedAsset.isSelected ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'transparent', border: selectedAsset.isSelected ? 'none' : `1px solid ${t.border}`, borderRadius: '20px', color: selectedAsset.isSelected ? '#fff' : t.textMuted, fontSize: '10px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}>{selectedAsset.isSelected ? '✓ Selected' : '☆ Select'}</button>
                         </div>
@@ -8092,6 +8252,53 @@ export default function MainApp() {
                           </button>
                           {sidebarSection.assignment && (
                             <div style={{ padding: '0 14px 14px 14px' }}>
+                              {/* Pipeline Stage Indicator */}
+                              {(selectedProject.handoffChains || []).length > 0 && selectedAsset.pipelineStage !== undefined && (() => {
+                                const chain = (selectedProject.handoffChains || []).find(c => c.scope === 'all' || c.scopeId === selectedAsset.category);
+                                if (!chain) return null;
+                                const sortedStages = [...(chain.stages || [])].sort((a, b) => a.order - b.order);
+                                return (
+                                  <div style={{ marginBottom: '10px', padding: '8px', background: t.bgInput, borderRadius: '8px' }}>
+                                    <label style={{ display: 'block', fontSize: '9px', color: t.textMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Pipeline</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      {sortedStages.map((stage, i) => (
+                                        <div key={stage.teamGroupId} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                          <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '9px', fontWeight: '600', background: i === (selectedAsset.pipelineStage || 0) ? `${t.primary}30` : i < (selectedAsset.pipelineStage || 0) ? 'rgba(34,197,94,0.2)' : t.bgHover, color: i === (selectedAsset.pipelineStage || 0) ? t.primary : i < (selectedAsset.pipelineStage || 0) ? '#22c55e' : t.textMuted }}>{stage.teamGroupName}</span>
+                                          {i < sortedStages.length - 1 && <span style={{ color: t.textMuted, fontSize: '10px' }}>→</span>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                              {/* Turnaround Timer */}
+                              {selectedAsset.turnaroundDeadline && (() => {
+                                const deadline = new Date(selectedAsset.turnaroundDeadline);
+                                const now = new Date();
+                                const hoursLeft = Math.max(0, (deadline - now) / (1000 * 60 * 60));
+                                const isOverdue = hoursLeft <= 0;
+                                const isUrgent = hoursLeft < 2;
+                                const isWarning = hoursLeft < 12;
+                                const color = isOverdue ? '#ef4444' : isUrgent ? '#ef4444' : isWarning ? '#f59e0b' : '#22c55e';
+                                const label = isOverdue ? 'Overdue!' : hoursLeft < 1 ? `${Math.round(hoursLeft * 60)}m left` : `${Math.round(hoursLeft)}h left`;
+                                return (
+                                  <div style={{ marginBottom: '10px', padding: '8px 10px', background: `${color}10`, border: `1px solid ${color}30`, borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: isUrgent ? 'pulse 1.5s ease-in-out infinite' : 'none' }}>
+                                    <div>
+                                      <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase' }}>Turnaround</div>
+                                      <div style={{ fontSize: '12px', fontWeight: '700', color }}>{label}</div>
+                                    </div>
+                                    {!isProducer && (
+                                      <button onClick={async () => {
+                                        const reason = prompt('Reason for extension request:');
+                                        if (!reason) return;
+                                        const activity = { id: generateId(), type: 'extension-request', message: `${userProfile.name} requested a turnaround extension for ${selectedAsset.name}: "${reason}"`, timestamp: new Date().toISOString() };
+                                        await updateProject(selectedProject.id, { activityLog: [...(selectedProject.activityLog || []), activity] });
+                                        showToast('Extension requested', 'success');
+                                      }} style={{ padding: '4px 8px', background: `${color}20`, border: `1px solid ${color}40`, borderRadius: '6px', color, fontSize: '9px', cursor: 'pointer', fontWeight: '600' }}>Request Extension</button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               {isProducer && (
                                 <>
                                   <div style={{ marginBottom: '10px' }}>
@@ -8104,8 +8311,16 @@ export default function MainApp() {
                                     <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Assign To</label>
                                     <Select theme={theme} value={selectedAsset.assignedTo || ''} onChange={v => handleAssign(selectedAsset.id, v)} style={{ fontSize: '11px' }}>
                                       <option value="">-- Unassigned --</option>
-                                      {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                      {(selectedProject.teamGroups || []).length > 0 && (selectedProject.teamGroups || []).map(g => (
+                                        <optgroup key={g.id} label={`${g.name}`}>
+                                          {(g.members || []).map(m => <option key={m.id} value={m.id}>{m.name} {g.leadId === m.id ? '(Lead)' : ''}</option>)}
+                                        </optgroup>
+                                      ))}
+                                      <optgroup label="All Team">
+                                        {editors.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                      </optgroup>
                                     </Select>
+                                    {selectedAsset.assignedTeamGroupName && <div style={{ marginTop: '4px', fontSize: '9px', color: t.primary }}>Team: {selectedAsset.assignedTeamGroupName}</div>}
                                   </div>
                                   <div style={{ marginBottom: '10px' }}>
                                     <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Due Date</label>
@@ -8126,6 +8341,41 @@ export default function MainApp() {
                                   })}
                                 </div>
                               </div>
+                              {/* Round Controls (Producer Only) */}
+                              {isProducer && (selectedAsset.revisionRound || 1) > 0 && (
+                                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: `1px solid ${t.borderLight}` }}>
+                                  <label style={{ display: 'block', fontSize: '9px', color: t.textMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Round Controls</label>
+                                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                    <button onClick={async () => {
+                                      const maxR = selectedProject.maxRevisions || 3;
+                                      const currentR = selectedAsset.revisionRound || 1;
+                                      if (currentR < maxR) { showToast('Not at limit yet', 'info'); return; }
+                                      const newMax = maxR + 1;
+                                      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? a : a);
+                                      await updateProject(selectedProject.id, { maxRevisions: newMax, activityLog: [...(selectedProject.activityLog || []), { id: generateId(), type: 'round', message: `${userProfile.name} granted extra revision round (now ${newMax} max)`, timestamp: new Date().toISOString() }] });
+                                      await refreshProject();
+                                      showToast(`Max rounds increased to ${newMax}`, 'success');
+                                    }} style={{ padding: '4px 8px', background: `${t.primary}15`, border: `1px solid ${t.primary}30`, borderRadius: '6px', color: t.primary, fontSize: '9px', cursor: 'pointer' }}>+ Extra Round</button>
+                                    <button onClick={async () => {
+                                      if (!confirm('Force close this round? All unresolved feedback will be marked done.')) return;
+                                      const updatedFeedback = (selectedAsset.feedback || []).map(f => f.isDone ? f : { ...f, isDone: true, forceClosed: true });
+                                      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback, turnaroundDeadline: null } : a);
+                                      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), { id: generateId(), type: 'round', message: `${userProfile.name} force-closed round for ${selectedAsset.name}`, timestamp: new Date().toISOString() }] });
+                                      setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback, turnaroundDeadline: null });
+                                      await refreshProject();
+                                      showToast('Round force-closed', 'success');
+                                    }} style={{ padding: '4px 8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '9px', cursor: 'pointer' }}>Force Close Round</button>
+                                    {selectedAsset.turnaroundDeadline && (
+                                      <button onClick={async () => {
+                                        const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, turnaroundDeadline: null } : a);
+                                        await updateProject(selectedProject.id, { assets: updated });
+                                        setSelectedAsset({ ...selectedAsset, turnaroundDeadline: null });
+                                        showToast('Timer cleared', 'success');
+                                      }} style={{ padding: '4px 8px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', color: '#f59e0b', fontSize: '9px', cursor: 'pointer' }}>Clear Timer</button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
