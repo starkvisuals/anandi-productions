@@ -6,6 +6,7 @@ import { useKeyboardShortcuts, SHORTCUT_GROUPS } from '@/lib/useKeyboardShortcut
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
 import CreateProjectModal from './CreateProjectModal';
 import dynamic from 'next/dynamic';
@@ -95,6 +96,15 @@ const THEMES = {
     accent: '#a855f7',
     modalBg: '#14141c',
     shadow: '0 8px 32px rgba(0,0,0,0.5)',
+    // Glassmorphic tokens
+    bgGlass: 'rgba(30,30,45,0.7)',
+    bgGlassBorder: 'rgba(255,255,255,0.08)',
+    blur: 'blur(16px)',
+    cardRadius: '16px',
+    shadowGlass: '0 4px 24px rgba(0,0,0,0.2)',
+    gradientPrimary: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+    gradientSuccess: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+    gradientDanger: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
   },
   light: {
     bg: '#f5f7fa',
@@ -116,6 +126,15 @@ const THEMES = {
     accent: '#9333ea',
     modalBg: '#ffffff',
     shadow: '0 8px 32px rgba(0,0,0,0.1)',
+    // Glassmorphic tokens
+    bgGlass: 'rgba(255,255,255,0.7)',
+    bgGlassBorder: 'rgba(0,0,0,0.06)',
+    blur: 'blur(16px)',
+    cardRadius: '16px',
+    shadowGlass: '0 4px 24px rgba(0,0,0,0.06)',
+    gradientPrimary: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+    gradientSuccess: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+    gradientDanger: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
   }
 };
 
@@ -416,15 +435,27 @@ const Modal = ({ title, onClose, children, wide, size, theme = 'dark' }) => {
   const isLarge = resolvedSize === 'xl' || resolvedSize === 'full' || resolvedSize === 'lg';
   const isDark = theme === 'dark';
   return (
-    <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px', backdropFilter: 'blur(8px)' }} onClick={onClose}>
-      <div className="modal-content" style={{ background: t.modalBg, borderRadius: isMobile ? 0 : '16px', border: isMobile ? 'none' : `1px solid ${t.border}`, width: '100%', maxWidth: isMobile ? '100%' : maxW, height: isMobile ? '100%' : (isLarge ? '85vh' : 'auto'), maxHeight: isMobile ? '100%' : '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5)' : '0 25px 60px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.1)' }} onClick={e => e.stopPropagation()}>
+    <motion.div
+      className="modal-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px', backdropFilter: 'blur(8px)' }} onClick={onClose}>
+      <motion.div
+        className="modal-content"
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        style={{ background: t.modalBg, borderRadius: isMobile ? 0 : '16px', border: isMobile ? 'none' : `1px solid ${t.border}`, width: '100%', maxWidth: isMobile ? '100%' : maxW, height: isMobile ? '100%' : (isLarge ? '85vh' : 'auto'), maxHeight: isMobile ? '100%' : '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5)' : '0 25px 60px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.1)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: `1px solid ${t.border}`, background: isDark ? 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 100%)' : 'linear-gradient(135deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0.03) 100%)', flexShrink: 0 }}>
           <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px', color: t.text }}>{title}</h3>
           <button onClick={onClose} style={{ background: 'rgba(128,128,128,0.15)', border: 'none', backdropFilter: 'blur(8px)', color: t.textSecondary, width: '32px', height: '32px', borderRadius: '50%', fontSize: '16px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(128,128,128,0.3)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(128,128,128,0.15)'}>{Icons.close(t.textSecondary)}</button>
         </div>
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: t.bgSecondary }}>{children}</div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -668,7 +699,7 @@ const Toast = ({ message, type, onClose }) => {
   const bg = colorMap[type] || colorMap.info;
   const iconEl = type === 'success' ? Icons.check('#fff') : type === 'error' ? Icons.close('#fff') : type === 'warning' ? Icons.alert('#fff') : Icons.alert('#fff');
   return (
-    <div className="animate-slideInRight" style={{ position: 'fixed', top: '20px', right: '20px', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', background: bg, borderRadius: '12px', color: '#fff', fontSize: '13px', fontWeight: '500', zIndex: 2000, boxShadow: '0 8px 30px rgba(0,0,0,0.35)', minWidth: '260px', maxWidth: '400px', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', background: bg, borderRadius: '12px', color: '#fff', fontSize: '13px', fontWeight: '500', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', minWidth: '260px', maxWidth: '400px', overflow: 'hidden' }}>
       <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{iconEl}</span>
       <span style={{ flex: 1 }}>{message}</span>
       <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>{Icons.close('#fff')}</button>
@@ -2494,11 +2525,12 @@ export default function MainApp() {
 
     // Glass card style helper
     const glassCard = (extra = {}) => ({
-      background: `${t.bgCard}cc`,
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      borderRadius: '14px',
-      border: `1px solid ${t.border}`,
+      background: t.bgGlass,
+      backdropFilter: t.blur,
+      WebkitBackdropFilter: t.blur,
+      borderRadius: t.cardRadius,
+      border: `1px solid ${t.bgGlassBorder}`,
+      boxShadow: t.shadowGlass,
       ...extra,
     });
 
@@ -2559,7 +2591,7 @@ export default function MainApp() {
           ].map(m => (
             <div key={m.label} style={{ textAlign: 'left' }}>
               <div style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: 700, color: m.color, lineHeight: 1 }}>{m.value}</div>
-              <div style={{ fontSize: '10px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>{m.label}</div>
+              <div style={{ fontSize: '11px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>{m.label}</div>
             </div>
           ))}
         </div>
@@ -2607,10 +2639,13 @@ export default function MainApp() {
                       onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = t.border; }}
                       style={{
                         width: isMobile ? '160px' : '200px',
-                        borderRadius: '12px',
+                        borderRadius: t.cardRadius,
                         overflow: 'hidden',
-                        background: t.bgCard,
-                        border: `1px solid ${t.border}`,
+                        background: t.bgGlass,
+                        backdropFilter: t.blur,
+                        WebkitBackdropFilter: t.blur,
+                        border: `1px solid ${t.bgGlassBorder}`,
+                        boxShadow: t.shadowGlass,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                       }}
@@ -2686,10 +2721,12 @@ export default function MainApp() {
                         key={`${item.type}-${item.asset.id}-${idx}`}
                         onClick={() => { if (proj) { setSelectedProjectId(proj.id); setView('projects'); } }}
                         style={{
-                          padding: '10px 14px',
-                          background: t.bgCard,
-                          borderRadius: '8px',
-                          marginBottom: '6px',
+                          padding: '12px 14px',
+                          background: t.bgGlass,
+                          backdropFilter: t.blur,
+                          WebkitBackdropFilter: t.blur,
+                          borderRadius: '12px',
+                          marginBottom: '8px',
                           borderLeft: `3px solid ${item.color}`,
                           cursor: 'pointer',
                           transition: 'all 0.15s',
@@ -2743,7 +2780,7 @@ export default function MainApp() {
                           </div>
                           <div style={{ flex: 1, minWidth: 0, paddingBottom: '8px' }}>
                             <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{a.message}</div>
-                            <div style={{ fontSize: '9px', color: t.textMuted, marginTop: '2px' }}>
+                            <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px' }}>
                               <span style={{ color: '#6366f1', cursor: 'pointer' }}>{a.projectName}</span> {'\u2022'} {formatTimeAgo(a.timestamp)}
                             </div>
                           </div>
@@ -3109,12 +3146,15 @@ export default function MainApp() {
           onMouseEnter={() => setHoveredTask(task.id)}
           onMouseLeave={() => setHoveredTask(null)}
           style={{
-            background: t.bgCard,
-            borderRadius: '12px',
+            background: t.bgGlass,
+            backdropFilter: t.blur,
+            WebkitBackdropFilter: t.blur,
+            borderRadius: '14px',
             borderLeft: `3px solid ${priorityColors[task.priority] || priorityColors.medium}`,
-            borderRight: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.border}`,
-            borderTop: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.border}`,
-            borderBottom: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.border}`,
+            borderRight: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.bgGlassBorder}`,
+            borderTop: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.bgGlassBorder}`,
+            borderBottom: `1px solid ${isOverdue ? 'rgba(239,68,68,0.5)' : isDragging ? t.primary : t.bgGlassBorder}`,
+            boxShadow: t.shadowGlass,
             marginBottom: '10px',
             overflow: 'hidden',
             transition: 'all 0.2s',
@@ -4446,7 +4486,7 @@ export default function MainApp() {
         </div>
 
         {displayProjects.length === 0 ? (
-          <div className="animate-fadeIn" style={{ background: t.bgTertiary, borderRadius: '16px', border: `1px solid ${t.border}`, padding: '80px 20px', textAlign: 'center' }}>
+          <div className="animate-fadeIn" style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: t.cardRadius, border: `1px solid ${t.bgGlassBorder}`, padding: '80px 20px', textAlign: 'center' }}>
             <div style={{ width: '64px', height: '64px', margin: '0 auto 20px', background: `${t.primary}15`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {Icons.folder(t.textMuted)}
             </div>
@@ -4466,7 +4506,7 @@ export default function MainApp() {
               const firstThumb = p.assets?.find(a => !a.deleted && a.type === 'image' && a.thumbnailUrl);
 
               return (
-                <div key={p.id} className="hover-lift hover-glow animate-fadeInUp" onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: t.bgTertiary, borderRadius: '14px', border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : `1px solid ${t.border}`, cursor: 'pointer', position: 'relative', overflow: 'hidden', transition: 'all 0.2s ease' }}>
+                <div key={p.id} className="hover-lift hover-glow animate-fadeInUp" onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: t.cardRadius, border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : `1px solid ${t.bgGlassBorder}`, boxShadow: t.shadowGlass, cursor: 'pointer', position: 'relative', overflow: 'hidden', transition: 'all 0.2s ease' }}>
                   {/* Gradient Top Area */}
                   <div style={{ height: '90px', background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : (typeGradients[p.type] || typeGradients['photoshoot']), position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {!firstThumb && <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '500' }}>{p.type?.replace('-', ' ') || 'Project'}</span>}
@@ -4591,7 +4631,7 @@ export default function MainApp() {
       const overdueAssets = activeAssets.filter(a => a.dueDate && new Date(a.dueDate) < today);
 
       return (
-        <div key={u.id} className="team-row" style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', background: t.bgCard, borderRadius: '10px', marginBottom: '6px', border: `1px solid ${t.border}`, cursor: 'pointer', transition: 'all 0.2s' }}>
+        <div key={u.id} className="team-row" style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '12px', marginBottom: '8px', border: `1px solid ${t.bgGlassBorder}`, cursor: 'pointer', transition: 'all 0.2s' }}>
           <Avatar user={u} size={36} />
           <div style={{ flex: 1, marginLeft: '12px' }}>
             <div style={{ fontSize: '14px', fontWeight: 600, color: t.text }}>{u.name}</div>
@@ -4784,7 +4824,7 @@ export default function MainApp() {
     const overdueTasks = activeTasks.filter(t => t.dueDate && new Date(t.dueDate) < today);
     
     return (
-      <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
+      <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}` }}>
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '14px' }}>✓ Project Tasks ({activeTasks.length})</h3>
@@ -4815,11 +4855,13 @@ export default function MainApp() {
                 return (
                   <div 
                     key={task.id}
-                    style={{ 
-                      background: t.bgCard, 
-                      borderRadius: '10px', 
+                    style={{
+                      background: t.bgGlass,
+                      backdropFilter: t.blur,
+                      WebkitBackdropFilter: t.blur,
+                      borderRadius: '12px',
                       marginBottom: '8px',
-                      border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.4)' : t.border}`,
+                      border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.4)' : t.bgGlassBorder}`,
                       overflow: 'hidden'
                     }}
                   >
@@ -5126,14 +5168,14 @@ export default function MainApp() {
         </div>
 
         {Object.keys(byProject).length === 0 ? (
-          <div className="animate-fadeInUp" style={{ textAlign: 'center', padding: '80px 20px', color: t.textMuted, background: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}` }}>
+          <div className="animate-fadeInUp" style={{ textAlign: 'center', padding: '80px 20px', color: t.textMuted, background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: t.cardRadius, border: `1px solid ${t.bgGlassBorder}` }}>
             <div style={{ marginBottom: '16px', opacity: 0.5 }}><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg></div>
             <div style={{ fontSize: '16px', fontWeight: '500', color: t.textSecondary, marginBottom: '6px' }}>No approved assets available yet</div>
             <div style={{ fontSize: '12px', color: t.textMuted }}>Assets will appear here once they are approved</div>
           </div>
         ) : (
           Object.entries(byProject).map(([projectId, data]) => (
-            <div key={projectId} style={{ background: t.bgCard, borderRadius: '16px', padding: '20px', marginBottom: '20px', border: `1px solid ${t.border}` }}>
+            <div key={projectId} style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: t.cardRadius, padding: '20px', marginBottom: '20px', border: `1px solid ${t.bgGlassBorder}`, boxShadow: t.shadowGlass }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: t.text }}>{data.name}</h3>
                 <span style={{
@@ -5161,7 +5203,7 @@ export default function MainApp() {
                       ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                           <span style={{ fontSize: '36px' }}>{fileTypeIcon(asset.type)}</span>
-                          <span style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase' }}>{asset.type || 'file'}</span>
+                          <span style={{ fontSize: '10px', color: t.textMuted, textTransform: 'uppercase' }}>{asset.type || 'file'}</span>
                         </div>
                       )}
                       {selectedForDownload.has(asset.id) && (
@@ -5175,7 +5217,7 @@ export default function MainApp() {
                       <div style={{ fontSize: '11px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{asset.name}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                         <span style={{ fontSize: '10px', color: t.textMuted }}>{fileTypeIcon(asset.type)}</span>
-                        <span style={{ fontSize: '9px', color: t.textMuted }}>v{asset.currentVersion} • {formatFileSize(asset.fileSize)}</span>
+                        <span style={{ fontSize: '10px', color: t.textMuted }}>v{asset.currentVersion} • {formatFileSize(asset.fileSize)}</span>
                       </div>
                       {asset.highResFiles?.length > 0 && (
                         <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
@@ -5372,7 +5414,7 @@ export default function MainApp() {
     );
     
     return (
-      <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
+      <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}` }}>
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '14px' }}>Decks & Presentations</h3>
@@ -6706,7 +6748,7 @@ export default function MainApp() {
             {tab === 'assets' && (
               <div style={{ width: '100%' }}>
                 {assets.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
+                  <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}` }}>
                     <div style={{ marginBottom: '14px', opacity: 0.5 }}><svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
                     <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '16px' }}>No assets</p>
                     {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>Upload</Btn>}
@@ -6869,7 +6911,7 @@ export default function MainApp() {
               <div>
                 {/* Team Groups */}
                 {(selectedProject.teamGroups || []).length > 0 && (
-                  <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginBottom: '16px' }}>
+                  <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}`, marginBottom: '16px' }}>
                     <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h3 style={{ margin: 0, fontSize: '14px' }}>Team Groups ({(selectedProject.teamGroups || []).length})</h3>
                       {isProducer && <Btn theme={theme} onClick={() => {
@@ -6938,7 +6980,7 @@ export default function MainApp() {
 
                 {/* Handoff Chains */}
                 {isProducer && (selectedProject.teamGroups || []).length >= 2 && (
-                  <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginBottom: '16px' }}>
+                  <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}`, marginBottom: '16px' }}>
                     <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h3 style={{ margin: 0, fontSize: '14px' }}>Handoff Pipeline</h3>
                       <Btn theme={theme} onClick={async () => {
@@ -6980,7 +7022,7 @@ export default function MainApp() {
                 )}
 
                 {/* Project Team - Flat Member List */}
-                <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}` }}>
+                <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}` }}>
                   <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, fontSize: '14px' }}>Project Members ({team.length})</h3>
                     {isProducer && <Btn theme={theme} onClick={() => setShowAddTeam(true)} small>+ Add Member</Btn>}
@@ -7058,7 +7100,7 @@ export default function MainApp() {
                   if (suggestedMembers.length === 0) return null;
                   
                   return (
-                    <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginTop: '16px' }}>
+                    <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}`, marginTop: '16px' }}>
                       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}` }}>
                         <h3 style={{ margin: 0, fontSize: '14px' }}>Suggested for {projectType.replace('-', ' ')}</h3>
                       </div>
@@ -7085,7 +7127,7 @@ export default function MainApp() {
                 
                 {/* Client Contacts */}
                 {isProducer && (
-                  <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, marginTop: '16px' }}>
+                  <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}`, marginTop: '16px' }}>
                     <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.border}` }}>
                       <h3 style={{ margin: 0, fontSize: '14px' }}>Client Contacts ({(selectedProject.clientContacts || []).length})</h3>
                     </div>
@@ -7112,7 +7154,7 @@ export default function MainApp() {
             )}
 
             {tab === 'activity' && (
-              <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '18px' }}>
+              <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}`, padding: '18px' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px' }}> Activity Timeline</h3>
                 <ActivityTimeline activities={selectedProject.activityLog || []} maxItems={20} theme={theme} />
               </div>
@@ -7121,7 +7163,7 @@ export default function MainApp() {
             {tab === 'links' && (
               <div>
                 {isProducer && (
-                  <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}`, padding: '16px', marginBottom: '16px' }}>
                     <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}> Create Share Link</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr auto', gap: '10px', alignItems: 'end' }}>
                       <div><label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Name</label><Input theme={theme} value={newLinkName} onChange={setNewLinkName} placeholder="e.g., Client Review" /></div>
@@ -7131,7 +7173,7 @@ export default function MainApp() {
                     </div>
                   </div>
                 )}
-                <div style={{ background: t.bgTertiary, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '16px' }}>
+                <div style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}`, padding: '16px' }}>
                   <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>Active Links ({shareLinks.length})</h3>
                   {shareLinks.length === 0 ? <div style={{ textAlign: 'center', padding: '30px', color: t.textMuted, fontSize: '12px' }}>No share links</div> : shareLinks.map(link => {
                     const isExpired = link.expiresAt && new Date(link.expiresAt) < new Date();
@@ -8458,7 +8500,7 @@ export default function MainApp() {
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ fontSize: '11px', fontWeight: '600', color: v.version === selectedAsset.currentVersion ? '#6366f1' : t.textSecondary }}>Version {v.version}</div>
-                                      {v.uploadedAt && <div style={{ fontSize: '9px', color: t.textMuted }}>{formatTimeAgo(v.uploadedAt)}</div>}
+                                      {v.uploadedAt && <div style={{ fontSize: '10px', color: t.textMuted }}>{formatTimeAgo(v.uploadedAt)}</div>}
                                     </div>
                                     {v.version === selectedAsset.currentVersion ? <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} /> : (selectedAsset.versions || []).length > 1 && (
                                       <button onClick={(e) => { e.stopPropagation(); setAssetTab('compare'); }} title={`Compare v${v.version} with current`} style={{ width: '22px', height: '22px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '5px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = t.primary; e.currentTarget.style.color = t.primary; }} onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}>
@@ -8531,7 +8573,7 @@ export default function MainApp() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0 }}>
                                             <span style={{ fontSize: '10px', fontWeight: '600', color: t.text }}>{fb.userName}</span>
-                                            <span style={{ fontSize: '9px', color: t.textMuted }}>{formatTimeAgo(fb.timestamp)}</span>
+                                            <span style={{ fontSize: '10px', color: t.textMuted }}>{formatTimeAgo(fb.timestamp)}</span>
                                             {fb.videoTimestamp !== null && fb.videoTimestamp !== undefined && (
                                               <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.pause(); setVideoPlaying(false); } setHighlightedFeedbackId(fb.id); setTimeout(() => setHighlightedFeedbackId(null), 3000); }} style={{ fontSize: '9px', color: t.primary, cursor: 'pointer', background: `${t.primary}20`, padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>@ {formatTimecode(fb.videoTimestamp)}</span>
                                             )}
@@ -8541,8 +8583,8 @@ export default function MainApp() {
                                         <div style={{ fontSize: '11px', color: t.textSecondary, lineHeight: '1.4' }}>{fb.text}</div>
                                         {/* Reply button + count */}
                                         <div style={{ display: 'flex', gap: '8px', marginTop: '4px', alignItems: 'center' }}>
-                                          <button onClick={() => { setReplyingTo(replyingTo === fb.id ? null : fb.id); setReplyText(''); }} style={{ background: 'none', border: 'none', padding: 0, fontSize: '9px', color: t.primary, cursor: 'pointer', fontWeight: '500' }}>Reply</button>
-                                          {(fb.replies || []).length > 0 && <span style={{ fontSize: '9px', color: t.textMuted }}>{(fb.replies || []).length} {(fb.replies || []).length === 1 ? 'reply' : 'replies'}</span>}
+                                          <button onClick={() => { setReplyingTo(replyingTo === fb.id ? null : fb.id); setReplyText(''); }} style={{ background: 'none', border: 'none', padding: 0, fontSize: '10px', color: t.primary, cursor: 'pointer', fontWeight: '500' }}>Reply</button>
+                                          {(fb.replies || []).length > 0 && <span style={{ fontSize: '10px', color: t.textMuted }}>{(fb.replies || []).length} {(fb.replies || []).length === 1 ? 'reply' : 'replies'}</span>}
                                         </div>
                                       </div>
                                       {/* Threaded replies */}
@@ -9959,7 +10001,20 @@ export default function MainApp() {
         .asset-card:hover .asset-hover-overlay { opacity: 1 !important; }
         .asset-thumb-area:hover .asset-hover-overlay { opacity: 1 !important; }
       `}</style>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            initial={{ opacity: 0, x: 80, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 80, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 2000 }}
+          >
+            <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <GlobalSearch />
       
       {/* Company Settings Modal */}
@@ -10162,15 +10217,24 @@ export default function MainApp() {
         </header>
 
         {/* Content with page transition */}
-        <div key={view + (selectedProjectId || '')} style={{ padding: isMobile ? '16px' : '24px' }}>
-          {view === 'dashboard' && <StableDashboard />}
-          {view === 'tasks' && <StableTasksView />}
-          {view === 'projects' && !selectedProjectId && <StableProjectsList />}
-          {view === 'projects' && selectedProjectId && <StableProjectDetail />}
-          {view === 'calendar' && <StableCalendarView />}
-          {view === 'team' && <StableTeamManagement />}
-          {view === 'downloads' && <StableDownloadsView />}
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={view + (selectedProjectId || '')}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            style={{ padding: isMobile ? '16px' : '24px' }}
+          >
+            {view === 'dashboard' && <StableDashboard />}
+            {view === 'tasks' && <StableTasksView />}
+            {view === 'projects' && !selectedProjectId && <StableProjectsList />}
+            {view === 'projects' && selectedProjectId && <StableProjectDetail />}
+            {view === 'calendar' && <StableCalendarView />}
+            {view === 'team' && <StableTeamManagement />}
+            {view === 'downloads' && <StableDownloadsView />}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Keyboard Shortcut Cheat Sheet */}
         {showShortcuts && (
