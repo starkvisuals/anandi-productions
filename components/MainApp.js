@@ -1096,7 +1096,8 @@ export default function MainApp() {
     }
   };
 
-  useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
+  const [isTablet, setIsTablet] = useState(false);
+  useEffect(() => { const check = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1200); }; check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   useEffect(() => { loadData(); }, []);
   
   const loadData = async () => { 
@@ -2164,7 +2165,7 @@ export default function MainApp() {
         top: 0,
         display: 'flex',
         flexDirection: isMobile ? 'row' : 'column',
-        zIndex: 100,
+        zIndex: 1100,
         transition: 'width 0.2s ease'
       }}>
         {/* Logo Section */}
@@ -6485,18 +6486,20 @@ export default function MainApp() {
     // Can mark feedback done: producers, editors, video editors, freelancers - NOT clients
     const canMarkFeedbackDone = ['producer', 'admin', 'team-lead', 'editor', 'video-editor', 'colorist', 'animator', 'vfx-artist', 'sound-designer'].includes(userProfile?.role);
     const handleSaveAnnotations = async (annotations) => {
+      const oldAnnotations = selectedAsset.annotations || [];
       const updatedAssets = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, annotations } : a);
-      // Update local state immediately so UI stays in sync
       setSelectedAsset(prev => ({ ...prev, annotations }));
       setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updatedAssets } : p));
-      // Persist to Firestore in background
       try { await updateProject(selectedProject.id, { assets: updatedAssets }); } catch (e) { console.error('Save annotations error:', e); }
+      // Auto-create task from new annotations with text notes
+      const newAnnots = annotations.filter(a => a.text && !oldAnnotations.some(o => o.id === a.id));
+      newAnnots.forEach(annot => {
+        createTaskFromFeedback({ id: annot.id, text: `[Annotation] ${annot.text}`, timestamp: annot.createdAt }, selectedAsset, selectedProject);
+      });
     };
     const handleSaveVideoAnnotations = async (annotations) => {
-      // Tag each new annotation with the current video timestamp
       const timestamp = videoTime;
       const tagged = annotations.map(a => a.videoTimestamp != null ? a : { ...a, videoTimestamp: timestamp });
-      // Merge: keep all annotations NOT at this timestamp, then add the updated ones
       const allAnnotations = selectedAsset.annotations || [];
       const otherAnnotations = allAnnotations.filter(
         a => !(a.videoTimestamp != null && Math.abs(a.videoTimestamp - timestamp) < 0.5)
@@ -6506,6 +6509,11 @@ export default function MainApp() {
       setSelectedAsset(prev => ({ ...prev, annotations: merged }));
       setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updatedAssets } : p));
       try { await updateProject(selectedProject.id, { assets: updatedAssets }); } catch (e) { console.error('Save video annotations error:', e); }
+      // Auto-create task from new video annotations with text notes
+      const newAnnots = tagged.filter(a => a.text && !allAnnotations.some(o => o.id === a.id));
+      newAnnots.forEach(annot => {
+        createTaskFromFeedback({ id: annot.id, text: `[Video @${formatTimecode(annot.videoTimestamp)}] ${annot.text}`, timestamp: annot.createdAt }, selectedAsset, selectedProject);
+      });
     };
     const handleCreateLink = async () => { if (!newLinkName) { showToast('Enter name', 'error'); return; } const linkData = { name: newLinkName, type: newLinkType, createdBy: userProfile.id }; if (newLinkExpiry) linkData.expiresAt = new Date(newLinkExpiry).toISOString(); await createShareLink(selectedProject.id, linkData); await refreshProject(); setNewLinkName(''); setNewLinkExpiry(''); showToast('Link created!', 'success'); };
     const handleDeleteLink = async (linkId) => { const updated = (selectedProject.shareLinks || []).map(l => l.id === linkId ? { ...l, active: false } : l); await updateProject(selectedProject.id, { shareLinks: updated }); await refreshProject(); showToast('Link deleted', 'success'); };
@@ -7570,7 +7578,7 @@ export default function MainApp() {
           return (
           <div
             className="modal-backdrop"
-            style={{ position: 'fixed', inset: 0, background: t.bg, zIndex: 1000, display: 'flex', flexDirection: 'column' }}
+            style={{ position: 'fixed', top: 0, bottom: 0, right: 0, left: isMobile ? 0 : '60px', background: t.bg, zIndex: 1000, display: 'flex', flexDirection: 'column' }}
             onTouchStart={onTouchStartHandler}
             onTouchMove={onTouchMoveHandler}
             onTouchEnd={onTouchEndHandler}
@@ -7631,14 +7639,14 @@ export default function MainApp() {
             
             {/* Main Content Area */}
             <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
-              {/* Left Navigation Arrow */}
+              {/* Left Navigation Arrow — offset past the asset panel */}
               {hasPrev && (
-                <button onClick={goToPrev} className="hover-lift" style={{ position: 'absolute', left: isMobile ? '8px' : '20px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '40px' : '52px', height: isMobile ? '40px' : '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '18px' : '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s, transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>‹</button>
+                <button onClick={goToPrev} className="hover-lift" style={{ position: 'absolute', left: isMobile ? '8px' : (isFullscreen || assetPanelCollapsed ? '20px' : '216px'), top: '50%', transform: 'translateY(-50%)', width: isMobile ? '36px' : '44px', height: isMobile ? '36px' : '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '16px' : '20px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>‹</button>
               )}
 
-              {/* Right Navigation Arrow */}
+              {/* Right Navigation Arrow — offset before the sidebar */}
               {hasNext && (
-                <button onClick={goToNext} className="hover-lift" style={{ position: 'absolute', right: isMobile || isFullscreen ? '20px' : '340px', top: '50%', transform: 'translateY(-50%)', width: isMobile ? '40px' : '52px', height: isMobile ? '40px' : '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '18px' : '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s, transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>›</button>
+                <button onClick={goToNext} className="hover-lift" style={{ position: 'absolute', right: isMobile || isFullscreen ? '20px' : (isTablet ? '276px' : '316px'), top: '50%', transform: 'translateY(-50%)', width: isMobile ? '36px' : '44px', height: isMobile ? '36px' : '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '16px' : '20px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>›</button>
               )}
               
               {/* Preview/Annotate Tab */}
@@ -7718,10 +7726,12 @@ export default function MainApp() {
                           {/* Video Element (no native controls) */}
                           <video
                             ref={videoRef} playsInline
+                            preload="metadata"
                             src={selectedAsset.muxPlaybackId ? undefined : selectedAsset.url}
-                            poster={selectedAsset.muxPlaybackId ? (selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`) : undefined}
+                            poster={selectedAsset.muxPlaybackId ? (selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`) : (selectedAsset.thumbnailUrl || undefined)}
                             onTimeUpdate={handleVideoTimeUpdate}
                             onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
+                            onCanPlay={() => setVideoLoading && setVideoLoading(false)}
                             onPlay={() => setVideoPlaying(true)}
                             onPause={() => setVideoPlaying(false)}
                             onEnded={() => { setVideoPlaying(false); setShuttleSpeed(0); }}
@@ -7914,10 +7924,20 @@ export default function MainApp() {
                           </div>
 
                           {/* Video Annotation Overlay — pauses video and overlays drawing tools */}
-                          {assetTab === 'annotate' && (
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 'calc(100% - 80px)', zIndex: 15 }}>
+                          {assetTab === 'annotate' && (() => {
+                            // Auto-pause video when entering annotate mode
+                            if (videoRef.current && !videoRef.current.paused) {
+                              videoRef.current.pause();
+                              setVideoPlaying(false);
+                            }
+                            return (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 'calc(100% - 80px)', zIndex: 15, cursor: 'crosshair' }}
+                            >
                               {/* Annotating frame badge */}
-                              <div style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 25, padding: '4px 12px', background: 'rgba(99,102,241,0.9)', borderRadius: '20px', fontSize: '10px', color: '#fff', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(8px)', pointerEvents: 'none' }}>
+                              <div style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 25, padding: '6px 14px', background: 'rgba(99,102,241,0.9)', borderRadius: '20px', fontSize: '11px', color: '#fff', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(8px)', pointerEvents: 'none' }}>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
                                 Annotating at {formatTimecode(videoTime)}
                               </div>
@@ -7927,7 +7947,8 @@ export default function MainApp() {
                                 onChange={handleSaveVideoAnnotations}
                               />
                             </div>
-                          )}
+                            );
+                          })()}
 
                           {/* Readonly video annotation markers — show at matching timestamps during preview */}
                           {assetTab === 'preview' && visibleVideoAnnotations.length > 0 && (
@@ -7999,36 +8020,23 @@ export default function MainApp() {
                               )}
                             </div>
 
-                            {/* Floating Annotation Toolbar */}
-                            {!isFullscreen && (
+                            {/* Floating Annotation Toolbar — quick-switch to annotate mode */}
+                            {!isFullscreen && assetTab === 'preview' && (
                               <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: '2px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '10px', padding: '3px', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}>
-                                <button
-                                  onClick={() => setAssetTab('annotate')}
-                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = `${t.primary}20`; e.currentTarget.style.color = t.primary; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textSecondary; }}
-                                  title="Draw annotation"
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-                                </button>
-                                <button
-                                  onClick={() => setAssetTab('annotate')}
-                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = `${t.primary}20`; e.currentTarget.style.color = t.primary; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textSecondary; }}
-                                  title="Draw rectangle"
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                                </button>
-                                <button
-                                  onClick={() => setAssetTab('annotate')}
-                                  style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = `${t.primary}20`; e.currentTarget.style.color = t.primary; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textSecondary; }}
-                                  title="Add text note"
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 10H3"/><path d="M21 6H3"/><path d="M21 14H3"/><path d="M17 18H3"/></svg>
-                                </button>
+                                {[
+                                  { tool: 'freehand', title: 'Draw annotation', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg> },
+                                  { tool: 'rect', title: 'Draw rectangle', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> },
+                                  { tool: 'text', title: 'Add text note', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 10H3"/><path d="M21 6H3"/><path d="M21 14H3"/><path d="M17 18H3"/></svg> },
+                                ].map(btn => (
+                                  <button
+                                    key={btn.tool}
+                                    onClick={() => setAssetTab('annotate')}
+                                    style={{ width: '32px', height: '32px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = `${t.primary}20`; e.currentTarget.style.color = t.primary; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textSecondary; }}
+                                    title={btn.title}
+                                  >{btn.icon}</button>
+                                ))}
                               </div>
                             )}
 
@@ -8265,7 +8273,7 @@ export default function MainApp() {
                   
                   {/* RIGHT: Details Sidebar — Glassmorphic Collapsible Panels */}
                   {!isMobile && !isFullscreen && (
-                    <div style={{ width: '320px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', flexShrink: 0 }}>
+                    <div style={{ width: isTablet ? '260px' : '300px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', flexShrink: 0 }}>
                       {/* Sidebar Header — Always visible */}
                       <div style={{ padding: '16px 16px 12px', borderBottom: `1px solid ${t.borderLight}` }}>
                         {/* Asset name + type */}
@@ -8316,7 +8324,7 @@ export default function MainApp() {
                       </div>
 
                       {/* Collapsible Sections Container */}
-                      <div style={{ padding: '12px' }}>
+                      <div style={{ padding: '10px 12px 20px' }}>
 
                         {/* Section 1: Assignment */}
                         {(() => { const [assignOpen, setAssignOpen] = [true, null]; return null; })() /* Assignment is always open inline */}
