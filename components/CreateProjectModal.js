@@ -100,6 +100,10 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
   const [teamSearch, setTeamSearch] = useState('');
   const [addingGroup, setAddingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  // Agency contacts (shown when workflowType === 'agency')
+  const [agencyContacts, setAgencyContacts] = useState([]);
+  const [agencyName, setAgencyName] = useState('');
+  const [agencyEmail, setAgencyEmail] = useState('');
 
   // Step 4: Deliverables
   const [formats, setFormats] = useState([]);
@@ -153,6 +157,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
         individuals,
         deliverableFormats: formats,
         deliverableSizes: sizes,
+        agencyContacts: workflowType === 'agency' ? agencyContacts : [],
         saveAsTemplate,
         templateName: saveAsTemplate ? templateName : null,
         templateId: templateId || null,
@@ -422,6 +427,29 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
           {teamMembers.length === 0 && <span style={{ fontSize: '11px', color: t.textMuted }}>No team members available</span>}
         </div>
       </div>
+
+      {/* Agency Contacts — only when workflow is agency */}
+      {workflowType === 'agency' && (
+        <div style={{ marginTop: '8px' }}>
+          <label style={{ ...labelStyle }}>Agency Contacts</label>
+          <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '8px' }}>External agency contacts who will review assets before client approval.</div>
+          {agencyContacts.map((ac, idx) => (
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: '10px', marginBottom: '6px' }}>
+              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(14,165,233,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '600', color: '#0ea5e9' }}>{ac.name?.[0] || 'A'}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '12px', fontWeight: '500', color: t.text }}>{ac.name}</div>
+                <div style={{ fontSize: '10px', color: t.textMuted }}>{ac.email}</div>
+              </div>
+              <button onClick={() => setAgencyContacts(agencyContacts.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', color: t.danger, cursor: 'pointer', fontSize: '16px' }}>×</button>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <input value={agencyName} onChange={e => setAgencyName(e.target.value)} placeholder="Name" style={{ ...inputStyle, flex: 1, fontSize: '11px', padding: '7px 10px' }} onFocus={e => e.target.style.borderColor = t.primary} onBlur={e => e.target.style.borderColor = t.border} />
+            <input value={agencyEmail} onChange={e => setAgencyEmail(e.target.value)} placeholder="Email" style={{ ...inputStyle, flex: 1, fontSize: '11px', padding: '7px 10px' }} onFocus={e => e.target.style.borderColor = t.primary} onBlur={e => e.target.style.borderColor = t.border} onKeyDown={e => { if (e.key === 'Enter' && agencyName.trim() && agencyEmail.trim()) { setAgencyContacts([...agencyContacts, { id: Date.now().toString(), name: agencyName.trim(), email: agencyEmail.trim(), role: 'agency' }]); setAgencyName(''); setAgencyEmail(''); } }} />
+            <button onClick={() => { if (agencyName.trim() && agencyEmail.trim()) { setAgencyContacts([...agencyContacts, { id: Date.now().toString(), name: agencyName.trim(), email: agencyEmail.trim(), role: 'agency' }]); setAgencyName(''); setAgencyEmail(''); } }} disabled={!agencyName.trim() || !agencyEmail.trim()} style={{ padding: '7px 12px', background: agencyName.trim() && agencyEmail.trim() ? '#0ea5e9' : t.bgInput, border: 'none', borderRadius: '8px', color: agencyName.trim() && agencyEmail.trim() ? '#fff' : t.textMuted, fontSize: '11px', cursor: agencyName.trim() && agencyEmail.trim() ? 'pointer' : 'default' }}>Add</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 

@@ -838,6 +838,7 @@ export default function MainApp() {
   });
   const [isMobile, setIsMobile] = useState(false);
   const isProducer = ['producer', 'admin', 'team-lead'].includes(userProfile?.role);
+  const isAgency = userProfile?.role === 'agency';
 
   // Global keyboard shortcuts
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -4353,7 +4354,7 @@ export default function MainApp() {
           deliverableFormats: config.deliverableFormats || [],
           deliverableSizes: config.deliverableSizes || [],
           templateId: config.templateId || null,
-          agencyContacts: [],
+          agencyContacts: config.agencyContacts || [],
           activityLog: [{ id: generateId(), type: 'created', message: `Project created by ${userProfile.name}`, userId: userProfile.id, timestamp: new Date().toISOString() }],
           createdBy: userProfile.id, createdByName: userProfile.name,
           selectionConfirmed: false, workflowPhase: 'selection',
@@ -5457,6 +5458,7 @@ export default function MainApp() {
     const [sidebarActionsOpen, setSidebarActionsOpen] = useState(false);
     const [replyingTo, setReplyingTo] = useState(null);
     const [replyText, setReplyText] = useState('');
+    const [showCropper, setShowCropper] = useState(false);
     const [selectedAssets, setSelectedAssets] = useState(new Set());
     const [uploadFiles, setUploadFiles] = useState([]);
     const [uploadProgress, setUploadProgress] = useState({});
@@ -6337,8 +6339,18 @@ export default function MainApp() {
         }
       }
 
+      // Agency workflow: when review-ready and no more handoff stages, route to agency-review first
+      if (finalStatus === 'review-ready' && selectedProject.workflowType === 'agency' && !extraFields.assignedTeamGroupName) {
+        finalStatus = 'agency-review';
+        // Notify agency contacts
+        const agencyContacts = selectedProject.agencyContacts || [];
+        for (const contact of agencyContacts) {
+          if (contact.email) sendEmailNotification(contact.email, `Ready for Agency Review: ${asset?.name}`, `Asset "${asset?.name}" in project "${selectedProject.name}" is ready for your review.`, 'agency-review');
+        }
+      }
+
       const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, status: finalStatus, ...extraFields } : a);
-      const activity = { id: generateId(), type: status === 'review-ready' && extraFields.assignedTeamGroupName ? 'handoff' : 'status', message: extraFields.assignedTeamGroupName ? `${userProfile.name} completed ${asset?.name || 'asset'} → handed off to ${extraFields.assignedTeamGroupName}` : `${userProfile.name} changed ${asset?.name || 'asset'} to ${status}`, timestamp: new Date().toISOString() };
+      const activity = { id: generateId(), type: extraFields.assignedTeamGroupName ? 'handoff' : finalStatus === 'agency-review' ? 'agency-review' : 'status', message: extraFields.assignedTeamGroupName ? `${userProfile.name} completed ${asset?.name || 'asset'} → handed off to ${extraFields.assignedTeamGroupName}` : finalStatus === 'agency-review' ? `${userProfile.name} sent ${asset?.name || 'asset'} for agency review` : `${userProfile.name} changed ${asset?.name || 'asset'} to ${status}`, timestamp: new Date().toISOString() };
       await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] });
       await refreshProject();
       if (selectedAsset) setSelectedAsset({ ...selectedAsset, status: finalStatus, ...extraFields });
@@ -6812,7 +6824,7 @@ export default function MainApp() {
                             {/* Version badge - top left */}
                             {a.currentVersion > 1 && <div style={{ position: 'absolute', top: '8px', left: '40px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '10px', padding: '2px 8px', fontSize: '9px', color: '#fff', fontWeight: '600', zIndex: 4 }}>v{a.currentVersion}</div>}
                             {/* Status dot - top right */}
-                            {a.status && (() => { const statusColors = { pending: '#fbbf24', selected: '#3b82f6', assigned: '#6366f1', 'in-progress': '#a855f7', 'review-ready': '#f59e0b', 'changes-requested': '#ef4444', approved: '#22c55e', delivered: '#06b6d4' }; return <div style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '8px', height: '8px', borderRadius: '50%', background: statusColors[a.status] || '#6b7280', border: '2px solid rgba(0,0,0,0.4)', zIndex: 4 }} title={STATUS[a.status]?.label || a.status} />; })()}
+                            {a.status && (() => { const statusColors = { pending: '#fbbf24', selected: '#3b82f6', assigned: '#6366f1', 'in-progress': '#a855f7', 'review-ready': '#f59e0b', 'changes-requested': '#ef4444', approved: '#22c55e', delivered: '#06b6d4', 'agency-review': '#0ea5e9' }; return <div style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '8px', height: '8px', borderRadius: '50%', background: statusColors[a.status] || '#6b7280', border: '2px solid rgba(0,0,0,0.4)', zIndex: 4 }} title={STATUS[a.status]?.label || a.status} />; })()}
                             {/* Frosted glass overlay on hover - asset name + type */}
                             <div className="asset-hover-overlay" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 10px', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0, transition: 'opacity 0.2s ease', zIndex: 3 }}>
                               <span style={{ fontSize: '12px' }}>{a.type === 'video' ? 'VID' : a.type === 'audio' ? '' : a.type === 'image' ? 'IMG' : 'DOC'}</span>
@@ -7933,6 +7945,16 @@ export default function MainApp() {
                                 style={{ padding: '0 6px', height: '30px', background: zoomLevel >= 3 ? `${t.primary}20` : 'transparent', border: 'none', borderRadius: '7px', color: t.textMuted, fontSize: '10px', cursor: 'pointer' }}
                                 title="3x zoom"
                               >3x</button>
+                              {selectedAsset.type === 'image' && (
+                                <>
+                                  <div style={{ width: '1px', background: t.border, margin: '4px 1px' }} />
+                                  <button
+                                    onClick={() => setShowCropper(true)}
+                                    style={{ padding: '0 8px', height: '30px', background: 'transparent', border: 'none', borderRadius: '7px', color: t.textMuted, fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    title="Crop & Export"
+                                  ><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6.13 1L6 16a2 2 0 002 2h15"/><path d="M1 6.13L16 6a2 2 0 012 2v15"/></svg>Crop</button>
+                                </>
+                              )}
                             </div>
 
                             {/* Floating Annotation Toolbar */}
@@ -8342,6 +8364,30 @@ export default function MainApp() {
                                   </div>
                                 </>
                               )}
+                              {/* Agency Review Actions */}
+                              {selectedAsset.status === 'agency-review' && (isAgency || isProducer) && (
+                                <div style={{ marginBottom: '12px', padding: '10px', background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: '10px' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#0ea5e9', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+                                    Agency Review
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button onClick={async () => {
+                                      await handleUpdateStatus(selectedAsset.id, 'approved');
+                                      const activity = { id: generateId(), type: 'agency-approved', message: `${userProfile.name} (Agency) approved ${selectedAsset.name}`, timestamp: new Date().toISOString() };
+                                      await updateProject(selectedProject.id, { activityLog: [...(selectedProject.activityLog || []), activity] });
+                                      showToast('Asset approved by agency', 'success');
+                                    }} style={{ flex: 1, padding: '7px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Approve</button>
+                                    <button onClick={async () => {
+                                      await handleUpdateStatus(selectedAsset.id, 'changes-requested');
+                                      const activity = { id: generateId(), type: 'agency-changes', message: `${userProfile.name} (Agency) requested changes on ${selectedAsset.name}`, timestamp: new Date().toISOString() };
+                                      await updateProject(selectedProject.id, { activityLog: [...(selectedProject.activityLog || []), activity] });
+                                      showToast('Changes requested', 'info');
+                                    }} style={{ flex: 1, padding: '7px', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', color: '#ef4444', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Request Changes</button>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Tags */}
                               <div>
                                 <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '4px' }}>Tags</label>
@@ -8685,6 +8731,11 @@ export default function MainApp() {
           </div>
           );
         })()}
+
+        {/* Image Cropper Modal */}
+        {showCropper && selectedAsset?.type === 'image' && selectedAsset?.url && (
+          <ImageCropperModal imageUrl={selectedAsset.url} imageName={selectedAsset.name} onClose={() => setShowCropper(false)} />
+        )}
 
         {/* SELECTION OVERVIEW MODAL */}
         {showSelectionOverview && (() => {
@@ -9297,6 +9348,250 @@ export default function MainApp() {
     );
   };
 
+  // Image Cropper Modal — Canvas-based crop with aspect ratio presets and export
+  const ImageCropperModal = ({ imageUrl, imageName, onClose }) => {
+    const canvasRef = useRef(null);
+    const imgRef = useRef(null);
+    const [imgLoaded, setImgLoaded] = useState(false);
+    const [cropRect, setCropRect] = useState(null);
+    const [draggingHandle, setDraggingHandle] = useState(null);
+    const [dragStart, setDragStart] = useState(null);
+    const [aspectRatio, setAspectRatio] = useState(null); // null = free
+    const [exportFormat, setExportFormat] = useState('jpeg');
+    const [exportQuality, setExportQuality] = useState(92);
+    const containerRef = useRef(null);
+    const [displaySize, setDisplaySize] = useState({ w: 0, h: 0, offsetX: 0, offsetY: 0, scale: 1 });
+
+    const presets = [
+      { label: 'Free', ratio: null },
+      { label: '1:1', ratio: 1 },
+      { label: '4:5', ratio: 4 / 5 },
+      { label: '9:16', ratio: 9 / 16 },
+      { label: '16:9', ratio: 16 / 9 },
+      { label: '3:4', ratio: 3 / 4 },
+      { label: '4:3', ratio: 4 / 3 },
+    ];
+
+    // Load image and calculate display size
+    useEffect(() => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        imgRef.current = img;
+        const container = containerRef.current;
+        if (!container) return;
+        const maxW = container.clientWidth - 40;
+        const maxH = container.clientHeight - 40;
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        const offsetX = (container.clientWidth - w) / 2;
+        const offsetY = (container.clientHeight - h) / 2;
+        setDisplaySize({ w, h, offsetX, offsetY, scale });
+        setCropRect({ x: 0, y: 0, w: img.width, h: img.height });
+        setImgLoaded(true);
+      };
+      img.src = imageUrl;
+    }, [imageUrl]);
+
+    // Draw canvas
+    useEffect(() => {
+      if (!imgLoaded || !canvasRef.current || !imgRef.current) return;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const { w, h, offsetX, offsetY, scale } = displaySize;
+      canvas.width = containerRef.current?.clientWidth || 800;
+      canvas.height = containerRef.current?.clientHeight || 600;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw image
+      ctx.drawImage(imgRef.current, offsetX, offsetY, w, h);
+      // Darken outside crop
+      if (cropRect) {
+        const cx = offsetX + cropRect.x * scale;
+        const cy = offsetY + cropRect.y * scale;
+        const cw = cropRect.w * scale;
+        const ch = cropRect.h * scale;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(0, 0, canvas.width, cy);
+        ctx.fillRect(0, cy, cx, ch);
+        ctx.fillRect(cx + cw, cy, canvas.width - cx - cw, ch);
+        ctx.fillRect(0, cy + ch, canvas.width, canvas.height - cy - ch);
+        // Crop border
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cx, cy, cw, ch);
+        // Rule of thirds
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 3; i++) {
+          ctx.beginPath(); ctx.moveTo(cx + cw * i / 3, cy); ctx.lineTo(cx + cw * i / 3, cy + ch); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(cx, cy + ch * i / 3); ctx.lineTo(cx + cw, cy + ch * i / 3); ctx.stroke();
+        }
+        // Corner handles
+        const hs = 8;
+        ctx.fillStyle = '#fff';
+        [[cx, cy], [cx + cw, cy], [cx, cy + ch], [cx + cw, cy + ch]].forEach(([hx, hy]) => {
+          ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+        });
+        // Dimensions label
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(cx + cw / 2 - 40, cy + ch + 8, 80, 20);
+        ctx.fillStyle = '#fff';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${Math.round(cropRect.w)} × ${Math.round(cropRect.h)}`, cx + cw / 2, cy + ch + 22);
+      }
+    }, [imgLoaded, cropRect, displaySize]);
+
+    // Mouse handlers for crop dragging
+    const getImageCoords = (e) => {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      return { mx, my, ix: (mx - displaySize.offsetX) / displaySize.scale, iy: (my - displaySize.offsetY) / displaySize.scale };
+    };
+
+    const handleMouseDown = (e) => {
+      if (!cropRect || !imgRef.current) return;
+      const { mx, my } = getImageCoords(e);
+      const { offsetX, offsetY, scale } = displaySize;
+      const cx = offsetX + cropRect.x * scale;
+      const cy = offsetY + cropRect.y * scale;
+      const cw = cropRect.w * scale;
+      const ch = cropRect.h * scale;
+      const hs = 12;
+      // Check corners
+      const corners = [
+        { x: cx, y: cy, handle: 'tl' }, { x: cx + cw, y: cy, handle: 'tr' },
+        { x: cx, y: cy + ch, handle: 'bl' }, { x: cx + cw, y: cy + ch, handle: 'br' },
+      ];
+      for (const c of corners) {
+        if (Math.abs(mx - c.x) < hs && Math.abs(my - c.y) < hs) {
+          setDraggingHandle(c.handle);
+          setDragStart({ mx, my, rect: { ...cropRect } });
+          return;
+        }
+      }
+      // Check inside crop = move
+      if (mx > cx && mx < cx + cw && my > cy && my < cy + ch) {
+        setDraggingHandle('move');
+        setDragStart({ mx, my, rect: { ...cropRect } });
+      }
+    };
+
+    const handleMouseMove = (e) => {
+      if (!draggingHandle || !dragStart || !imgRef.current) return;
+      const { mx, my } = getImageCoords(e);
+      const dx = (mx - dragStart.mx) / displaySize.scale;
+      const dy = (my - dragStart.my) / displaySize.scale;
+      const orig = dragStart.rect;
+      const imgW = imgRef.current.width;
+      const imgH = imgRef.current.height;
+      let newRect = { ...orig };
+
+      if (draggingHandle === 'move') {
+        newRect.x = Math.max(0, Math.min(imgW - orig.w, orig.x + dx));
+        newRect.y = Math.max(0, Math.min(imgH - orig.h, orig.y + dy));
+      } else {
+        if (draggingHandle.includes('l')) { newRect.x = Math.max(0, orig.x + dx); newRect.w = orig.w - (newRect.x - orig.x); }
+        if (draggingHandle.includes('r')) { newRect.w = Math.max(20, orig.w + dx); }
+        if (draggingHandle.includes('t')) { newRect.y = Math.max(0, orig.y + dy); newRect.h = orig.h - (newRect.y - orig.y); }
+        if (draggingHandle.includes('b')) { newRect.h = Math.max(20, orig.h + dy); }
+        // Constrain to image
+        if (newRect.x + newRect.w > imgW) newRect.w = imgW - newRect.x;
+        if (newRect.y + newRect.h > imgH) newRect.h = imgH - newRect.y;
+        // Apply aspect ratio
+        if (aspectRatio) {
+          if (draggingHandle.includes('r') || draggingHandle.includes('l')) {
+            newRect.h = newRect.w / aspectRatio;
+          } else {
+            newRect.w = newRect.h * aspectRatio;
+          }
+        }
+      }
+      if (newRect.w > 10 && newRect.h > 10) setCropRect(newRect);
+    };
+
+    useEffect(() => {
+      if (!draggingHandle) return;
+      const handleUp = () => { setDraggingHandle(null); setDragStart(null); };
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleUp);
+      return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleUp); };
+    }, [draggingHandle, dragStart]);
+
+    // Apply preset ratio
+    const applyRatio = (ratio) => {
+      setAspectRatio(ratio);
+      if (ratio && imgRef.current && cropRect) {
+        const imgW = imgRef.current.width;
+        const imgH = imgRef.current.height;
+        let w = cropRect.w, h = cropRect.h;
+        if (w / h > ratio) { w = h * ratio; } else { h = w / ratio; }
+        const x = Math.max(0, Math.min(imgW - w, cropRect.x + (cropRect.w - w) / 2));
+        const y = Math.max(0, Math.min(imgH - h, cropRect.y + (cropRect.h - h) / 2));
+        setCropRect({ x, y, w, h });
+      }
+    };
+
+    // Export
+    const handleExport = () => {
+      if (!imgRef.current || !cropRect) return;
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = Math.round(cropRect.w);
+      exportCanvas.height = Math.round(cropRect.h);
+      const ctx = exportCanvas.getContext('2d');
+      ctx.drawImage(imgRef.current, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, cropRect.w, cropRect.h);
+      const mimeType = exportFormat === 'png' ? 'image/png' : 'image/jpeg';
+      const dataUrl = exportCanvas.toDataURL(mimeType, exportQuality / 100);
+      const link = document.createElement('a');
+      const ext = exportFormat === 'png' ? 'png' : 'jpg';
+      link.download = `${(imageName || 'cropped').replace(/\.[^.]+$/, '')}_cropped.${ext}`;
+      link.href = dataUrl;
+      link.click();
+      showToast('Image exported!', 'success');
+    };
+
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: '#fff' }}>Crop & Export</span>
+            <div style={{ display: 'flex', gap: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px', padding: '3px' }}>
+              {presets.map(p => (
+                <button key={p.label} onClick={() => applyRatio(p.ratio)} style={{
+                  padding: '5px 10px', background: (aspectRatio === p.ratio || (aspectRatio === null && p.ratio === null)) ? t.primary : 'transparent',
+                  border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: '500'
+                }}>{p.label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <select value={exportFormat} onChange={e => setExportFormat(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}>
+              <option value="jpeg">JPEG</option>
+              <option value="png">PNG</option>
+            </select>
+            {exportFormat === 'jpeg' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Quality</span>
+                <input type="range" min="10" max="100" value={exportQuality} onChange={e => setExportQuality(Number(e.target.value))} style={{ width: '80px', accentColor: t.primary }} />
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', minWidth: '28px' }}>{exportQuality}%</span>
+              </div>
+            )}
+            <button onClick={handleExport} style={{ padding: '7px 20px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>Export</button>
+            <button onClick={onClose} style={{ padding: '7px 14px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+        {/* Canvas area */}
+        <div ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <canvas ref={canvasRef} onMouseDown={handleMouseDown} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: draggingHandle === 'move' ? 'move' : draggingHandle ? 'nwse-resize' : 'crosshair' }} />
+          {!imgLoaded && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>Loading image...</div>}
+        </div>
+      </div>
+    );
+  };
+
   // Activity Feed Component — Chronological feed with filtering and event icons
   const ActivityFeed = ({ asset, project }) => {
     const [actFilter, setActFilter] = useState('all');
@@ -9347,6 +9642,7 @@ export default function MainApp() {
         case 'status': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2"><polyline points="20,6 9,17 4,12"/></svg>, color: '#22c55e', bg: 'rgba(34,197,94,0.12)' };
         case 'round': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2"><polyline points="23,4 23,10 17,10"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/></svg>, color: '#06b6d4', bg: 'rgba(6,182,212,0.12)' };
         case 'extension-request': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>, color: '#ef4444', bg: 'rgba(239,68,68,0.12)' };
+        case 'agency-review': case 'agency-approved': case 'agency-changes': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>, color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)' };
         case 'handoff': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>, color: '#ec4899', bg: 'rgba(236,72,153,0.12)' };
         default: return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>, color: t.textMuted, bg: t.bgHover };
       }
