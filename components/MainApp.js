@@ -725,14 +725,19 @@ const StarRating = ({ rating = 0, onChange, size = 18, readonly = false }) => {
   return <div style={{ display: 'flex', gap: '3px' }}>{[1,2,3,4,5].map(star => <span key={star} onClick={() => !readonly && onChange?.(star === rating ? 0 : star)} onMouseEnter={() => !readonly && setHover(star)} onMouseLeave={() => !readonly && setHover(0)} style={{ cursor: readonly ? 'default' : 'pointer', fontSize: size, color: star <= (hover || rating) ? '#fbbf24' : '#3a3a4a', transition: 'color 0.1s' }}>★</span>)}</div>;
 };
 
-const VideoThumbnail = ({ src, thumbnail, duration, style }) => {
+const VideoThumbnail = ({ src, thumbnail, muxPlaybackId, duration, style }) => {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const [scrubPos, setScrubPos] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [inView, setInView] = useState(false);
-  
+  const [thumbError, setThumbError] = useState(false);
+
+  // Compute best poster/thumbnail URL
+  const posterUrl = thumbnail || (muxPlaybackId ? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg?width=400&height=300&fit_mode=smartcrop` : null);
+  const videoSrc = src || (muxPlaybackId ? `https://stream.mux.com/${muxPlaybackId}.m3u8` : null);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect(); } },
@@ -741,51 +746,56 @@ const VideoThumbnail = ({ src, thumbnail, duration, style }) => {
     if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
-  
+
   const handleMove = (clientX, rect) => {
     if (!videoRef.current || !isLoaded) return;
     const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     setScrubPos(pos);
     videoRef.current.currentTime = pos * (videoRef.current.duration || 0);
   };
-  
+
   const handleMouseMove = (e) => handleMove(e.clientX, e.currentTarget.getBoundingClientRect());
   const handleTouchMove = (e) => {
     e.preventDefault();
     const touch = e.touches[0];
     handleMove(touch.clientX, e.currentTarget.getBoundingClientRect());
   };
-  
+
   return (
-    <div 
+    <div
       ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '100%', background: '#1a1a2e', ...style }} 
-      onMouseEnter={() => setIsHovering(true)} 
-      onMouseLeave={() => setIsHovering(false)} 
+      style={{ position: 'relative', width: '100%', height: '100%', background: '#1a1a2e', ...style }}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       onMouseMove={handleMouseMove}
       onTouchStart={() => setIsHovering(true)}
       onTouchEnd={() => setIsHovering(false)}
       onTouchMove={handleTouchMove}
     >
-      {/* Show thumbnail first if available */}
-      {thumbnail && !isLoaded && (
-        <img src={thumbnail} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      {/* Show thumbnail/poster first */}
+      {posterUrl && !thumbError && !isLoaded && (
+        <img src={posterUrl} alt="" onError={() => setThumbError(true)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       )}
-      {!thumbnail && !isLoaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '12px', color: '#888' }}>Video</span></div>}
-      {inView && (
-        <video 
-          ref={videoRef} 
-          src={src} 
-          muted 
-          preload="metadata" 
+      {(!posterUrl || thumbError) && !isLoaded && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1a1a2e 0%, #2d1b69 100%)' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"><polygon points="5,3 19,12 5,21"/></svg>
+          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>VIDEO</span>
+        </div>
+      )}
+      {inView && videoSrc && !muxPlaybackId && (
+        <video
+          ref={videoRef}
+          src={videoSrc}
+          muted
+          preload="metadata"
           playsInline
           onLoadedData={() => setIsLoaded(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isLoaded ? 1 : 0, transition: 'opacity 0.2s' }} 
+          style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isLoaded ? 1 : 0, transition: 'opacity 0.2s' }}
         />
       )}
       {isHovering && isLoaded && <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${scrubPos * 100}%`, width: '2px', background: '#ef4444', pointerEvents: 'none' }} />}
       {duration && <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>{formatDuration(duration)}</div>}
-      {!isLoaded && <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '9px' }}>Video</div>}
+      {!isLoaded && !posterUrl && <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '9px' }}>Video</div>}
     </div>
   );
 };
@@ -1754,8 +1764,10 @@ export default function MainApp() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [draggedAsset, setDraggedAsset] = useState(null);
     
-    const allAssets = projects.flatMap(p => (p.assets || []).filter(a => !a.deleted && a.dueDate).map(a => ({ ...a, projectName: p.name, projectId: p.id })));
-    
+    const allAssets = projects.flatMap(p => (p.assets || []).filter(a => !a.deleted && a.dueDate).map(a => ({ ...a, projectName: p.name, projectId: p.id, _type: 'asset' })));
+    const allTasks = (globalTasks || []).filter(t => t.dueDate && t.status !== 'done').map(t => ({ ...t, name: t.title, _type: 'task' }));
+    const allCalendarItems = [...allAssets, ...allTasks];
+
     // Generate calendar days
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -1768,10 +1780,10 @@ export default function MainApp() {
     for (let i = 0; i < startPad; i++) days.push(null);
     for (let i = 1; i <= totalDays; i++) days.push(i);
     
-    const getAssetsForDay = (day) => {
+    const getItemsForDay = (day) => {
       if (!day) return [];
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      return allAssets.filter(a => a.dueDate?.startsWith(dateStr));
+      return allCalendarItems.filter(a => a.dueDate?.startsWith(dateStr));
     };
     
     const handleDrop = async (day) => {
@@ -1817,7 +1829,7 @@ export default function MainApp() {
         {/* Calendar grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', background: `${t.border}40`, border: `1px solid ${t.border}`, borderRadius: '14px', overflow: 'hidden' }}>
           {days.map((day, idx) => {
-            const dayAssets = getAssetsForDay(day);
+            const dayAssets = getItemsForDay(day);
             const isPast = day && new Date(year, month, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
             const hasEvents = dayAssets.length > 0;
             const statusColors = { approved: '#22c55e', 'in-progress': '#6366f1', pending: '#f59e0b', revision: '#f97316' };
@@ -1852,60 +1864,43 @@ export default function MainApp() {
                     </div>
 
                     {/* Event bars */}
-                    {dayAssets.length > 0 && dayAssets.length <= 2 && (
+                    {dayAssets.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        {dayAssets.map(a => (
-                          <div
-                            key={a.id}
-                            draggable
-                            onDragStart={() => setDraggedAsset(a)}
-                            onDragEnd={() => setDraggedAsset(null)}
-                            onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }}
-                            style={{
-                              padding: '3px 6px',
-                              background: a.status === 'approved' ? 'rgba(34,197,94,0.15)' : isPast ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)',
-                              borderLeft: `2px solid ${statusColors[a.status] || t.primary}`,
-                              borderRadius: '0 4px 4px 0',
-                              fontSize: '11px',
-                              cursor: 'grab',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              color: t.text,
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            {a.name}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {dayAssets.length > 2 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        {dayAssets.slice(0, 2).map(a => (
-                          <div
-                            key={a.id}
-                            draggable
-                            onDragStart={() => setDraggedAsset(a)}
-                            onDragEnd={() => setDraggedAsset(null)}
-                            onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }}
-                            style={{
-                              padding: '3px 6px',
-                              background: a.status === 'approved' ? 'rgba(34,197,94,0.15)' : isPast ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)',
-                              borderLeft: `2px solid ${statusColors[a.status] || t.primary}`,
-                              borderRadius: '0 4px 4px 0',
-                              fontSize: '11px',
-                              cursor: 'grab',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              color: t.text
-                            }}
-                          >
-                            {a.name}
-                          </div>
-                        ))}
-                        <div style={{ fontSize: '11px', color: t.primary, fontWeight: '500', paddingLeft: '6px' }}>+{dayAssets.length - 2} more</div>
+                        {dayAssets.slice(0, 2).map(a => {
+                          const isTask = a._type === 'task';
+                          const priorityColors = { urgent: '#ef4444', high: '#f97316', medium: '#fbbf24', low: '#22c55e' };
+                          const bgColor = isTask
+                            ? `${priorityColors[a.priority] || '#8b5cf6'}15`
+                            : (a.status === 'approved' ? 'rgba(34,197,94,0.15)' : isPast ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)');
+                          const borderColor = isTask
+                            ? (priorityColors[a.priority] || '#8b5cf6')
+                            : (statusColors[a.status] || t.primary);
+                          return (
+                            <div
+                              key={a.id}
+                              draggable={!isTask}
+                              onDragStart={() => !isTask && setDraggedAsset(a)}
+                              onDragEnd={() => setDraggedAsset(null)}
+                              onClick={() => { if (a.projectId) { setSelectedProjectId(a.projectId); setView('projects'); } }}
+                              style={{
+                                padding: '3px 6px',
+                                background: bgColor,
+                                borderLeft: `2px solid ${borderColor}`,
+                                borderRadius: '0 4px 4px 0',
+                                fontSize: '11px',
+                                cursor: isTask ? 'pointer' : 'grab',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                color: t.text,
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              {isTask ? '✓ ' : ''}{a.name}
+                            </div>
+                          );
+                        })}
+                        {dayAssets.length > 2 && <div style={{ fontSize: '11px', color: t.primary, fontWeight: '500', paddingLeft: '6px' }}>+{dayAssets.length - 2} more</div>}
                       </div>
                     )}
                   </>
@@ -5908,9 +5903,14 @@ export default function MainApp() {
     const editors = [...coreTeam, ...freelancers].filter(u => Object.keys(TEAM_ROLES).includes(u.role));
     const availableTeam = [...coreTeam, ...freelancers].filter(u => !team.find(m => m.id === u.id));
 
-    const getAssets = () => { 
-      let a = (selectedProject.assets || []).filter(x => !x.deleted); 
-      if (selectedCat) a = a.filter(x => x.category === selectedCat); 
+    const getAssets = () => {
+      let a = (selectedProject.assets || []).filter(x => !x.deleted);
+      if (selectedCat) {
+        if (selectedCat === '__videos__') a = a.filter(x => x.type === 'video');
+        else if (selectedCat === '__selected__') a = a.filter(x => x.isSelected);
+        else if (selectedCat === '__not_selected__') a = a.filter(x => !x.isSelected);
+        else a = a.filter(x => x.category === selectedCat);
+      }
       const typeOrder = { image: 0, video: 1, audio: 2, other: 3 };
       return a.sort((x, y) => (typeOrder[x.type] || 3) - (typeOrder[y.type] || 3));
     };
@@ -6706,7 +6706,8 @@ export default function MainApp() {
             {tab === 'assets' && assets.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
                 <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'grid' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}>Grid</button>
-                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'kanban' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}> Kanban</button>
+                <button onClick={() => setViewMode('list')} style={{ padding: '6px 12px', background: viewMode === 'list' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'list' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}>List</button>
+                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'kanban' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}>Kanban</button>
               </div>
             )}
           </div>
@@ -6762,11 +6763,68 @@ export default function MainApp() {
                     {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>Upload</Btn>}
                   </div>
                 ) : viewMode === 'kanban' ? (
-                  <KanbanView 
-                    assets={assets} 
-                    onUpdateStatus={handleUpdateStatus} 
-                    projectId={selectedProject.id} 
+                  <KanbanView
+                    assets={assets}
+                    onUpdateStatus={handleUpdateStatus}
+                    projectId={selectedProject.id}
                   />
+                ) : viewMode === 'list' ? (
+                  <div>
+                    {/* List View Header */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '40px 48px 1fr 100px 90px 80px 90px 80px', gap: '8px', alignItems: 'center', padding: '8px 12px', borderBottom: `1px solid ${t.border}`, fontSize: '10px', fontWeight: '600', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <span></span>
+                      <span>Thumb</span>
+                      <span>Name</span>
+                      <span>Status</span>
+                      <span>Assigned</span>
+                      <span>Rating</span>
+                      <span>Due Date</span>
+                      <span>Version</span>
+                    </div>
+                    {/* List View Rows */}
+                    {displayAssets
+                      .filter(a => {
+                        if (selectedCat === '__selected__') return a.isSelected;
+                        if (selectedCat === '__not_selected__') return !a.isSelected;
+                        return true;
+                      })
+                      .map(a => {
+                      const hasNewVersion = getLatestVersionDate(a) && isNewVersion(getLatestVersionDate(a));
+                      return (
+                        <div key={a.id} className="hover-lift" onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }}
+                          style={{ display: 'grid', gridTemplateColumns: '40px 48px 1fr 100px 90px 80px 90px 80px', gap: '8px', alignItems: 'center', padding: '10px 12px', borderBottom: `1px solid ${t.borderLight}`, cursor: 'pointer', transition: 'background 0.15s', borderRadius: '6px', background: selectedAssets.has(a.id) ? `${t.primary}10` : 'transparent' }}
+                          onMouseEnter={e => e.currentTarget.style.background = selectedAssets.has(a.id) ? `${t.primary}15` : t.bgHover}
+                          onMouseLeave={e => e.currentTarget.style.background = selectedAssets.has(a.id) ? `${t.primary}10` : 'transparent'}
+                        >
+                          {/* Checkbox */}
+                          <div onClick={e => { e.stopPropagation(); setSelectedAssets(s => { const n = new Set(s); n.has(a.id) ? n.delete(a.id) : n.add(a.id); return n; }); }} style={{ width: '22px', height: '22px', borderRadius: '6px', background: selectedAssets.has(a.id) ? '#6366f1' : t.bgInput, border: `1.5px solid ${selectedAssets.has(a.id) ? '#6366f1' : t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>{selectedAssets.has(a.id) && <span style={{ color: '#fff', fontSize: '11px' }}>✓</span>}</div>
+                          {/* Thumbnail */}
+                          <div style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', background: t.bgInput, flexShrink: 0 }}>
+                            {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} muxPlaybackId={a.muxPlaybackId} style={{ width: '40px', height: '40px' }} /> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '40px', height: '40px', objectFit: 'cover' }} /> : <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{a.type === 'audio' ? '🎵' : '📄'}</div>}
+                          </div>
+                          {/* Name + type */}
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{ fontSize: '12px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {a.name}
+                              {a.isSelected && <span style={{ background: '#22c55e', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: '700' }}>SEL</span>}
+                              {hasNewVersion && <span style={{ background: '#f97316', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: '700' }}>NEW</span>}
+                            </div>
+                            <div style={{ fontSize: '10px', color: t.textMuted }}>{a.type?.toUpperCase()} {a.category ? `• ${a.category}` : ''}</div>
+                          </div>
+                          {/* Status */}
+                          <div>{(() => { const sc = STATUS[a.status] || STATUS.pending; return <span style={{ padding: '3px 8px', background: sc.bg, color: sc.color, borderRadius: '10px', fontSize: '9px', fontWeight: '600' }}>{sc.label}</span>; })()}</div>
+                          {/* Assigned */}
+                          <div style={{ fontSize: '10px', color: a.assignedToName ? t.text : t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.assignedToName || '—'}</div>
+                          {/* Rating */}
+                          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '1px' }}>{[1,2,3,4,5].map(star => <span key={star} onClick={() => handleRate(a.id, star)} style={{ cursor: 'pointer', fontSize: '12px', color: star <= (a.rating || 0) ? '#fbbf24' : `${t.textMuted}40` }}>★</span>)}</div>
+                          {/* Due Date */}
+                          <div style={{ fontSize: '10px', color: a.dueDate ? (new Date(a.dueDate) < new Date() ? '#ef4444' : t.text) : t.textMuted }}>{a.dueDate ? new Date(a.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '—'}</div>
+                          {/* Version */}
+                          <div style={{ fontSize: '11px', color: t.textMuted }}>v{a.currentVersion || 1}{a.revisionRound > 0 && <span style={{ marginLeft: '4px', color: '#8b5cf6', fontWeight: '600' }}>R{a.revisionRound}</span>}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div>
                     {/* Photoshoot Selection Phase Filter */}
@@ -6870,7 +6928,7 @@ export default function MainApp() {
                           )}
                           
                           <div className="asset-thumb-area" onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: t.bgInput, position: 'relative', overflow: 'hidden' }}>
-                            {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}></span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>DOC</span></div>}
+                            {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} muxPlaybackId={a.muxPlaybackId} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}></span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>DOC</span></div>}
                             {/* Version badge - top left */}
                             {a.currentVersion > 1 && <div style={{ position: 'absolute', top: '8px', left: '40px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '10px', padding: '2px 8px', fontSize: '9px', color: '#fff', fontWeight: '600', zIndex: 4 }}>v{a.currentVersion}</div>}
                             {/* Status dot - top right */}
@@ -7249,301 +7307,302 @@ export default function MainApp() {
         )}
 
         {/* Edit Project Modal */}
-        {showEditProject && (
-          <Modal theme={theme} title="Edit Project" onClose={() => setShowEditProject(false)}>
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '70vh', overflow: 'auto' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Project Name</label>
-                <Input 
-                  value={editProjectData.name} 
-                  onChange={(v) => setEditProjectData({ ...editProjectData, name: v })} 
-                  placeholder="Project name" 
-                />
+        {showEditProject && (() => {
+          const editTab = editProjectData._tab || 'general';
+          const setEditTab = (tab) => setEditProjectData(d => ({ ...d, _tab: tab }));
+          const projectTeam = selectedProject.assignedTeam || [];
+          const allMembers = [...users, ...freelancers, ...coreTeam].filter((m, i, arr) => m?.id && arr.findIndex(x => x?.id === m.id) === i);
+          const availableMembers = allMembers.filter(m => !projectTeam.some(t => t.odId === m.id));
+
+          return (
+          <Modal theme={theme} title="Edit Project" onClose={() => setShowEditProject(false)} size="lg">
+            <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '75vh' }}>
+              {/* Tab Navigation */}
+              <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${t.border}`, padding: '0 20px', flexShrink: 0 }}>
+                {[
+                  { id: 'general', label: 'General', icon: '📋' },
+                  { id: 'team', label: 'Team', icon: '👥' },
+                  { id: 'deliverables', label: 'Deliverables', icon: '📦' },
+                  { id: 'workflow', label: 'Workflow', icon: '⚙️' },
+                ].map(tab => (
+                  <button key={tab.id} onClick={() => setEditTab(tab.id)} style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: editTab === tab.id ? '2px solid #6366f1' : '2px solid transparent', color: editTab === tab.id ? '#6366f1' : t.textSecondary, fontSize: '12px', fontWeight: editTab === tab.id ? '600' : '400', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
+                    <span style={{ fontSize: '14px' }}>{tab.icon}</span>{!isMobile && tab.label}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Client</label>
-                <Input 
-                  value={editProjectData.client} 
-                  onChange={(v) => setEditProjectData({ ...editProjectData, client: v })} 
-                  placeholder="Client name" 
-                />
+
+              {/* Tab Content */}
+              <div style={{ padding: '20px', overflow: 'auto', flex: 1 }}>
+                {/* General Tab */}
+                {editTab === 'general' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Project Name</label>
+                        <Input value={editProjectData.name} onChange={(v) => setEditProjectData({ ...editProjectData, name: v })} placeholder="Project name" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Client</label>
+                        <Input value={editProjectData.client} onChange={(v) => setEditProjectData({ ...editProjectData, client: v })} placeholder="Client name" />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Status</label>
+                        <Select theme={theme} value={editProjectData.status} onChange={(v) => setEditProjectData({ ...editProjectData, status: v })}>
+                          <option value="active">Active</option>
+                          <option value="completed">Completed</option>
+                          <option value="on-hold">On Hold</option>
+                          <option value="archived">Archived</option>
+                        </Select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Project Type</label>
+                        <Select theme={theme} value={editProjectData.type || 'photoshoot'} onChange={(v) => setEditProjectData({ ...editProjectData, type: v })}>
+                          <option value="photoshoot">Photoshoot</option>
+                          <option value="video-production">Video Production</option>
+                          <option value="ad-film">Ad Film</option>
+                          <option value="toolkit">Toolkit</option>
+                          <option value="cgi-animation">CGI/Animation</option>
+                          <option value="social-content">Social Content</option>
+                          <option value="product-photography">Product Photography</option>
+                          <option value="event-coverage">Event Coverage</option>
+                          <option value="retouch-only">Retouch Only</option>
+                          <option value="color-grade">Color Grade Only</option>
+                          <option value="post-production">Post Production</option>
+                          <option value="motion-graphics">Motion Graphics</option>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Categories</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {DEFAULT_CATEGORIES.map(cat => {
+                          const isActive = editProjectData.categories?.some(c => c.id === cat.id);
+                          return (
+                            <button key={cat.id} onClick={() => {
+                              if (isActive) setEditProjectData({ ...editProjectData, categories: editProjectData.categories.filter(c => c.id !== cat.id) });
+                              else setEditProjectData({ ...editProjectData, categories: [...(editProjectData.categories || []), cat] });
+                            }} style={{ padding: '7px 12px', background: isActive ? `${cat.color}20` : t.bgInput, border: `1px solid ${isActive ? cat.color : t.border}`, borderRadius: '8px', color: isActive ? cat.color : t.textSecondary, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
+                              {Icons[cat.icon] && Icons[cat.icon](isActive ? cat.color : t.textMuted)}
+                              {cat.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Team Tab */}
+                {editTab === 'team' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '600' }}>Team Members</div>
+                        <div style={{ fontSize: '10px', color: t.textMuted }}>{projectTeam.length} member{projectTeam.length !== 1 ? 's' : ''} assigned</div>
+                      </div>
+                    </div>
+                    {/* Current Team */}
+                    {projectTeam.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {projectTeam.map(tm => {
+                          const member = allMembers.find(m => m.id === tm.odId);
+                          if (!member) return null;
+                          const roleInfo = TEAM_ROLES[member.role] || CORE_ROLES[member.role] || { label: member.role || 'Member', color: '#6b7280' };
+                          return (
+                            <div key={tm.odId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: t.bgInput, borderRadius: '10px', border: `1px solid ${t.borderLight}` }}>
+                              <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: `${roleInfo.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700', color: roleInfo.color, flexShrink: 0 }}>{(member.name || '?')[0].toUpperCase()}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '12px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</div>
+                                <div style={{ fontSize: '10px', color: roleInfo.color, fontWeight: '500' }}>{roleInfo.label}{member.email ? ` • ${member.email}` : ''}</div>
+                              </div>
+                              {isProducer && (
+                                <button onClick={async () => {
+                                  const updated = projectTeam.filter(x => x.odId !== tm.odId);
+                                  await updateProject(selectedProject.id, { assignedTeam: updated });
+                                  await refreshProject();
+                                  showToast(`${member.name} removed`, 'success');
+                                }} style={{ padding: '4px 8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: '#ef4444', fontSize: '10px', cursor: 'pointer', fontWeight: '500', flexShrink: 0 }}>Remove</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ padding: '24px', textAlign: 'center', background: t.bgInput, borderRadius: '10px', border: `1px dashed ${t.border}` }}>
+                        <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.4 }}>👥</div>
+                        <div style={{ fontSize: '12px', color: t.textMuted }}>No team members assigned yet</div>
+                      </div>
+                    )}
+                    {/* Add Member */}
+                    {isProducer && availableMembers.length > 0 && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Add Team Member</label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <select id="addMemberSelect" style={{ flex: 1, padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '11px' }}>
+                            <option value="">Select member...</option>
+                            {availableMembers.map(m => {
+                              const ri = TEAM_ROLES[m.role] || CORE_ROLES[m.role] || { label: m.role || 'Member' };
+                              return <option key={m.id} value={m.id}>{m.name} ({ri.label})</option>;
+                            })}
+                          </select>
+                          <Btn theme={theme} onClick={async () => {
+                            const sel = document.getElementById('addMemberSelect');
+                            const uid = sel?.value;
+                            if (!uid) return;
+                            const u = allMembers.find(x => x.id === uid);
+                            if (!u) return;
+                            const updated = [...projectTeam, { odId: uid, odRole: u.role }];
+                            await updateProject(selectedProject.id, { assignedTeam: updated });
+                            await refreshProject();
+                            sel.value = '';
+                            showToast(`${u.name} added`, 'success');
+                          }} small>+ Add</Btn>
+                        </div>
+                      </div>
+                    )}
+                    {/* Client Contacts */}
+                    <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: '14px', marginTop: '4px' }}>
+                      <div style={{ fontSize: '11px', color: t.textMuted, fontWeight: '500', marginBottom: '8px' }}>Client Contacts</div>
+                      {(selectedProject.clientContacts || []).length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {(selectedProject.clientContacts || []).map(c => (
+                            <span key={c.odId || c.id} style={{ padding: '4px 10px', background: 'rgba(14,165,233,0.1)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: '8px', fontSize: '10px', color: '#0ea5e9' }}>{c.name || c.odId}</span>
+                          ))}
+                        </div>
+                      ) : <div style={{ fontSize: '11px', color: t.textMuted }}>No client contacts</div>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Deliverables Tab */}
+                {editTab === 'deliverables' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Required Photo Formats</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {FILE_FORMATS.photo.map(fmt => {
+                          const isActive = (editProjectData.requiredFormats || []).includes(fmt.id);
+                          return <button key={fmt.id} onClick={() => { const updated = isActive ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id) : [...(editProjectData.requiredFormats || []), fmt.id]; setEditProjectData({ ...editProjectData, requiredFormats: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(99,102,241,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '8px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{fmt.label}</button>;
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Required Video Formats</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {FILE_FORMATS.video.map(fmt => {
+                          const isActive = (editProjectData.requiredFormats || []).includes(fmt.id);
+                          return <button key={fmt.id} onClick={() => { const updated = isActive ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id) : [...(editProjectData.requiredFormats || []), fmt.id]; setEditProjectData({ ...editProjectData, requiredFormats: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(99,102,241,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '8px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{fmt.label}</button>;
+                        })}
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Photo Sizes/Adapts</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {SIZE_PRESETS.photo.map(size => {
+                            const isActive = (editProjectData.requiredSizes || []).includes(size.id);
+                            return <button key={size.id} onClick={() => { const updated = isActive ? (editProjectData.requiredSizes || []).filter(s => s !== size.id) : [...(editProjectData.requiredSizes || []), size.id]; setEditProjectData({ ...editProjectData, requiredSizes: updated }); }} style={{ padding: '5px 10px', background: isActive ? 'rgba(34,197,94,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#22c55e' : t.border}`, borderRadius: '8px', color: isActive ? '#22c55e' : t.textSecondary, fontSize: '10px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{size.label}</button>;
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Video Sizes</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {SIZE_PRESETS.video.map(size => {
+                            const isActive = (editProjectData.requiredSizes || []).includes(size.id);
+                            return <button key={size.id} onClick={() => { const updated = isActive ? (editProjectData.requiredSizes || []).filter(s => s !== size.id) : [...(editProjectData.requiredSizes || []), size.id]; setEditProjectData({ ...editProjectData, requiredSizes: updated }); }} style={{ padding: '5px 10px', background: isActive ? 'rgba(34,197,94,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#22c55e' : t.border}`, borderRadius: '8px', color: isActive ? '#22c55e' : t.textSecondary, fontSize: '10px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{size.label}</button>;
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', alignItems: 'end' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Max Revision Rounds</label>
+                        <input type="number" min="0" max="20" value={editProjectData.maxRevisions || 0} onChange={(e) => setEditProjectData({ ...editProjectData, maxRevisions: parseInt(e.target.value) || 0 })} style={{ width: '80px', padding: '8px 10px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '12px' }} />
+                        <span style={{ fontSize: '9px', color: t.textMuted, marginLeft: '6px' }}>0 = unlimited</span>
+                      </div>
+                      <div style={{ background: 'rgba(99,102,241,0.08)', borderRadius: '10px', padding: '10px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#6366f1' }}>Quick Presets</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {[
+                            { label: 'Photo', formats: ['jpg-web', 'psd', 'tiff'], sizes: ['original', 'web-large', 'social-square', 'social-portrait'], max: 3, roles: ['producer', 'editor', 'retoucher'] },
+                            { label: 'Video', formats: ['mp4-web', 'mp4-hq', 'mov-prores'], sizes: ['1080p', '4k', 'square', 'vertical'], max: 5, roles: ['producer', 'editor', 'colorist', 'vfx', 'sound'] },
+                            { label: 'Social', formats: ['jpg-web', 'png'], sizes: ['social-square', 'social-portrait', 'social-story'], max: 2, roles: ['producer', 'editor'] },
+                          ].map(preset => (
+                            <button key={preset.label} onClick={() => setEditProjectData({ ...editProjectData, requiredFormats: preset.formats, requiredSizes: preset.sizes, maxRevisions: preset.max, versionUploadRoles: preset.roles })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', fontSize: '9px', cursor: 'pointer', color: t.text }}>{preset.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Workflow Tab */}
+                {editTab === 'workflow' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Who can upload new versions?</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {[{ id: 'producer', label: 'Producer' }, { id: 'editor', label: 'Editor' }, { id: 'colorist', label: 'Colorist' }, { id: 'vfx', label: 'VFX Artist' }, { id: 'retoucher', label: 'Retoucher' }, { id: 'sound', label: 'Sound' }].map(role => {
+                          const isActive = (editProjectData.versionUploadRoles || ['producer', 'editor']).includes(role.id);
+                          return <button key={role.id} onClick={() => { const current = editProjectData.versionUploadRoles || ['producer', 'editor']; const updated = isActive ? current.filter(r => r !== role.id) : [...current, role.id]; setEditProjectData({ ...editProjectData, versionUploadRoles: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(99,102,241,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '8px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{role.label}</button>;
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500' }}>Approval Workflow</label>
+                      <Select theme={theme} value={editProjectData.approvalWorkflow || 'producer'} onChange={(v) => setEditProjectData({ ...editProjectData, approvalWorkflow: v })}>
+                        <option value="producer">Producer Only</option>
+                        <option value="client">Client Approval Required</option>
+                        <option value="both">Producer + Client</option>
+                      </Select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '8px', fontWeight: '500' }}>Auto-Notifications</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px' }}>
+                        {[
+                          { id: 'notifyOnUpload', label: 'Notify client on upload' },
+                          { id: 'notifyOnVersion', label: 'Notify on new version' },
+                          { id: 'notifyOnApproval', label: 'Notify team on approval' },
+                          { id: 'notifyOnDeadline', label: 'Deadline reminders' },
+                        ].map(opt => (
+                          <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', padding: '8px 10px', background: t.bgInput, borderRadius: '8px', border: `1px solid ${t.borderLight}` }}>
+                            <input type="checkbox" checked={editProjectData[opt.id] ?? true} onChange={(e) => setEditProjectData({ ...editProjectData, [opt.id]: e.target.checked })} style={{ accentColor: '#6366f1' }} />
+                            {opt.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Status</label>
-                <Select theme={theme} value={editProjectData.status} onChange={(v) => setEditProjectData({ ...editProjectData, status: v })}>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="on-hold">On Hold</option>
-                  <option value="archived">Archived</option>
-                </Select>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Categories</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {DEFAULT_CATEGORIES.map(cat => {
-                    const isActive = editProjectData.categories?.some(c => c.id === cat.id);
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          if (isActive) {
-                            setEditProjectData({ ...editProjectData, categories: editProjectData.categories.filter(c => c.id !== cat.id) });
-                          } else {
-                            setEditProjectData({ ...editProjectData, categories: [...(editProjectData.categories || []), cat] });
-                          }
-                        }}
-                        style={{
-                          padding: '8px 14px',
-                          background: isActive ? `${cat.color}20` : t.bgInput,
-                          border: `1px solid ${isActive ? cat.color : t.border}`,
-                          borderRadius: '8px',
-                          color: isActive ? cat.color : t.textSecondary,
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        {Icons[cat.icon] && Icons[cat.icon](isActive ? cat.color : t.textMuted)}
-                        {cat.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              
-              {/* Deliverables Section */}
-              <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: '16px', marginTop: '8px' }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>Deliverables Requirements</h4>
-                
-                {/* Required Formats */}
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Required File Formats (Photo)</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {FILE_FORMATS.photo.map(fmt => {
-                      const isActive = (editProjectData.requiredFormats || []).includes(fmt.id);
-                      return (
-                        <button key={fmt.id} onClick={() => {
-                          const updated = isActive 
-                            ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id)
-                            : [...(editProjectData.requiredFormats || []), fmt.id];
-                          setEditProjectData({ ...editProjectData, requiredFormats: updated });
-                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(99,102,241,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '6px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{fmt.label}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Required File Formats (Video)</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {FILE_FORMATS.video.map(fmt => {
-                      const isActive = (editProjectData.requiredFormats || []).includes(fmt.id);
-                      return (
-                        <button key={fmt.id} onClick={() => {
-                          const updated = isActive 
-                            ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id)
-                            : [...(editProjectData.requiredFormats || []), fmt.id];
-                          setEditProjectData({ ...editProjectData, requiredFormats: updated });
-                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(99,102,241,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '6px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{fmt.label}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                {/* Required Sizes */}
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Required Sizes/Adapts (Photo)</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {SIZE_PRESETS.photo.map(size => {
-                      const isActive = (editProjectData.requiredSizes || []).includes(size.id);
-                      return (
-                        <button key={size.id} onClick={() => {
-                          const updated = isActive 
-                            ? (editProjectData.requiredSizes || []).filter(s => s !== size.id)
-                            : [...(editProjectData.requiredSizes || []), size.id];
-                          setEditProjectData({ ...editProjectData, requiredSizes: updated });
-                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(34,197,94,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#22c55e' : t.border}`, borderRadius: '6px', color: isActive ? '#22c55e' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{size.label}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Required Sizes (Video)</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {SIZE_PRESETS.video.map(size => {
-                      const isActive = (editProjectData.requiredSizes || []).includes(size.id);
-                      return (
-                        <button key={size.id} onClick={() => {
-                          const updated = isActive 
-                            ? (editProjectData.requiredSizes || []).filter(s => s !== size.id)
-                            : [...(editProjectData.requiredSizes || []), size.id];
-                          setEditProjectData({ ...editProjectData, requiredSizes: updated });
-                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(34,197,94,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#22c55e' : t.border}`, borderRadius: '6px', color: isActive ? '#22c55e' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{size.label}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                {/* Max Revisions */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Max Revision Rounds (0 = unlimited)</label>
-                  <input type="number" min="0" max="20" value={editProjectData.maxRevisions || 0} onChange={(e) => setEditProjectData({ ...editProjectData, maxRevisions: parseInt(e.target.value) || 0 })} style={{ width: '80px', padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '12px' }} />
-                </div>
-              </div>
-              
-              {/* Workflow Settings */}
-              <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: '16px', marginTop: '8px' }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons.settings(t.text)} Workflow Settings</h4>
-                
-                {/* Who can upload versions */}
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Who can upload new versions?</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {[
-                      { id: 'producer', label: 'Producer' },
-                      { id: 'editor', label: 'Editor' },
-                      { id: 'colorist', label: 'Colorist' },
-                      { id: 'vfx', label: 'VFX Artist' },
-                      { id: 'retoucher', label: 'Retoucher' },
-                      { id: 'sound', label: 'Sound' },
-                    ].map(role => {
-                      const isActive = (editProjectData.versionUploadRoles || ['producer', 'editor']).includes(role.id);
-                      return (
-                        <button key={role.id} onClick={() => {
-                          const current = editProjectData.versionUploadRoles || ['producer', 'editor'];
-                          const updated = isActive ? current.filter(r => r !== role.id) : [...current, role.id];
-                          setEditProjectData({ ...editProjectData, versionUploadRoles: updated });
-                        }} style={{ padding: '4px 10px', background: isActive ? 'rgba(99,102,241,0.2)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '6px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '10px', cursor: 'pointer' }}>{role.label}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                {/* Approval workflow */}
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Approval Workflow</label>
-                  <Select theme={theme} value={editProjectData.approvalWorkflow || 'producer'} onChange={(v) => setEditProjectData({ ...editProjectData, approvalWorkflow: v })} style={{ width: '100%' }}>
-                    <option value="producer">Producer Only</option>
-                    <option value="client">Client Approval Required</option>
-                    <option value="both">Producer + Client</option>
-                  </Select>
-                </div>
-                
-                {/* Auto-notifications */}
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '8px' }}>Auto-Notifications</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {[
-                      { id: 'notifyOnUpload', label: 'Notify client when assets uploaded' },
-                      { id: 'notifyOnVersion', label: 'Notify on new version' },
-                      { id: 'notifyOnApproval', label: 'Notify team on approval' },
-                      { id: 'notifyOnDeadline', label: 'Send deadline reminders' },
-                    ].map(opt => (
-                      <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px' }}>
-                        <input type="checkbox" checked={editProjectData[opt.id] ?? true} onChange={(e) => setEditProjectData({ ...editProjectData, [opt.id]: e.target.checked })} style={{ accentColor: '#6366f1' }} />
-                        {opt.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Project Type Specific Settings */}
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Project Type</label>
-                  <Select theme={theme} value={editProjectData.type || selectedProject.type || 'photoshoot'} onChange={(v) => setEditProjectData({ ...editProjectData, type: v })} style={{ width: '100%' }}>
-                    <option value="photoshoot">Photoshoot</option>
-                    <option value="video-production">Video Production</option>
-                    <option value="ad-film">Ad Film</option>
-                    <option value="toolkit">Toolkit</option>
-                    <option value="cgi-animation">CGI/Animation</option>
-                    <option value="social-content">Social Content</option>
-                    <option value="product-photography">Product Photography</option>
-                    <option value="event-coverage">Event Coverage</option>
-                    <option value="retouch-only">Retouch Only</option>
-                    <option value="color-grade"> Color Grade Only</option>
-                    <option value="post-production">Post Production</option>
-                    <option value="motion-graphics">Motion Graphics</option>
-                  </Select>
-                </div>
-                
-                {/* Quick Presets based on project type */}
-                <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: '8px', padding: '10px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '8px', color: '#6366f1' }}>Quick Presets</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    <button onClick={() => setEditProjectData({ 
-                      ...editProjectData, 
-                      requiredFormats: ['jpg-web', 'psd', 'tiff'],
-                      requiredSizes: ['original', 'web-large', 'social-square', 'social-portrait'],
-                      maxRevisions: 3,
-                      versionUploadRoles: ['producer', 'editor', 'retoucher']
-                    })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
-                      Standard Photo
-                    </button>
-                    <button onClick={() => setEditProjectData({ 
-                      ...editProjectData, 
-                      requiredFormats: ['mp4-web', 'mp4-hq', 'mov-prores'],
-                      requiredSizes: ['1080p', '4k', 'square', 'vertical'],
-                      maxRevisions: 5,
-                      versionUploadRoles: ['producer', 'editor', 'colorist', 'vfx', 'sound']
-                    })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
-                      VID Video Project
-                    </button>
-                    <button onClick={() => setEditProjectData({ 
-                      ...editProjectData, 
-                      requiredFormats: ['jpg-web', 'png'],
-                      requiredSizes: ['social-square', 'social-portrait', 'social-story'],
-                      maxRevisions: 2,
-                      versionUploadRoles: ['producer', 'editor']
-                    })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
-                      Social Only
-                    </button>
-                    <button onClick={() => setEditProjectData({ 
-                      ...editProjectData, 
-                      requiredFormats: ['jpg-web', 'jpg-print', 'psd', 'tiff', 'png'],
-                      requiredSizes: ['original', '4k', 'web-large', 'social-square', 'social-portrait', 'social-story'],
-                      maxRevisions: 5,
-                      versionUploadRoles: ['producer', 'editor', 'retoucher', 'colorist']
-                    })} style={{ padding: '4px 8px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '9px', cursor: 'pointer', color: t.text }}>
-                      Full Toolkit
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                <Btn 
+
+              {/* Footer */}
+              <div style={{ display: 'flex', gap: '10px', padding: '16px 20px', borderTop: `1px solid ${t.border}`, flexShrink: 0 }}>
+                <Btn
                   onClick={async () => {
-                    await updateProject(selectedProject.id, { 
-                      name: editProjectData.name, 
-                      client: editProjectData.client,
-                      status: editProjectData.status,
-                      type: editProjectData.type,
-                      categories: editProjectData.categories,
-                      requiredFormats: editProjectData.requiredFormats,
-                      requiredSizes: editProjectData.requiredSizes,
-                      maxRevisions: editProjectData.maxRevisions,
-                      versionUploadRoles: editProjectData.versionUploadRoles,
-                      approvalWorkflow: editProjectData.approvalWorkflow,
-                      notifyOnUpload: editProjectData.notifyOnUpload,
-                      notifyOnVersion: editProjectData.notifyOnVersion,
-                      notifyOnApproval: editProjectData.notifyOnApproval,
-                      notifyOnDeadline: editProjectData.notifyOnDeadline
+                    const { _tab, ...data } = editProjectData;
+                    await updateProject(selectedProject.id, {
+                      name: data.name, client: data.client, status: data.status, type: data.type,
+                      categories: data.categories, requiredFormats: data.requiredFormats,
+                      requiredSizes: data.requiredSizes, maxRevisions: data.maxRevisions,
+                      versionUploadRoles: data.versionUploadRoles, approvalWorkflow: data.approvalWorkflow,
+                      notifyOnUpload: data.notifyOnUpload, notifyOnVersion: data.notifyOnVersion,
+                      notifyOnApproval: data.notifyOnApproval, notifyOnDeadline: data.notifyOnDeadline
                     });
                     await refreshProject();
                     setShowEditProject(false);
                     showToast('Project updated', 'success');
                   }}
-                >
-                  Save Changes
-                </Btn>
+                >Save Changes</Btn>
                 <Btn theme={theme} onClick={() => setShowEditProject(false)} outline>Cancel</Btn>
               </div>
             </div>
           </Modal>
-        )}
+          );
+        })()}
 
         {/* ASSET PREVIEW MODAL - FULL FEATURED LIGHTBOX WITH NAVIGATION */}
         {selectedAsset && (() => {
@@ -7704,7 +7763,7 @@ export default function MainApp() {
                   {/* CENTER: Preview/Annotation Area */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: t.bg, minWidth: 0, overflow: 'hidden' }}>
                     {/* Content Area */}
-                    <div onClick={(e) => { if (assetTab === 'annotate' && e.target === e.currentTarget) setAssetTab('preview'); }} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '8px 40px' : '16px 70px', overflow: 'hidden' }}>
+                    <div onClick={(e) => { if (assetTab === 'annotate' && e.target === e.currentTarget) setAssetTab('preview'); }} style={{ flex: 1, display: 'flex', alignItems: assetTab === 'annotate' ? 'stretch' : 'center', justifyContent: assetTab === 'annotate' ? 'stretch' : 'center', padding: assetTab === 'annotate' ? 0 : (isMobile ? '8px 40px' : '16px 70px'), overflow: 'hidden' }}>
                       {selectedAsset.type === 'video' ? (
                         selectedAsset.muxUploadId && !selectedAsset.url && !selectedAsset.muxPlaybackId ? (
                           <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -8271,19 +8330,19 @@ export default function MainApp() {
                     {/* Feedback moved to right sidebar */}
                   </div>
                   
-                  {/* RIGHT: Details Sidebar — Glassmorphic Collapsible Panels */}
+                  {/* RIGHT: Details Sidebar — Clean Collapsible Panels */}
                   {!isMobile && !isFullscreen && (
-                    <div style={{ width: isTablet ? '260px' : '300px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', flexShrink: 0 }}>
-                      {/* Sidebar Header — Always visible */}
-                      <div style={{ padding: '16px 16px 12px', borderBottom: `1px solid ${t.borderLight}` }}>
+                    <div style={{ width: isTablet ? '260px' : '300px', background: t.bgSecondary, borderLeft: `1px solid ${t.borderLight}`, overflow: 'auto', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                      {/* Sidebar Header */}
+                      <div style={{ padding: '14px 14px 12px', borderBottom: `1px solid ${t.border}`, flexShrink: 0, background: t.bgCard }}>
                         {/* Asset name + type */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                          <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${t.primary}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: t.primary, flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: `linear-gradient(135deg, ${t.primary}20, ${t.primary}10)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>
                             {selectedAsset.type === 'image' ? '🖼' : selectedAsset.type === 'video' ? '🎬' : selectedAsset.type === 'audio' ? '🎵' : '📄'}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '13px', fontWeight: '600', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedAsset.name}</div>
-                            <div style={{ fontSize: '10px', color: t.textMuted }}>v{selectedAsset.currentVersion} • {selectedAsset.mimeType?.split('/')[1] || selectedAsset.type}</div>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.2px' }}>{selectedAsset.name}</div>
+                            <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px' }}>v{selectedAsset.currentVersion} • {selectedAsset.mimeType?.split('/')[1]?.toUpperCase() || selectedAsset.type?.toUpperCase()}</div>
                           </div>
                           {/* Three-dot actions menu */}
                           <div style={{ position: 'relative' }}>
@@ -8324,16 +8383,17 @@ export default function MainApp() {
                       </div>
 
                       {/* Collapsible Sections Container */}
-                      <div style={{ padding: '10px 12px 20px' }}>
+                      <div style={{ padding: '8px 10px 20px', flex: 1, overflow: 'auto' }}>
 
                         {/* Section 1: Assignment */}
-                        {(() => { const [assignOpen, setAssignOpen] = [true, null]; return null; })() /* Assignment is always open inline */}
-                        <div style={{ marginBottom: '12px', background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '14px', overflow: 'hidden' }}>
-                          <button onClick={() => setSidebarSection(s => ({ ...s, assignment: !s.assignment }))} style={{ width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '12px', fontWeight: '600' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Assignment
-                              {selectedAsset.assignedTo && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: '600', background: `${t.primary}20`, color: t.primary }}>{editors.find(e => e.id === selectedAsset.assignedTo)?.name?.split(' ')[0] || 'Assigned'}</span>}
+                        <div style={{ marginBottom: '8px', background: t.bgCard, border: `1px solid ${t.borderLight}`, borderRadius: '12px', overflow: 'hidden' }}>
+                          <button onClick={() => setSidebarSection(s => ({ ...s, assignment: !s.assignment }))} style={{ width: '100%', padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '11px', fontWeight: '600', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                              Assignment
+                              {selectedAsset.assignedTo && <span style={{ fontSize: '9px', padding: '2px 8px', borderRadius: '10px', fontWeight: '600', background: `${t.primary}15`, color: t.primary, textTransform: 'none' }}>{editors.find(e => e.id === selectedAsset.assignedTo)?.name?.split(' ')[0] || 'Assigned'}</span>}
                             </div>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.assignment ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.assignment ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
                           </button>
                           {sidebarSection.assignment && (
                             <div style={{ padding: '0 14px 14px 14px' }}>
@@ -8490,12 +8550,14 @@ export default function MainApp() {
                         </div>
 
                         {/* Section 2: Versions */}
-                        <div style={{ marginBottom: '12px', background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '14px', overflow: 'hidden' }}>
-                          <button onClick={() => setSidebarSection(s => ({ ...s, versions: !s.versions }))} style={{ width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '12px', fontWeight: '600' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Versions
-                              <span style={{ padding: '2px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.2)' : t.bgHover, color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.textSecondary, borderRadius: '10px', fontSize: '9px', fontWeight: '700' }}>v{selectedAsset.currentVersion}</span>
+                        <div style={{ marginBottom: '8px', background: t.bgCard, border: `1px solid ${t.borderLight}`, borderRadius: '12px', overflow: 'hidden' }}>
+                          <button onClick={() => setSidebarSection(s => ({ ...s, versions: !s.versions }))} style={{ width: '100%', padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '11px', fontWeight: '600', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                              Versions
+                              <span style={{ padding: '2px 8px', background: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? 'rgba(249,115,22,0.15)' : t.bgHover, color: selectedAsset.currentVersion > 1 && isNewVersion(getLatestVersionDate(selectedAsset)) ? '#f97316' : t.textSecondary, borderRadius: '10px', fontSize: '9px', fontWeight: '700', textTransform: 'none' }}>v{selectedAsset.currentVersion}</span>
                             </div>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.versions ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.versions ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
                           </button>
                           {sidebarSection.versions && (
                             <div style={{ padding: '0 14px 14px 14px' }}>
@@ -8553,14 +8615,16 @@ export default function MainApp() {
                         </div>
 
                         {/* Section 3: Feedback */}
-                        <div style={{ marginBottom: '12px', background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '14px', overflow: 'hidden' }}>
-                          <button onClick={() => setSidebarSection(s => ({ ...s, feedback: !s.feedback }))} style={{ width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '12px', fontWeight: '600' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Feedback
+                        <div style={{ marginBottom: '8px', background: t.bgCard, border: `1px solid ${t.borderLight}`, borderRadius: '12px', overflow: 'hidden' }}>
+                          <button onClick={() => setSidebarSection(s => ({ ...s, feedback: !s.feedback }))} style={{ width: '100%', padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '11px', fontWeight: '600', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                              Feedback
                               {(selectedAsset.feedback || []).filter(f => !f.isDone).length > 0 && (
-                                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: '600', background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length}</span>
+                                <span style={{ fontSize: '9px', padding: '2px 8px', borderRadius: '10px', fontWeight: '600', background: 'rgba(239,68,68,0.12)', color: '#ef4444', textTransform: 'none' }}>{(selectedAsset.feedback || []).filter(f => !f.isDone).length} open</span>
                               )}
                             </div>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.feedback ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.feedback ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
                           </button>
                           {sidebarSection.feedback && (
                             <div style={{ padding: '0 14px 14px 14px' }}>
@@ -8645,10 +8709,13 @@ export default function MainApp() {
                         </div>
 
                         {/* Section 4: File Details (collapsed by default) */}
-                        <div style={{ marginBottom: '12px', background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.borderLight}`, borderRadius: '14px', overflow: 'hidden' }}>
-                          <button onClick={() => setSidebarSection(s => ({ ...s, details: !s.details }))} style={{ width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '12px', fontWeight: '600' }}>
-                            <span>File Details</span>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.details ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
+                        <div style={{ marginBottom: '8px', background: t.bgCard, border: `1px solid ${t.borderLight}`, borderRadius: '12px', overflow: 'hidden' }}>
+                          <button onClick={() => setSidebarSection(s => ({ ...s, details: !s.details }))} style={{ width: '100%', padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: t.text, fontSize: '11px', fontWeight: '600', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                              File Details
+                            </div>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: sidebarSection.details ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><polyline points="6,9 12,15 18,9"/></svg>
                           </button>
                           {sidebarSection.details && (
                             <div style={{ padding: '0 14px 14px 14px', fontSize: '11px' }}>
