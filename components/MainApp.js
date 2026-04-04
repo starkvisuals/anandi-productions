@@ -5455,6 +5455,8 @@ export default function MainApp() {
     const [assetTab, setAssetTab] = useState('preview');
     const [sidebarSection, setSidebarSection] = useState({ assignment: true, versions: true, feedback: true, details: false });
     const [sidebarActionsOpen, setSidebarActionsOpen] = useState(false);
+    const [replyingTo, setReplyingTo] = useState(null);
+    const [replyText, setReplyText] = useState('');
     const [selectedAssets, setSelectedAssets] = useState(new Set());
     const [uploadFiles, setUploadFiles] = useState([]);
     const [uploadProgress, setUploadProgress] = useState({});
@@ -6414,7 +6416,18 @@ export default function MainApp() {
       // Then update database in background
       await updateProject(selectedProject.id, { assets: updated });
     };
-    
+
+    const handleAddReply = async (feedbackId) => {
+      if (!replyText.trim()) return;
+      const reply = { id: generateId(), text: replyText, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString() };
+      const updatedFeedback = (selectedAsset.feedback || []).map(fb => fb.id === feedbackId ? { ...fb, replies: [...(fb.replies || []), reply] } : fb);
+      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback } : a);
+      setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback });
+      setReplyText('');
+      setReplyingTo(null);
+      await updateProject(selectedProject.id, { assets: updated });
+    };
+
     // Can mark feedback done: producers, editors, video editors, freelancers - NOT clients
     const canMarkFeedbackDone = ['producer', 'admin', 'team-lead', 'editor', 'video-editor', 'colorist', 'animator', 'vfx-artist', 'sound-designer'].includes(userProfile?.role);
     const handleSaveAnnotations = async (annotations) => {
@@ -7528,7 +7541,7 @@ export default function MainApp() {
                 {/* Fullscreen toggle */}
                 <button onClick={() => setIsFullscreen(true)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>⛶ {!isMobile && 'Fullscreen'}</button>
                 {/* Tab buttons */}
-                {[{ id: 'preview', icon: '', label: 'Preview' }, { id: 'annotate', icon: '', label: 'Annotate' }, { id: 'compare', icon: '', label: 'Compare' }].map(tb => (
+                {[{ id: 'preview', icon: '', label: 'Preview' }, { id: 'annotate', icon: '', label: 'Annotate' }, { id: 'compare', icon: '', label: 'Compare' }, { id: 'activity', icon: '', label: 'Activity' }].map(tb => (
                   <button key={tb.id} onClick={() => setAssetTab(tb.id)} style={{ padding: '6px 12px', background: assetTab === tb.id ? 'rgba(99,102,241,0.9)' : 'rgba(255,255,255,0.06)', border: assetTab === tb.id ? 'none' : '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: assetTab === tb.id ? '#fff' : 'rgba(255,255,255,0.7)', fontSize: '11px', cursor: 'pointer', fontWeight: assetTab === tb.id ? '600' : '400', transition: 'all 0.2s' }}>{tb.icon} {!isMobile && tb.label}</button>
                 ))}
               </div>
@@ -8401,13 +8414,20 @@ export default function MainApp() {
                                       <div style={{ fontSize: '11px', fontWeight: '600', color: v.version === selectedAsset.currentVersion ? '#6366f1' : t.textSecondary }}>Version {v.version}</div>
                                       {v.uploadedAt && <div style={{ fontSize: '9px', color: t.textMuted }}>{formatTimeAgo(v.uploadedAt)}</div>}
                                     </div>
-                                    {v.version === selectedAsset.currentVersion && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
+                                    {v.version === selectedAsset.currentVersion ? <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} /> : (selectedAsset.versions || []).length > 1 && (
+                                      <button onClick={(e) => { e.stopPropagation(); setAssetTab('compare'); }} title={`Compare v${v.version} with current`} style={{ width: '22px', height: '22px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '5px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = t.primary; e.currentTarget.style.color = t.primary; }} onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}>
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+                                      </button>
+                                    )}
                                   </div>
                                 ))}
                               </div>
                               {/* Compare button */}
                               {(selectedAsset.versions || []).length > 1 && (
-                                <button onClick={() => setAssetTab('compare')} style={{ width: '100%', padding: '7px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '10px', cursor: 'pointer', marginBottom: '8px', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = t.primary} onMouseLeave={e => e.currentTarget.style.borderColor = t.border}>Compare Versions</button>
+                                <button onClick={() => setAssetTab('compare')} style={{ width: '100%', padding: '7px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '10px', cursor: 'pointer', marginBottom: '8px', transition: 'border-color 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} onMouseEnter={e => e.currentTarget.style.borderColor = t.primary} onMouseLeave={e => e.currentTarget.style.borderColor = t.border}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+                                  Compare Versions
+                                </button>
                               )}
                               {/* Upload new version */}
                               {(() => {
@@ -8473,7 +8493,31 @@ export default function MainApp() {
                                           <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ background: fb.isDone ? 'rgba(34,197,94,0.3)' : t.bgInput, border: `1px solid ${fb.isDone ? 'rgba(34,197,94,0.4)' : t.borderLight}`, borderRadius: '8px', padding: '2px 8px', fontSize: '9px', color: fb.isDone ? '#22c55e' : t.textMuted, cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>{fb.isDone ? '✓ Done' : 'Done?'}</button>
                                         </div>
                                         <div style={{ fontSize: '11px', color: t.textSecondary, lineHeight: '1.4' }}>{fb.text}</div>
+                                        {/* Reply button + count */}
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: '4px', alignItems: 'center' }}>
+                                          <button onClick={() => { setReplyingTo(replyingTo === fb.id ? null : fb.id); setReplyText(''); }} style={{ background: 'none', border: 'none', padding: 0, fontSize: '9px', color: t.primary, cursor: 'pointer', fontWeight: '500' }}>Reply</button>
+                                          {(fb.replies || []).length > 0 && <span style={{ fontSize: '9px', color: t.textMuted }}>{(fb.replies || []).length} {(fb.replies || []).length === 1 ? 'reply' : 'replies'}</span>}
+                                        </div>
                                       </div>
+                                      {/* Threaded replies */}
+                                      {(fb.replies || []).length > 0 && (
+                                        <div style={{ marginTop: '4px', marginLeft: '8px', borderLeft: `2px solid ${t.borderLight}`, paddingLeft: '8px' }}>
+                                          {(fb.replies || []).map(r => (
+                                            <div key={r.id} style={{ marginBottom: '4px', padding: '5px 8px', background: t.bgHover, borderRadius: '4px 8px 8px 8px', fontSize: '10px' }}>
+                                              <span style={{ fontWeight: '600', color: t.text }}>{r.userName}</span>
+                                              <span style={{ color: t.textMuted, marginLeft: '6px' }}>{formatTimeAgo(r.timestamp)}</span>
+                                              <div style={{ color: t.textSecondary, marginTop: '2px', lineHeight: '1.3' }}>{r.text}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {/* Reply input */}
+                                      {replyingTo === fb.id && (
+                                        <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                                          <input value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddReply(fb.id); if (e.key === 'Escape') { setReplyingTo(null); setReplyText(''); } }} placeholder="Reply..." autoFocus style={{ flex: 1, padding: '5px 8px', background: t.bgInput, border: `1px solid ${t.borderLight}`, borderRadius: '8px', color: t.text, fontSize: '10px' }} />
+                                          <button onClick={() => handleAddReply(fb.id)} disabled={!replyText.trim()} style={{ padding: '5px 8px', background: replyText.trim() ? t.primary : t.bgInput, border: 'none', borderRadius: '8px', color: replyText.trim() ? '#fff' : t.textMuted, fontSize: '9px', cursor: replyText.trim() ? 'pointer' : 'default' }}>Send</button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -8599,7 +8643,14 @@ export default function MainApp() {
               {/* Compare Tab */}
               {assetTab === 'compare' && (
                 <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
-                  <VersionComparison versions={selectedAsset.versions || []} currentVersion={selectedAsset.currentVersion} />
+                  <VersionComparison versions={selectedAsset.versions || []} currentVersion={selectedAsset.currentVersion} assetType={selectedAsset.type} />
+                </div>
+              )}
+
+              {/* Activity Tab */}
+              {assetTab === 'activity' && (
+                <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
+                  <ActivityFeed asset={selectedAsset} project={selectedProject} />
                 </div>
               )}
             </div>
@@ -9246,29 +9297,339 @@ export default function MainApp() {
     );
   };
 
-  // Version Comparison Component
-  const VersionComparison = ({ versions = [], currentVersion }) => {
-    const [leftV, setLeftV] = useState(versions.length > 1 ? versions.length - 2 : 0);
-    const [rightV, setRightV] = useState(versions.length - 1);
-    if (versions.length < 2) return <div style={{ textAlign: 'center', padding: '40px', background: t.bgInput, borderRadius: '12px' }}><div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><div style={{ color: t.textMuted, fontSize: '13px' }}>Upload more versions to compare</div></div>;
-    const left = versions[leftV];
-    const right = versions[rightV];
+  // Activity Feed Component — Chronological feed with filtering and event icons
+  const ActivityFeed = ({ asset, project }) => {
+    const [actFilter, setActFilter] = useState('all');
+
+    // Gather all events for this asset from project activity log + asset feedback
+    const events = useMemo(() => {
+      const items = [];
+      const assetName = asset?.name || '';
+
+      // Project-level activities that mention this asset
+      (project?.activityLog || []).forEach(a => {
+        if (a.message?.includes(assetName) || a.type === 'created') {
+          items.push({ ...a, source: 'project' });
+        }
+      });
+
+      // Asset feedback as events
+      (asset?.feedback || []).forEach(fb => {
+        items.push({ id: fb.id, type: 'feedback', message: `${fb.userName} added feedback: "${fb.text.substring(0, 80)}${fb.text.length > 80 ? '...' : ''}"`, timestamp: fb.timestamp, userId: fb.userId, userName: fb.userName, round: fb.round, source: 'feedback', feedbackId: fb.id, isDone: fb.isDone, videoTimestamp: fb.videoTimestamp });
+        // Feedback replies
+        (fb.replies || []).forEach(r => {
+          items.push({ id: r.id, type: 'reply', message: `${r.userName} replied: "${r.text.substring(0, 80)}${r.text.length > 80 ? '...' : ''}"`, timestamp: r.timestamp, userId: r.userId, userName: r.userName, source: 'reply', parentId: fb.id });
+        });
+      });
+
+      // Version uploads
+      (asset?.versions || []).forEach(v => {
+        if (v.uploadedAt) {
+          items.push({ id: `ver-${v.version}`, type: 'version', message: `Version ${v.version} uploaded${v.uploadedBy ? ` by ${v.uploadedBy}` : ''}`, timestamp: v.uploadedAt, source: 'version' });
+        }
+      });
+
+      // Round history
+      (asset?.roundHistory || []).forEach(rh => {
+        if (rh.resolvedAt) {
+          items.push({ id: `round-${rh.round}`, type: 'round', message: `Round ${rh.round} completed — ${rh.feedbackCount} feedback items resolved`, timestamp: rh.resolvedAt, source: 'round' });
+        }
+      });
+
+      return items.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }, [asset, project]);
+
+    const eventIcon = (type) => {
+      switch (type) {
+        case 'feedback': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' };
+        case 'reply': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2"><polyline points="9,17 4,12 9,7"/><path d="M20 18v-2a4 4 0 00-4-4H4"/></svg>, color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' };
+        case 'version': case 'upload': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' };
+        case 'status': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2"><polyline points="20,6 9,17 4,12"/></svg>, color: '#22c55e', bg: 'rgba(34,197,94,0.12)' };
+        case 'round': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2"><polyline points="23,4 23,10 17,10"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/></svg>, color: '#06b6d4', bg: 'rgba(6,182,212,0.12)' };
+        case 'extension-request': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>, color: '#ef4444', bg: 'rgba(239,68,68,0.12)' };
+        case 'handoff': return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>, color: '#ec4899', bg: 'rgba(236,72,153,0.12)' };
+        default: return { icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>, color: t.textMuted, bg: t.bgHover };
+      }
+    };
+
+    const filters = [
+      { id: 'all', label: 'All' },
+      { id: 'feedback', label: 'Feedback' },
+      { id: 'version', label: 'Versions' },
+      { id: 'status', label: 'Status' },
+      { id: 'round', label: 'Rounds' },
+    ];
+
+    const filtered = actFilter === 'all' ? events : events.filter(e => e.type === actFilter || (actFilter === 'feedback' && e.type === 'reply') || (actFilter === 'version' && e.type === 'upload'));
+
     return (
       <div>
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Select theme={theme} value={leftV} onChange={v => setLeftV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
-          <span style={{ color: t.textMuted, alignSelf: 'center' }}>vs</span>
-          <Select theme={theme} value={rightV} onChange={v => setRightV(parseInt(v))} style={{ width: '140px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
+        {/* Filter bar */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {filters.map(f => (
+            <button key={f.id} onClick={() => setActFilter(f.id)} style={{
+              padding: '5px 12px', background: actFilter === f.id ? t.primary : t.bgInput,
+              border: actFilter === f.id ? 'none' : `1px solid ${t.border}`, borderRadius: '6px',
+              color: actFilter === f.id ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: actFilter === f.id ? '600' : '400'
+            }}>{f.label}{f.id !== 'all' && <span style={{ marginLeft: '4px', opacity: 0.6 }}>({events.filter(e => e.type === f.id || (f.id === 'feedback' && e.type === 'reply') || (f.id === 'version' && e.type === 'upload')).length})</span>}</button>
+          ))}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
-          <div style={{ background: t.bgInput, borderRadius: '10px', overflow: 'hidden' }}>
-            <div style={{ padding: '10px', borderBottom: `1px solid ${t.border}`, fontSize: '12px', fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}><span>v{left.version}</span><span style={{ color: t.textMuted, fontSize: '10px' }}>{formatDate(left.uploadedAt)}</span></div>
-            <div style={{ padding: '12px' }}><img src={left.url} alt="" loading="lazy" style={{ width: '100%', borderRadius: '6px' }} /></div>
+
+        {/* Timeline */}
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: t.textMuted, fontSize: '13px' }}>No activity yet</div>
+        ) : (
+          <div style={{ position: 'relative', paddingLeft: '28px' }}>
+            {/* Timeline line */}
+            <div style={{ position: 'absolute', left: '11px', top: '4px', bottom: '4px', width: '2px', background: t.borderLight, borderRadius: '1px' }} />
+
+            {filtered.map((event, idx) => {
+              const { icon, color, bg } = eventIcon(event.type);
+              return (
+                <div key={event.id || idx} style={{ position: 'relative', marginBottom: '12px', paddingBottom: '4px' }}>
+                  {/* Timeline dot */}
+                  <div style={{ position: 'absolute', left: '-28px', top: '2px', width: '24px', height: '24px', borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${t.bgSecondary}`, zIndex: 1 }}>
+                    {icon}
+                  </div>
+                  {/* Event card */}
+                  <div style={{ padding: '10px 12px', background: `${t.bgCard}AA`, borderRadius: '10px', border: `1px solid ${t.borderLight}` }}>
+                    <div style={{ fontSize: '12px', color: t.text, lineHeight: '1.4' }}>{event.message}</div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '10px', color: t.textMuted }}>{formatTimeAgo(event.timestamp)}</span>
+                      {event.round && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(99,102,241,0.12)', color: '#6366f1', fontWeight: '600' }}>R{event.round}</span>}
+                      {event.videoTimestamp != null && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(59,130,246,0.12)', color: '#3b82f6', fontWeight: '600' }}>{Math.floor(event.videoTimestamp / 60)}:{String(Math.floor(event.videoTimestamp % 60)).padStart(2, '0')}</span>}
+                      {event.isDone && <span style={{ fontSize: '9px', color: t.success }}>Resolved</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div style={{ background: t.bgInput, borderRadius: '10px', overflow: 'hidden' }}>
-            <div style={{ padding: '10px', borderBottom: `1px solid ${t.border}`, fontSize: '12px', fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}><span>v{right.version} {right.version === currentVersion && <span style={{ color: '#22c55e' }}>✓</span>}</span><span style={{ color: t.textMuted, fontSize: '10px' }}>{formatDate(right.uploadedAt)}</span></div>
-            <div style={{ padding: '12px' }}><img src={right.url} alt="" loading="lazy" style={{ width: '100%', borderRadius: '6px' }} /></div>
+        )}
+      </div>
+    );
+  };
+
+  // Version Comparison Component — Side-by-Side, Overlay, Swipe modes + Video support
+  const VersionComparison = ({ versions = [], currentVersion, assetType = 'image' }) => {
+    const [leftV, setLeftV] = useState(versions.length > 1 ? versions.length - 2 : 0);
+    const [rightV, setRightV] = useState(versions.length - 1);
+    const [compareMode, setCompareMode] = useState('side-by-side');
+    const [overlayOpacity, setOverlayOpacity] = useState(50);
+    const [swipePos, setSwipePos] = useState(50);
+    const [isDragging, setIsDragging] = useState(false);
+    const swipeRef = useRef(null);
+    const leftVideoRef = useRef(null);
+    const rightVideoRef = useRef(null);
+    const [videoPlaying, setVideoPlaying] = useState(false);
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const panStart = useRef({ x: 0, y: 0 });
+
+    if (versions.length < 2) return <div style={{ textAlign: 'center', padding: '40px', background: t.bgInput, borderRadius: '12px' }}><div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><div style={{ color: t.textMuted, fontSize: '13px' }}>Upload more versions to compare</div></div>;
+
+    const left = versions[leftV];
+    const right = versions[rightV];
+    const isVideo = assetType === 'video' || left?.url?.includes('.mp4') || left?.muxPlaybackId;
+
+    // Swipe drag handler
+    const handleSwipeMove = (e) => {
+      if (!isDragging || !swipeRef.current) return;
+      const rect = swipeRef.current.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const pos = ((clientX - rect.left) / rect.width) * 100;
+      setSwipePos(Math.max(2, Math.min(98, pos)));
+    };
+
+    useEffect(() => {
+      if (!isDragging) return;
+      const handleUp = () => setIsDragging(false);
+      window.addEventListener('mousemove', handleSwipeMove);
+      window.addEventListener('mouseup', handleUp);
+      window.addEventListener('touchmove', handleSwipeMove);
+      window.addEventListener('touchend', handleUp);
+      return () => { window.removeEventListener('mousemove', handleSwipeMove); window.removeEventListener('mouseup', handleUp); window.removeEventListener('touchmove', handleSwipeMove); window.removeEventListener('touchend', handleUp); };
+    }, [isDragging]);
+
+    // Synced video playback
+    const toggleVideoPlay = () => {
+      if (!leftVideoRef.current || !rightVideoRef.current) return;
+      if (videoPlaying) { leftVideoRef.current.pause(); rightVideoRef.current.pause(); }
+      else { leftVideoRef.current.play(); rightVideoRef.current.play(); }
+      setVideoPlaying(!videoPlaying);
+    };
+    const syncVideoTime = (sourceRef, targetRef) => {
+      if (targetRef.current && sourceRef.current) targetRef.current.currentTime = sourceRef.current.currentTime;
+    };
+
+    // Zoom controls
+    const handleWheel = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoom(z => Math.max(0.5, Math.min(5, z + (e.deltaY > 0 ? -0.1 : 0.1))));
+    };
+
+    // Pan handlers
+    const handlePanStart = (e) => {
+      if (zoom <= 1) return;
+      setIsPanning(true);
+      panStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    };
+    const handlePanMove = (e) => {
+      if (!isPanning) return;
+      setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
+    };
+
+    useEffect(() => {
+      if (!isPanning) return;
+      const handleUp = () => setIsPanning(false);
+      window.addEventListener('mousemove', handlePanMove);
+      window.addEventListener('mouseup', handleUp);
+      return () => { window.removeEventListener('mousemove', handlePanMove); window.removeEventListener('mouseup', handleUp); };
+    }, [isPanning]);
+
+    const modeButtons = [
+      { id: 'side-by-side', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>, label: 'Side by Side' },
+      { id: 'overlay', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="10" cy="12" r="7"/><circle cx="14" cy="12" r="7"/></svg>, label: 'Overlay' },
+      { id: 'swipe', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><polyline points="9,10 12,7 15,10"/><polyline points="9,14 12,17 15,14"/></svg>, label: 'Swipe' },
+    ];
+
+    const imgTransform = zoom !== 1 ? `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)` : undefined;
+
+    const getVideoSrc = (v) => v?.muxPlaybackId ? `https://stream.mux.com/${v.muxPlaybackId}.m3u8` : v?.url;
+
+    return (
+      <div>
+        {/* Controls bar */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Mode selector */}
+          <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '8px', padding: '3px' }}>
+            {modeButtons.map(m => (
+              <button key={m.id} onClick={() => setCompareMode(m.id)} title={m.label} style={{
+                padding: '6px 10px', background: compareMode === m.id ? t.primary : 'transparent', border: 'none',
+                borderRadius: '6px', color: compareMode === m.id ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.15s'
+              }}>{m.icon} {!isMobile && m.label}</button>
+            ))}
           </div>
+
+          {/* Overlay opacity slider */}
+          {compareMode === 'overlay' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '4px' }}>
+              <span style={{ fontSize: '10px', color: t.textMuted }}>v{left.version}</span>
+              <input type="range" min="0" max="100" value={overlayOpacity} onChange={e => setOverlayOpacity(Number(e.target.value))}
+                style={{ width: '100px', accentColor: t.primary }} />
+              <span style={{ fontSize: '10px', color: t.textMuted }}>v{right.version}</span>
+            </div>
+          )}
+
+          {/* Zoom controls */}
+          {!isVideo && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
+              <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} style={{ width: '24px', height: '24px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
+              <span style={{ fontSize: '10px', color: t.textMuted, minWidth: '32px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} style={{ width: '24px', height: '24px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+              {zoom !== 1 && <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} style={{ padding: '2px 6px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, cursor: 'pointer', fontSize: '10px' }}>Reset</button>}
+            </div>
+          )}
+
+          {/* Version selectors — right aligned */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginLeft: 'auto' }}>
+            <Select theme={theme} value={leftV} onChange={v => setLeftV(parseInt(v))} style={{ width: '100px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
+            <span style={{ color: t.textMuted, fontSize: '11px' }}>vs</span>
+            <Select theme={theme} value={rightV} onChange={v => setRightV(parseInt(v))} style={{ width: '100px' }}>{versions.map((v, i) => <option key={i} value={i}>v{v.version}</option>)}</Select>
+          </div>
+        </div>
+
+        {/* Video playback controls */}
+        {isVideo && (
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', justifyContent: 'center' }}>
+            <button onClick={toggleVideoPlay} style={{ padding: '6px 16px', background: t.primary, border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {videoPlaying ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause</> : <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg> Play Both</>}
+            </button>
+            <button onClick={() => { if (leftVideoRef.current) { leftVideoRef.current.currentTime = 0; syncVideoTime(leftVideoRef, rightVideoRef); } }} style={{ padding: '6px 12px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '11px', cursor: 'pointer' }}>Restart</button>
+          </div>
+        )}
+
+        {/* Comparison viewport */}
+        <div style={{ background: t.bgInput, borderRadius: '12px', overflow: 'hidden', position: 'relative' }} onWheel={handleWheel}>
+
+          {/* === Side by Side === */}
+          {compareMode === 'side-by-side' && (
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2px' }}>
+              {[{ v: left, label: `v${left.version}`, ref: leftVideoRef }, { v: right, label: `v${right.version}`, ref: rightVideoRef }].map(({ v, label, ref }, idx) => (
+                <div key={idx} style={{ position: 'relative', overflow: 'hidden', cursor: zoom > 1 ? 'grab' : 'default' }} onMouseDown={handlePanStart}>
+                  <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 2, background: 'rgba(0,0,0,0.7)', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', color: '#fff', backdropFilter: 'blur(4px)' }}>{label}</div>
+                  <div style={{ position: 'absolute', bottom: '8px', right: '8px', zIndex: 2, fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{v?.uploadedAt ? formatDate(v.uploadedAt) : ''}</div>
+                  {isVideo ? (
+                    <video ref={ref} src={getVideoSrc(v)} onSeeked={() => syncVideoTime(ref, idx === 0 ? rightVideoRef : leftVideoRef)} style={{ width: '100%', height: '350px', objectFit: 'contain', background: '#000' }} />
+                  ) : (
+                    <img src={v?.url} alt={label} loading="lazy" style={{ width: '100%', height: '350px', objectFit: 'contain', background: '#000', transform: imgTransform, transformOrigin: 'center center', transition: isPanning ? 'none' : 'transform 0.1s' }} />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* === Overlay Mode === */}
+          {compareMode === 'overlay' && (
+            <div style={{ position: 'relative', height: '450px', overflow: 'hidden', cursor: zoom > 1 ? 'grab' : 'default' }} onMouseDown={handlePanStart}>
+              <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 2, background: 'rgba(0,0,0,0.7)', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', color: '#fff', backdropFilter: 'blur(4px)' }}>v{left.version}</div>
+              <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 2, background: 'rgba(99,102,241,0.7)', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', color: '#fff', backdropFilter: 'blur(4px)' }}>v{right.version}</div>
+              {isVideo ? (
+                <>
+                  <video ref={leftVideoRef} src={getVideoSrc(left)} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <video ref={rightVideoRef} src={getVideoSrc(right)} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: overlayOpacity / 100 }} />
+                </>
+              ) : (
+                <>
+                  <img src={left?.url} alt="" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', transform: imgTransform, transformOrigin: 'center center' }} />
+                  <img src={right?.url} alt="" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: overlayOpacity / 100, transform: imgTransform, transformOrigin: 'center center', mixBlendMode: 'normal' }} />
+                </>
+              )}
+              <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', borderRadius: '8px', padding: '6px 14px', fontSize: '10px', color: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(4px)' }}>
+                Opacity: {overlayOpacity}%
+              </div>
+            </div>
+          )}
+
+          {/* === Swipe Mode === */}
+          {compareMode === 'swipe' && (
+            <div ref={swipeRef} style={{ position: 'relative', height: '450px', overflow: 'hidden', cursor: 'ew-resize', userSelect: 'none' }}
+              onMouseDown={(e) => { if (Math.abs(e.nativeEvent.offsetX - (swipeRef.current.clientWidth * swipePos / 100)) < 30) setIsDragging(true); }}
+              onTouchStart={(e) => setIsDragging(true)}>
+              {/* Right/bottom layer (v2) */}
+              {isVideo ? (
+                <video ref={rightVideoRef} src={getVideoSrc(right)} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                <img src={right?.url} alt="" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+              )}
+              {/* Left/top layer (v1) clipped */}
+              <div style={{ position: 'absolute', top: 0, left: 0, width: `${swipePos}%`, height: '100%', overflow: 'hidden' }}>
+                {isVideo ? (
+                  <video ref={leftVideoRef} src={getVideoSrc(left)} style={{ width: swipeRef.current?.clientWidth || '100%', height: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <img src={left?.url} alt="" style={{ width: swipeRef.current?.clientWidth || '100%', height: '100%', objectFit: 'contain' }} />
+                )}
+              </div>
+              {/* Swipe handle */}
+              <div style={{ position: 'absolute', top: 0, left: `${swipePos}%`, width: '3px', height: '100%', background: '#fff', transform: 'translateX(-50%)', boxShadow: '0 0 12px rgba(0,0,0,0.5)', zIndex: 2 }}>
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '32px', height: '32px', background: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><polyline points="8,4 4,12 8,20"/><polyline points="16,4 20,12 16,20"/></svg>
+                </div>
+              </div>
+              {/* Labels */}
+              <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 3, background: 'rgba(0,0,0,0.7)', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', color: '#fff' }}>v{left.version}</div>
+              <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 3, background: 'rgba(99,102,241,0.7)', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', color: '#fff' }}>v{right.version}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Version info footer */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', padding: '10px 14px', background: t.bgInput, borderRadius: '8px', fontSize: '11px' }}>
+          <div><span style={{ color: t.textMuted }}>v{left.version}: </span><span style={{ color: t.textSecondary }}>{left?.uploadedAt ? formatDate(left.uploadedAt) : 'Original'}</span></div>
+          <div><span style={{ color: t.textMuted }}>v{right.version}: </span><span style={{ color: t.textSecondary }}>{right?.uploadedAt ? formatDate(right.uploadedAt) : 'Latest'}</span>{right.version === currentVersion && <span style={{ color: t.success, marginLeft: '6px' }}>Current</span>}</div>
         </div>
       </div>
     );
