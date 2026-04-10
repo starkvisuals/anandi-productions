@@ -10,6 +10,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
 import CreateProjectModal from './CreateProjectModal';
 import dynamic from 'next/dynamic';
+import { canAccessHr, canManageEmployees, isHrFullAdmin, ensurePrimaryProducerExists, listPendingApprovals } from '@/lib/hr';
+import EmployeeModule from './hr/EmployeeModule';
+import OnboardingFlow from './hr/OnboardingFlow';
 
 // Dynamic import MuxPlayer to avoid SSR issues
 const MuxPlayer = dynamic(() => import('./MuxPlayer'), { ssr: false });
@@ -881,6 +884,15 @@ export default function MainApp() {
   const isProducer = ['producer', 'admin', 'team-lead'].includes(userProfile?.role);
   const isAgency = userProfile?.role === 'agency';
 
+  // HR access derived values. canManageEmployeesNow gates the Employees nav;
+  // canAccessHrNow gates the onboarding flow. Vendors/clients/freelancers fail both.
+  const isHrAdminUser = userProfile?.isHrAdmin === true;
+  const isPrimaryProducer = userProfile?.isPrimaryProducer === true;
+  const canManageEmployeesNow = canManageEmployees(userProfile);
+  const isEmployeeUser = userProfile?.isEmployee === true;
+  const needsOnboarding = isEmployeeUser && userProfile?.onboardingStatus !== 'completed';
+  const [hrPendingCount, setHrPendingCount] = useState(0);
+
   // Global keyboard shortcuts
   const [showShortcuts, setShowShortcuts] = useState(false);
   useKeyboardShortcuts({
@@ -890,6 +902,7 @@ export default function MainApp() {
       'cmd+3': () => { setView('projects'); setSelectedProjectId(null); },
       'cmd+4': () => { setView('calendar'); setSelectedProjectId(null); },
       'cmd+5': () => { if (isProducer) { setView('team'); setSelectedProjectId(null); } },
+      'cmd+6': () => { if (canManageEmployees(userProfile)) { setView('employees'); setSelectedProjectId(null); } },
       'cmd+k': () => setShowGlobalSearch(true),
       'escape': () => { if (showShortcuts) setShowShortcuts(false); else if (showGlobalSearch) setShowGlobalSearch(false); },
       '?': () => setShowShortcuts(!showShortcuts),
@@ -904,6 +917,26 @@ export default function MainApp() {
       document.documentElement.setAttribute('data-theme', theme);
     }
   }, [theme]);
+
+  // HR bootstrap: on first load for the workspace owner, mark them as the
+  // primary producer so they become permanently undeletable. Idempotent.
+  useEffect(() => {
+    if (!userProfile?.id) return;
+    ensurePrimaryProducerExists(userProfile).catch(err => {
+      console.warn('ensurePrimaryProducerExists failed:', err?.message);
+    });
+  }, [userProfile?.id]);
+
+  // HR pending approvals badge (producer only)
+  useEffect(() => {
+    if (!userProfile?.id || !isHrFullAdmin(userProfile)) {
+      setHrPendingCount(0);
+      return;
+    }
+    listPendingApprovals(userProfile)
+      .then(list => setHrPendingCount(list.length))
+      .catch(() => setHrPendingCount(0));
+  }, [userProfile?.id, view]);
   
   // Listen for system theme changes
   useEffect(() => {
@@ -2145,7 +2178,8 @@ export default function MainApp() {
       { id: 'projects', icon: 'folder', label: 'Projects', shortcut: '\u2318 3' },
       { id: 'calendar', icon: 'calendar', label: 'Calendar', shortcut: '\u2318 4' },
       ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads', shortcut: '\u2318 5' }] : []),
-      ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team', shortcut: isClientView ? '\u2318 6' : '\u2318 5' }] : [])
+      ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team', shortcut: isClientView ? '\u2318 6' : '\u2318 5' }] : []),
+      ...(canManageEmployeesNow ? [{ id: 'employees', icon: 'user', label: 'Employees', shortcut: '\u2318 6', badge: hrPendingCount }] : [])
     ];
 
     return (
@@ -2292,6 +2326,19 @@ export default function MainApp() {
                 {!isMobile && !sidebarCollapsed && (
                   <>
                     <span style={{ flex: 1 }}>{item.label}</span>
+                    {typeof item.badge === 'number' && item.badge > 0 && (
+                      <span style={{
+                        background: t.danger,
+                        color: '#fff',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        padding: '2px 6px',
+                        borderRadius: '999px',
+                        minWidth: '16px',
+                        textAlign: 'center',
+                        lineHeight: '1.2',
+                      }}>{item.badge}</span>
+                    )}
                     <span style={{
                       fontSize: '10px',
                       color: t.textMuted,
@@ -10067,6 +10114,13 @@ export default function MainApp() {
   const _downloadsViewRef = useRef(null); _downloadsViewRef.current = DownloadsView;
   const StableDownloadsView = useMemo(() => (props) => _downloadsViewRef.current(props), []);
 
+  // Onboarding gate: employees with incomplete onboarding see the full-screen
+  // OnboardingFlow instead of the normal app. Vendors/clients/freelancers never
+  // reach this because they don't have isEmployee: true.
+  if (needsOnboarding) {
+    return <OnboardingFlow theme={theme} t={t} />;
+  }
+
   // Main Render
   return (
     <div style={{ minHeight: '100vh', background: t.bgInput, color: t.text, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
@@ -10308,6 +10362,7 @@ export default function MainApp() {
             {view === 'calendar' && <StableCalendarView />}
             {view === 'team' && <StableTeamManagement />}
             {view === 'downloads' && <StableDownloadsView />}
+            {view === 'employees' && canManageEmployeesNow && <EmployeeModule t={t} />}
           </motion.div>
         </AnimatePresence>
 
