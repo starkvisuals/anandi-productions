@@ -890,7 +890,10 @@ export default function MainApp() {
   const isPrimaryProducer = userProfile?.isPrimaryProducer === true;
   const canManageEmployeesNow = canManageEmployees(userProfile);
   const isEmployeeUser = userProfile?.isEmployee === true;
-  const needsOnboarding = isEmployeeUser && userProfile?.onboardingStatus !== 'completed';
+  // Primary producer (workspace owner) bypasses onboarding entirely — they ARE the company,
+  // they don't need to sign offer letters to themselves. Vendors/clients/freelancers don't
+  // have isEmployee so they also bypass. Only real employees with pending status get the gate.
+  const needsOnboarding = isEmployeeUser && !isPrimaryProducer && userProfile?.onboardingStatus !== 'completed';
   const [hrPendingCount, setHrPendingCount] = useState(0);
 
   // Global keyboard shortcuts

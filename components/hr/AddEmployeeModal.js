@@ -32,8 +32,28 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [createdEmployee, setCreatedEmployee] = useState(null);
+  const [copied, setCopied] = useState('');
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const copyToClipboard = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      setTimeout(() => setCopied(''), 1800);
+    } catch (err) {
+      console.warn('Copy failed:', err?.message);
+    }
+  };
+
+  const finishAndClose = () => {
+    if (createdEmployee) {
+      onCreated?.({ uid: createdEmployee.uid, email: createdEmployee.email });
+    } else {
+      onClose?.();
+    }
+  };
 
   const generateTempPassword = () => {
     return `AP${Math.random().toString(36).slice(-8)}${Math.floor(Math.random() * 100)}`;
@@ -110,7 +130,17 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
         console.warn('Onboarding invite email failed:', emailErr?.message);
       }
 
-      onCreated?.({ uid, email: form.email.trim() });
+      // Show post-create success screen with copyable invite link
+      const inviteLink = typeof window !== 'undefined'
+        ? `${window.location.origin}/?onboarding=${uid}`
+        : `/?onboarding=${uid}`;
+      setCreatedEmployee({
+        uid,
+        email: form.email.trim(),
+        name: form.name.trim(),
+        designation: form.designation.trim(),
+        inviteLink,
+      });
     } catch (err) {
       console.error('Create employee error:', err);
       setError(err.message || 'Failed to create employee');
@@ -138,12 +168,131 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
       >
         <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: t.text }}>Add Employee</h2>
-            <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>Create a profile and send an onboarding invite</div>
+            <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: t.text }}>
+              {createdEmployee ? 'Employee Created' : 'Add Employee'}
+            </h2>
+            <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>
+              {createdEmployee ? 'Share the invite link with your new hire' : 'Create a profile and send an onboarding invite'}
+            </div>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ background: 'rgba(128,128,128,0.15)', border: 'none', color: t.textMuted, width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer' }}>×</button>
+          <button onClick={createdEmployee ? finishAndClose : onClose} aria-label="Close" style={{ background: 'rgba(128,128,128,0.15)', border: 'none', color: t.textMuted, width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer' }}>×</button>
         </div>
 
+        {createdEmployee ? (
+          <div style={{ padding: '24px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div style={{ textAlign: 'center', padding: '8px 0 4px 0' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #22c55e 0%, #10b981 100%)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '32px',
+                margin: '0 auto 12px',
+                boxShadow: '0 6px 20px rgba(34,197,94,0.35)',
+              }}>✓</div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: t.text, marginBottom: '4px' }}>
+                {createdEmployee.name} added
+              </div>
+              <div style={{ fontSize: '12px', color: t.textMuted }}>
+                {createdEmployee.designation} · {createdEmployee.email}
+              </div>
+            </div>
+
+            <div style={{ padding: '14px 16px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '12px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: '8px' }}>
+                Onboarding Invite Link
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  readOnly
+                  value={createdEmployee.inviteLink}
+                  onClick={(e) => e.target.select()}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    background: t.modalBg || '#0b0b12',
+                    border: `1px solid ${t.border}`,
+                    borderRadius: '8px',
+                    color: t.text,
+                    fontSize: '12px',
+                    fontFamily: 'ui-monospace, monospace',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(createdEmployee.inviteLink, 'link')}
+                  style={{
+                    padding: '10px 14px',
+                    background: copied === 'link' ? '#22c55e' : (t.gradientPrimary || t.primary),
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {copied === 'link' ? 'Copied ✓' : 'Copy link'}
+                </button>
+              </div>
+              <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '8px', lineHeight: 1.6 }}>
+                Send this link via WhatsApp, Slack, or any channel. The employee will log in with their email + the password they set (via the password-reset email we just sent) and be guided through onboarding.
+              </div>
+            </div>
+
+            <div style={{ padding: '14px 16px', background: 'rgba(99,102,241,0.08)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: '12px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: t.text, marginBottom: '6px' }}>
+                What happens next
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '11px', color: t.textMuted, lineHeight: 1.7 }}>
+                <li>Two emails were sent: a password-reset link + a welcome / onboarding invite.</li>
+                <li>Once they log in, they'll be guided through personal details, documents, photo capture, and signing the offer letter + agreement.</li>
+                <li>You'll get a notification when they finish, and can review their profile in the Employees tab.</li>
+              </ul>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(createdEmployee.email, 'email')}
+                style={{
+                  padding: '11px 18px',
+                  background: 'transparent',
+                  color: t.text,
+                  border: `1px solid ${t.border}`,
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {copied === 'email' ? 'Email copied ✓' : 'Copy email'}
+              </button>
+              <button
+                type="button"
+                onClick={finishAndClose}
+                style={{
+                  padding: '11px 22px',
+                  background: t.gradientPrimary || t.primary,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
         <form onSubmit={submit} style={{ padding: '20px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Basic */}
           <Row>
@@ -246,6 +395,7 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
             </button>
           </div>
         </form>
+        )}
       </div>
     </Overlay>
   );
