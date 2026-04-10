@@ -709,7 +709,12 @@ function PhotoStep({ userProfile, t, saveAndNext, goBack, sectionHeading, sectio
       const res = await uploadEmployeeBlob(userProfile.id, `profile-photo-${Date.now()}.jpg`, blob);
       const docs = { ...(userProfile.documents || {}) };
       docs.profilePhoto = { url: res.url, path: res.path, uploadedAt: new Date().toISOString() };
-      await saveAndNext({ documents: docs, avatar: res.url });
+      // NOTE: don't write the URL into `avatar` — that field is used by the
+      // header Avatar component as a text/emoji fallback and rendering a raw
+      // URL there leaks the full storage link into the UI. The photo lives in
+      // documents.profilePhoto.url; the Avatar component should read from
+      // there when it wants to display an image.
+      await saveAndNext({ documents: docs });
     } catch (e) {
       setErr(e.message || 'Upload failed');
     } finally {

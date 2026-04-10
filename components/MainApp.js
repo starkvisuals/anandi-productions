@@ -402,7 +402,38 @@ const CardSkeleton = ({ aspectRatio = 1, theme = 'dark' }) => {
 
 const Badge = ({ status }) => { const s = STATUS[status]; return s ? <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: s.bg, color: s.color }}>{s.label}</span> : null; };
 const RoleBadge = ({ role }) => { const r = TEAM_ROLES[role] || CORE_ROLES[role] || { label: role, color: '#6366f1' }; return <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: `${r.color}20`, color: r.color }}>{r.icon || ''} {r.label}</span>; };
-const Avatar = ({ user, size = 32 }) => { const c = (TEAM_ROLES[user?.role] || CORE_ROLES[user?.role])?.color || '#6366f1'; return <div style={{ width: size, height: size, borderRadius: '50%', background: `linear-gradient(135deg, ${c}40, ${c}20)`, border: `2px solid ${c}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, flexShrink: 0 }}>{user?.avatar || user?.firstName?.[0] || '?'}</div>; };
+const Avatar = ({ user, size = 32 }) => {
+  const c = (TEAM_ROLES[user?.role] || CORE_ROLES[user?.role])?.color || '#6366f1';
+  // Prefer an explicit uploaded photo from the HR documents map, then fall
+  // back to a non-URL avatar (emoji/letter). If `avatar` accidentally contains
+  // a URL (legacy data), render it as an image so we never leak raw text.
+  const photoUrl = user?.documents?.profilePhoto?.url
+    || (typeof user?.avatar === 'string' && /^https?:\/\//.test(user.avatar) ? user.avatar : null);
+  const avatarText = !photoUrl && typeof user?.avatar === 'string' && !/^https?:\/\//.test(user.avatar)
+    ? user.avatar
+    : (user?.firstName?.[0] || '?');
+  return (
+    <div style={{
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      background: photoUrl
+        ? `url(${photoUrl}) center/cover`
+        : `linear-gradient(135deg, ${c}40, ${c}20)`,
+      border: `2px solid ${c}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: size * 0.4,
+      flexShrink: 0,
+      color: '#fff',
+      fontWeight: 600,
+      overflow: 'hidden',
+    }}>
+      {!photoUrl && avatarText}
+    </div>
+  );
+};
 
 // Notification Badge Component
 const NotifBadge = ({ count, icon, color, title }) => count > 0 ? (
