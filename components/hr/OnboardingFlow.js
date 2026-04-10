@@ -70,6 +70,59 @@ export default function OnboardingFlow({ t }) {
   const progress = Math.round(((stepIndex + 1) / ONBOARDING_STEPS.length) * 100);
 
   const update = (patch) => setFormData(d => ({ ...d, ...patch }));
+  // Nested-object updater — always reads from the latest state, never from a
+  // closure. Use this for emergencyContact, addressCurrent, addressPermanent,
+  // bankAccount, etc. so fast typing never drops characters.
+  const updateNested = (key, subPatch) => setFormData(d => ({
+    ...d,
+    [key]: { ...(d[key] || {}), ...subPatch },
+  }));
+
+  // If userProfile loads after the component mounted (auth resolves late), or
+  // changes under us (e.g. after a save), rehydrate any empty form fields with
+  // the fresh values without clobbering anything the user has already typed.
+  useEffect(() => {
+    if (!userProfile) return;
+    setFormData(d => ({
+      dateOfBirth: d.dateOfBirth || userProfile.dateOfBirth || '',
+      gender: d.gender || userProfile.gender || '',
+      maritalStatus: d.maritalStatus || userProfile.maritalStatus || '',
+      bloodGroup: d.bloodGroup || userProfile.bloodGroup || '',
+      emergencyContact: {
+        name: d.emergencyContact?.name || userProfile.emergencyContact?.name || '',
+        relation: d.emergencyContact?.relation || userProfile.emergencyContact?.relation || '',
+        phone: d.emergencyContact?.phone || userProfile.emergencyContact?.phone || '',
+      },
+      addressCurrent: {
+        line1: d.addressCurrent?.line1 || userProfile.addressCurrent?.line1 || '',
+        line2: d.addressCurrent?.line2 || userProfile.addressCurrent?.line2 || '',
+        city: d.addressCurrent?.city || userProfile.addressCurrent?.city || '',
+        state: d.addressCurrent?.state || userProfile.addressCurrent?.state || '',
+        pincode: d.addressCurrent?.pincode || userProfile.addressCurrent?.pincode || '',
+        country: d.addressCurrent?.country || userProfile.addressCurrent?.country || 'India',
+      },
+      addressPermanent: {
+        line1: d.addressPermanent?.line1 || userProfile.addressPermanent?.line1 || '',
+        line2: d.addressPermanent?.line2 || userProfile.addressPermanent?.line2 || '',
+        city: d.addressPermanent?.city || userProfile.addressPermanent?.city || '',
+        state: d.addressPermanent?.state || userProfile.addressPermanent?.state || '',
+        pincode: d.addressPermanent?.pincode || userProfile.addressPermanent?.pincode || '',
+        country: d.addressPermanent?.country || userProfile.addressPermanent?.country || 'India',
+      },
+      sameAddress: d.sameAddress || false,
+      panNumber: d.panNumber || userProfile.panNumber || '',
+      aadharNumber: d.aadharNumber || userProfile.aadharNumber || '',
+      passportNumber: d.passportNumber || userProfile.passportNumber || '',
+      bankAccount: {
+        accountNumber: d.bankAccount?.accountNumber || userProfile.bankAccount?.accountNumber || '',
+        ifsc: d.bankAccount?.ifsc || userProfile.bankAccount?.ifsc || '',
+        bankName: d.bankAccount?.bankName || userProfile.bankAccount?.bankName || '',
+        accountHolderName: d.bankAccount?.accountHolderName || userProfile.bankAccount?.accountHolderName || userProfile.name || '',
+        branch: d.bankAccount?.branch || userProfile.bankAccount?.branch || '',
+      },
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile?.id]);
 
   const goNext = () => setStepIndex(i => Math.min(i + 1, ONBOARDING_STEPS.length - 1));
   const goBack = () => setStepIndex(i => Math.max(i - 1, 0));
@@ -285,11 +338,11 @@ export default function OnboardingFlow({ t }) {
                     Emergency Contact
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                    <input placeholder="Name" value={formData.emergencyContact.name} onChange={e => update({ emergencyContact: { ...formData.emergencyContact, name: e.target.value } })} style={inputStyle} />
-                    <input placeholder="Relation" value={formData.emergencyContact.relation} onChange={e => update({ emergencyContact: { ...formData.emergencyContact, relation: e.target.value } })} style={inputStyle} />
+                    <input placeholder="Name" value={formData.emergencyContact.name} onChange={e => updateNested('emergencyContact', { name: e.target.value })} style={inputStyle} />
+                    <input placeholder="Relation" value={formData.emergencyContact.relation} onChange={e => updateNested('emergencyContact', { relation: e.target.value })} style={inputStyle} />
                   </div>
                   <div style={fieldRow}>
-                    <input placeholder="Phone" value={formData.emergencyContact.phone} onChange={e => update({ emergencyContact: { ...formData.emergencyContact, phone: e.target.value } })} style={inputStyle} />
+                    <input placeholder="Phone" value={formData.emergencyContact.phone} onChange={e => updateNested('emergencyContact', { phone: e.target.value })} style={inputStyle} />
                   </div>
 
                   {errorMsg && <div style={{ color: t.danger, fontSize: '12px', marginTop: '8px' }}>{errorMsg}</div>}
@@ -319,7 +372,7 @@ export default function OnboardingFlow({ t }) {
                     t={t} inputStyle={inputStyle} labelStyle={labelStyle}
                     title="Current Address"
                     value={formData.addressCurrent}
-                    onChange={v => update({ addressCurrent: v })}
+                    setField={(k, v) => updateNested('addressCurrent', { [k]: v })}
                   />
 
                   <div style={{ margin: '10px 0' }}>
@@ -329,10 +382,11 @@ export default function OnboardingFlow({ t }) {
                         checked={formData.sameAddress}
                         onChange={e => {
                           const checked = e.target.checked;
-                          update({
+                          setFormData(d => ({
+                            ...d,
                             sameAddress: checked,
-                            addressPermanent: checked ? { ...formData.addressCurrent } : formData.addressPermanent,
-                          });
+                            addressPermanent: checked ? { ...d.addressCurrent } : d.addressPermanent,
+                          }));
                         }}
                       />
                       Permanent address is the same as current
@@ -344,7 +398,7 @@ export default function OnboardingFlow({ t }) {
                       t={t} inputStyle={inputStyle} labelStyle={labelStyle}
                       title="Permanent Address"
                       value={formData.addressPermanent}
-                      onChange={v => update({ addressPermanent: v })}
+                      setField={(k, v) => updateNested('addressPermanent', { [k]: v })}
                     />
                   )}
 
@@ -387,6 +441,7 @@ export default function OnboardingFlow({ t }) {
                   labelStyle={labelStyle}
                   formData={formData}
                   update={update}
+                  setFormData={setFormData}
                   saveAndNext={saveAndNext}
                   goBack={goBack}
                   sectionHeading={sectionHeading}
@@ -546,23 +601,26 @@ function NavButtons({ t, onBack, onNext, backDisabled, nextDisabled, nextLabel =
   );
 }
 
-function AddressFields({ t, title, value, onChange, inputStyle, labelStyle }) {
+function AddressFields({ t, title, value, setField, inputStyle, labelStyle }) {
+  // Each input calls setField(key, newValue). The parent resolves the patch
+  // against the LATEST state via a functional updater, so fast typing can
+  // never drop characters across multiple fields.
   return (
     <div style={{ marginBottom: '18px' }}>
       <div style={{ fontSize: '12px', fontWeight: 600, color: t.text, marginBottom: '10px' }}>{title}</div>
       <div style={{ marginBottom: '10px' }}>
-        <input placeholder="Address line 1" value={value.line1} onChange={e => onChange({ ...value, line1: e.target.value })} style={inputStyle} />
+        <input placeholder="Address line 1" value={value.line1 || ''} onChange={e => setField('line1', e.target.value)} style={inputStyle} />
       </div>
       <div style={{ marginBottom: '10px' }}>
-        <input placeholder="Address line 2 (optional)" value={value.line2} onChange={e => onChange({ ...value, line2: e.target.value })} style={inputStyle} />
+        <input placeholder="Address line 2 (optional)" value={value.line2 || ''} onChange={e => setField('line2', e.target.value)} style={inputStyle} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-        <input placeholder="City" value={value.city} onChange={e => onChange({ ...value, city: e.target.value })} style={inputStyle} />
-        <input placeholder="State" value={value.state} onChange={e => onChange({ ...value, state: e.target.value })} style={inputStyle} />
+        <input placeholder="City" value={value.city || ''} onChange={e => setField('city', e.target.value)} style={inputStyle} />
+        <input placeholder="State" value={value.state || ''} onChange={e => setField('state', e.target.value)} style={inputStyle} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-        <input placeholder="Pincode" value={value.pincode} onChange={e => onChange({ ...value, pincode: e.target.value })} style={inputStyle} />
-        <input placeholder="Country" value={value.country} onChange={e => onChange({ ...value, country: e.target.value })} style={inputStyle} />
+        <input placeholder="Pincode" value={value.pincode || ''} onChange={e => setField('pincode', e.target.value)} style={inputStyle} />
+        <input placeholder="Country" value={value.country || ''} onChange={e => setField('country', e.target.value)} style={inputStyle} />
       </div>
     </div>
   );
@@ -631,13 +689,18 @@ function IdentityStep({ userProfile, t, inputStyle, labelStyle, formData, update
   );
 }
 
-function BankingStep({ userProfile, t, inputStyle, labelStyle, formData, update, saveAndNext, goBack, sectionHeading, sectionDesc }) {
+function BankingStep({ userProfile, t, inputStyle, labelStyle, formData, update, setFormData, saveAndNext, goBack, sectionHeading, sectionDesc }) {
   const [chequeFile, setChequeFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState('');
 
-  const b = formData.bankAccount;
-  const set = (patch) => update({ bankAccount: { ...b, ...patch } });
+  const b = formData.bankAccount || {};
+  // Functional updater so rapid keystrokes across different bank fields don't
+  // overwrite each other via a stale closure.
+  const set = (patch) => setFormData(d => ({
+    ...d,
+    bankAccount: { ...(d.bankAccount || {}), ...patch },
+  }));
 
   const handleNext = async () => {
     setErr('');
