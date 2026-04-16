@@ -29,6 +29,7 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
     annualCtc: '',
     reportingManager: '',
     jibbleName: '',
+    workerClass: 'employee', // 'employee' | 'contractor'
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -88,6 +89,7 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
         isCore: true,
         isFreelancer: false,
         isClient: false,
+        workerClass: form.workerClass, // 'employee' | 'contractor'
       });
 
       // 3. Mark as employee and seed HR fields
@@ -96,6 +98,7 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
         designation: form.designation.trim(),
         department: form.department.trim(),
         employmentType: form.employmentType,
+        workerClass: form.workerClass,
         dateOfJoining: form.dateOfJoining,
         reportingManager: form.reportingManager,
         jibbleName: form.jibbleName.trim() || form.name.trim(),
@@ -312,6 +315,46 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
               <Input t={t} value={form.designation} onChange={(v) => set('designation', v)} placeholder="e.g. Producer, Editor" />
             </Field>
           </Row>
+
+          {/* Worker classification */}
+          <Field label="Worker classification *" t={t}>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {[
+                { value: 'employee', label: 'Employee', desc: 'Full-time / part-time — PF, ESI, gratuity apply' },
+                { value: 'contractor', label: 'Independent Contractor', desc: 'Project-based — no statutory benefits' },
+              ].map(opt => (
+                <label
+                  key={opt.value}
+                  onClick={() => set('workerClass', opt.value)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 14px',
+                    background: form.workerClass === opt.value ? 'rgba(99,102,241,0.12)' : t.bgInput,
+                    border: `1.5px solid ${form.workerClass === opt.value ? 'rgba(99,102,241,0.6)' : t.border}`,
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '16px', height: '16px', borderRadius: '50%',
+                      border: `2px solid ${form.workerClass === opt.value ? '#6366f1' : t.border}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {form.workerClass === opt.value && (
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
+                      )}
+                    </div>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: t.text }}>{opt.label}</span>
+                  </div>
+                  <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px', paddingLeft: '24px' }}>
+                    {opt.desc}
+                  </div>
+                </label>
+              ))}
+            </div>
+          </Field>
 
           <Row>
             <Field label="Department *" t={t}>
