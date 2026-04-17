@@ -10,6 +10,7 @@ import {
 } from '@/lib/hr';
 import WebcamCapture from './WebcamCapture';
 import SignaturePad from './SignaturePad';
+import Logo from '@/components/Logo';
 
 /**
  * Full-screen multi-step onboarding wizard. Shown when a logged-in user has
@@ -220,7 +221,7 @@ export default function OnboardingFlow({ t }) {
     }}>
       {/* Header */}
       <div style={{
-        padding: '18px 28px',
+        padding: '16px 28px',
         borderBottom: `1px solid ${t.border}`,
         display: 'flex',
         alignItems: 'center',
@@ -228,15 +229,11 @@ export default function OnboardingFlow({ t }) {
         background: t.bgSecondary,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '10px',
-            background: t.gradientPrimary,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18,
-          }}>🎬</div>
+          <Logo variant="icon" size={36} theme={t.text === '#ffffff' ? 'dark' : 'light'} />
+          <div style={{ width: '1px', height: '24px', background: t.border }} />
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: t.text }}>Anandi Productions</div>
-            <div style={{ fontSize: '11px', color: t.textMuted }}>Employee Onboarding</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: t.text, letterSpacing: '-0.1px' }}>Anandi Productions</div>
+            <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '1px' }}>Employee Onboarding</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -461,51 +458,71 @@ export default function OnboardingFlow({ t }) {
                 />
               )}
 
-              {/* 6. Offer Letter */}
-              {step.id === 'offerLetter' && (
-                <SignedDocumentStep
-                  docKey="offerLetter"
-                  title="Offer Letter"
-                  template={fillTemplate(hrSettings?.offerLetterTemplate, userProfile)}
-                  userProfile={userProfile}
-                  t={t}
-                  saveAndNext={saveAndNext}
-                  goBack={goBack}
-                  sectionHeading={sectionHeading}
-                  sectionDesc={sectionDesc}
-                />
-              )}
+              {/* 6. Offer Letter — pick template by workerClass */}
+              {step.id === 'offerLetter' && (() => {
+                const wc = userProfile?.workerClass || 'employee';
+                const tpl = wc === 'contractor'
+                  ? hrSettings?.templates?.offerLetterContractor?.body
+                  : hrSettings?.templates?.offerLetterEmployee?.body;
+                return (
+                  <SignedDocumentStep
+                    docKey="offerLetter"
+                    title={wc === 'contractor' ? 'Engagement Letter' : 'Offer Letter'}
+                    template={fillTemplate(tpl, userProfile)}
+                    userProfile={userProfile}
+                    t={t}
+                    saveAndNext={saveAndNext}
+                    goBack={goBack}
+                    sectionHeading={sectionHeading}
+                    sectionDesc={sectionDesc}
+                  />
+                );
+              })()}
 
-              {/* 7. Employee Agreement */}
-              {step.id === 'agreement' && (
-                <SignedDocumentStep
-                  docKey="employeeAgreement"
-                  title="Employee Agreement"
-                  template={fillTemplate(hrSettings?.employeeAgreementTemplate, userProfile)}
-                  userProfile={userProfile}
-                  t={t}
-                  saveAndNext={saveAndNext}
-                  goBack={goBack}
-                  sectionHeading={sectionHeading}
-                  sectionDesc={sectionDesc}
-                />
-              )}
+              {/* 7. Agreement — employee agreement OR contractor agreement */}
+              {step.id === 'agreement' && (() => {
+                const wc = userProfile?.workerClass || 'employee';
+                const tpl = wc === 'contractor'
+                  ? hrSettings?.templates?.contractorAgreement?.body
+                  : hrSettings?.templates?.employeeAgreement?.body;
+                return (
+                  <SignedDocumentStep
+                    docKey="employeeAgreement"
+                    title={wc === 'contractor' ? 'Contractor Agreement' : 'Employee Agreement'}
+                    template={fillTemplate(tpl, userProfile)}
+                    userProfile={userProfile}
+                    t={t}
+                    saveAndNext={saveAndNext}
+                    goBack={goBack}
+                    sectionHeading={sectionHeading}
+                    sectionDesc={sectionDesc}
+                  />
+                );
+              })()}
 
-              {/* 8. Handbook */}
-              {step.id === 'handbook' && (
-                <SignedDocumentStep
-                  docKey="handbookAcceptance"
-                  title="Employee Handbook"
-                  template={`I acknowledge that I have received and read the Anandi Productions Employee Handbook (${hrSettings?.handbookVersion || 'v1'}). I understand and agree to comply with all policies, procedures, and guidelines contained within.`}
-                  handbookUrl={hrSettings?.handbookUrl}
-                  userProfile={userProfile}
-                  t={t}
-                  saveAndNext={saveAndNext}
-                  goBack={goBack}
-                  sectionHeading={sectionHeading}
-                  sectionDesc={sectionDesc}
-                />
-              )}
+              {/* 8. Handbook — contractors skip automatically */}
+              {step.id === 'handbook' && (() => {
+                const wc = userProfile?.workerClass || 'employee';
+                if (wc === 'contractor') {
+                  // Auto-advance: contractors don't need the employee handbook
+                  saveAndNext({ 'signatures.handbookAcceptance': { signed: true, skipped: true, signedAt: new Date().toISOString() } });
+                  return null;
+                }
+                return (
+                  <SignedDocumentStep
+                    docKey="handbookAcceptance"
+                    title="Employee Handbook"
+                    template={`I acknowledge that I have received and read the Anandi Productions Employee Handbook (${hrSettings?.handbookVersion || 'v1'}). I understand and agree to comply with all policies, procedures, and guidelines contained within.`}
+                    handbookUrl={hrSettings?.handbookUrl}
+                    userProfile={userProfile}
+                    t={t}
+                    saveAndNext={saveAndNext}
+                    goBack={goBack}
+                    sectionHeading={sectionHeading}
+                    sectionDesc={sectionDesc}
+                  />
+                );
+              })()}
 
               {/* 9. Terms & Conditions */}
               {step.id === 'terms' && (
