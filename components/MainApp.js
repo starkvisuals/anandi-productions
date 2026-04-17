@@ -12,6 +12,7 @@ import CreateProjectModal from './CreateProjectModal';
 import dynamic from 'next/dynamic';
 import { canAccessHr, canManageEmployees, isHrFullAdmin, ensurePrimaryProducerExists, listPendingApprovals } from '@/lib/hr';
 import EmployeeModule from './hr/EmployeeModule';
+import ReleasesModule from './releases/ReleasesModule';
 import OnboardingFlow from './hr/OnboardingFlow';
 
 // Dynamic import MuxPlayer to avoid SSR issues
@@ -185,6 +186,7 @@ const Icons = {
   animation: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>,
   vfx: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>,
   audio: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>,
+  document: (color) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>,
 };
 
 const DEFAULT_CATEGORIES = [
@@ -2213,7 +2215,8 @@ export default function MainApp() {
       { id: 'calendar', icon: 'calendar', label: 'Calendar', shortcut: '\u2318 4' },
       ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads', shortcut: '\u2318 5' }] : []),
       ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team', shortcut: isClientView ? '\u2318 6' : '\u2318 5' }] : []),
-      ...(canManageEmployeesNow ? [{ id: 'employees', icon: 'user', label: 'Employees', shortcut: '\u2318 6', badge: hrPendingCount }] : [])
+      ...(canManageEmployeesNow ? [{ id: 'employees', icon: 'user', label: 'Employees', shortcut: '\u2318 6', badge: hrPendingCount }] : []),
+      ...(isProducer || canManageEmployeesNow ? [{ id: 'releases', icon: 'document', label: 'Releases', shortcut: '\u2318 7' }] : [])
     ];
 
     return (
@@ -10397,6 +10400,7 @@ export default function MainApp() {
             {view === 'team' && <StableTeamManagement />}
             {view === 'downloads' && <StableDownloadsView />}
             {view === 'employees' && canManageEmployeesNow && <EmployeeModule t={t} />}
+            {view === 'releases' && <ReleasesModule t={t} userProfile={userProfile} />}
           </motion.div>
         </AnimatePresence>
 
