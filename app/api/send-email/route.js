@@ -37,6 +37,7 @@ export async function POST(request) {
         employee_document_uploaded: { gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', icon: '📄', title: 'Document Uploaded', buttonColor: '#06b6d4', buttonText: 'View Document' },
         hr_approval_requested: { gradient: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)', icon: '⚠️', title: 'HR Approval Requested', buttonColor: '#f59e0b', buttonText: 'Review Request' },
         hr_approval_resolved: { gradient: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)', icon: '📬', title: 'HR Approval Resolved', buttonColor: '#8b5cf6', buttonText: 'View Details' },
+        model_release_submitted: { gradient: 'linear-gradient(135deg, #22c55e 0%, #10b981 100%)', icon: '📋', title: 'Model Release Submitted', buttonColor: '#22c55e', buttonText: 'View in Releases' },
         default: { gradient: '#6366f1', icon: '📬', title: subject, buttonColor: '#6366f1', buttonText: 'View in Anandi Hub' }
       };
 
