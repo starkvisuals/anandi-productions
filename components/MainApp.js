@@ -5586,6 +5586,11 @@ export default function MainApp() {
     const [selectedAssets, setSelectedAssets] = useState(new Set());
     const [uploadFiles, setUploadFiles] = useState([]);
     const [uploadProgress, setUploadProgress] = useState({});
+    const [uploadMode, setUploadMode] = useState('files'); // 'files' | 'folder'
+    const [folderGroups, setFolderGroups] = useState({}); // { subfolderName: [files] }
+    const [catMappings, setCatMappings] = useState({}); // { subfolderName: categoryId | '__new__' }
+    const [showAddCat, setShowAddCat] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
     const [unmatchedFiles, setUnmatchedFiles] = useState([]); // Files that need manual matching
     const [showMatchModal, setShowMatchModal] = useState(false);
     const [newFeedback, setNewFeedback] = useState('');
@@ -5603,6 +5608,8 @@ export default function MainApp() {
     const [versionFile, setVersionFile] = useState(null);
     const [uploadingVersion, setUploadingVersion] = useState(false);
     const fileInputRef = useRef(null);
+    const folderInputRef = useRef(null);
+    const fileCategoriesRef = useRef(new Map()); // File → categoryId override (set by folder upload)
     const versionInputRef = useRef(null);
     const videoRef = useRef(null);
     const feedbackInputRef = useRef(null);
@@ -6033,16 +6040,17 @@ export default function MainApp() {
     const cardWidth = CARD_SIZES[appearance.cardSize];
     const aspectRatio = ASPECT_RATIOS[appearance.aspectRatio];
 
-    const handleUpload = async () => {
-      if (!uploadFiles.length) return;
+    const handleUpload = async (forcedFiles) => {
+      const toProcess = forcedFiles ?? uploadFiles;
+      if (!toProcess.length) return;
       setShowUpload(false);
-      
-      for (const file of uploadFiles) {
+
+      for (const file of toProcess) {
         const uid = generateId();
         const fileType = getFileType(file);
-        
-        // Auto-detect best category based on file type
-        let cat = selectedCat;
+
+        // Per-file category override (set by folder upload), or fall back to selectedCat
+        let cat = fileCategoriesRef.current.get(file) ?? selectedCat;
         if (!cat) {
           if (fileType === 'video') {
             cat = cats.find(c => c.id === 'videos')?.id || cats.find(c => c.id === 'animation')?.id || cats[0]?.id;
@@ -6281,7 +6289,102 @@ export default function MainApp() {
           setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
         }
       }
-      setUploadFiles([]);
+      if (!forcedFiles) setUploadFiles([]);
+      fileCategoriesRef.current.clear();
+    };
+
+    // ─── Folder upload: parse subfolder structure → auto-create categories ───
+    const CAT_COLORS_POOL = ['#6366f1','#ec4899','#f97316','#22c55e','#06b6d4','#a855f7','#f59e0b','#3b82f6','#10b981','#ef4444'];
+    const slugifyCat = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || generateId();
+
+    const handleFolderSelect = (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      // Group by first subfolder (2nd path segment = subfolder under the selected root)
+      const groups = {};
+      for (const file of files) {
+        const parts = (file.webkitRelativePath || file.name).split('/');
+        // parts[0] = selected folder name, parts[1] = subfolder (if any)
+        const subfolder = parts.length > 2 ? parts[1] : (parts.length === 2 ? parts[0] : '__root__');
+        if (!groups[subfolder]) groups[subfolder] = [];
+        groups[subfolder].push(file);
+      }
+      setFolderGroups(groups);
+      setCatMappings({});
+    };
+
+    const handleFolderUpload = async () => {
+      if (!Object.keys(folderGroups).length) return;
+      setShowUpload(false);
+
+      // 1. Determine or create categories for each subfolder
+      let currentCats = [...(selectedProject.categories || [])];
+      const catIdFor = {}; // { subfolderName: categoryId }
+      const newCats = [];
+
+      for (const [subName, files] of Object.entries(folderGroups)) {
+        const overrideId = catMappings[subName];
+        if (overrideId && overrideId !== '__new__') {
+          catIdFor[subName] = overrideId;
+          continue;
+        }
+        // Try fuzzy match with existing category names
+        const existing = currentCats.find(c =>
+          c.name.toLowerCase() === subName.toLowerCase() ||
+          c.id === slugifyCat(subName)
+        );
+        if (existing) {
+          catIdFor[subName] = existing.id;
+        } else {
+          // Auto-create new category
+          const id = slugifyCat(subName) !== '' ? slugifyCat(subName) : generateId();
+          const color = CAT_COLORS_POOL[(newCats.length + currentCats.length) % CAT_COLORS_POOL.length];
+          const newCat = { id, name: subName === '__root__' ? 'Uploads' : subName, icon: 'image', color };
+          newCats.push(newCat);
+          currentCats.push(newCat);
+          catIdFor[subName] = id;
+        }
+      }
+
+      // 2. Save new categories to Firestore before upload starts
+      if (newCats.length > 0) {
+        await updateProject(selectedProject.id, { categories: currentCats });
+        await refreshProject();
+        showToast(`Created ${newCats.length} new folder${newCats.length > 1 ? 's' : ''}: ${newCats.map(c => c.name).join(', ')}`, 'success');
+      }
+
+      // 3. Build per-file category map and flat file list
+      fileCategoriesRef.current.clear();
+      const allFiles = [];
+      for (const [subName, files] of Object.entries(folderGroups)) {
+        for (const file of files) {
+          fileCategoriesRef.current.set(file, catIdFor[subName]);
+          allFiles.push(file);
+        }
+      }
+
+      // 4. Kick off the existing upload pipeline with the flat file list
+      setFolderGroups({});
+      setCatMappings({});
+      await handleUpload(allFiles);
+    };
+
+    // Add a new custom category to the project quickly (from + button in category bar)
+    const handleAddCategory = async () => {
+      const name = newCatName.trim();
+      if (!name) return;
+      const id = slugifyCat(name) || generateId();
+      const usedIds = new Set((selectedProject.categories || []).map(c => c.id));
+      const finalId = usedIds.has(id) ? `${id}-${generateId()}` : id;
+      const color = CAT_COLORS_POOL[(selectedProject.categories || []).length % CAT_COLORS_POOL.length];
+      const newCat = { id: finalId, name, icon: 'image', color };
+      const updated = [...(selectedProject.categories || []), newCat];
+      await updateProject(selectedProject.id, { categories: updated });
+      await refreshProject();
+      setNewCatName('');
+      setShowAddCat(false);
+      setSelectedCat(finalId);
+      showToast(`Folder "${name}" created`, 'success');
     };
 
     const handleUploadVersion = async () => {
@@ -6715,6 +6818,19 @@ export default function MainApp() {
                   {Icons[cat.icon] ? Icons[cat.icon](selectedCat === cat.id ? cat.color : t.textSecondary) : Icons.file(selectedCat === cat.id ? cat.color : t.textSecondary)} {cat.name} <span style={{ fontSize: '10px', opacity: 0.7, background: selectedCat === cat.id ? `${cat.color}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{getCatCount(cat.id)}</span>
                 </button>
               ))}
+              {/* + New Folder button */}
+              {isProducer && !showAddCat && (
+                <button onClick={() => setShowAddCat(true)} title="Add new folder" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '7px 12px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', background: 'transparent', color: t.textMuted, border: `1px dashed ${t.border}`, whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
+                  + Folder
+                </button>
+              )}
+              {isProducer && showAddCat && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input autoFocus value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); if (e.key === 'Escape') { setShowAddCat(false); setNewCatName(''); } }} placeholder="Folder name…" style={{ padding: '5px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '20px', color: t.text, fontSize: '12px', outline: 'none', width: '130px' }} />
+                  <button onClick={handleAddCategory} style={{ padding: '5px 10px', background: t.primary, border: 'none', borderRadius: '20px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>✓</button>
+                  <button onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '5px 8px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '20px', color: t.textMuted, fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                </div>
+              )}
             </div>
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
@@ -7386,16 +7502,80 @@ export default function MainApp() {
 
         {/* Upload Modal */}
         {showUpload && (
-          <Modal theme={theme} title="Upload Assets" onClose={() => { setShowUpload(false); setUploadFiles([]); }}>
+          <Modal theme={theme} title="Upload Assets" onClose={() => { setShowUpload(false); setUploadFiles([]); setFolderGroups({}); setCatMappings({}); setUploadMode('files'); }}>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto' }}>
-              <div style={{ textAlign: 'center', padding: '40px', border: `2px dashed ${t.border}`, borderRadius: '12px', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
-                <div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
-                <p style={{ margin: 0, fontSize: '14px' }}>{uploadFiles.length ? `${uploadFiles.length} files selected` : 'Click to select files'}</p>
-                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => setUploadFiles(Array.from(e.target.files))} />
+              {/* Mode tabs */}
+              <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '10px', padding: '4px' }}>
+                {[{ id: 'files', label: '📎 Select Files' }, { id: 'folder', label: '📁 Upload Folder' }].map(m => (
+                  <button key={m.id} onClick={() => { setUploadMode(m.id); setUploadFiles([]); setFolderGroups({}); setCatMappings({}); }} style={{ flex: 1, padding: '8px', background: uploadMode === m.id ? t.primary : 'transparent', border: 'none', borderRadius: '8px', color: uploadMode === m.id ? '#fff' : t.textSecondary, fontSize: '12px', cursor: 'pointer', fontWeight: uploadMode === m.id ? '600' : '400', transition: 'all 0.15s' }}>{m.label}</button>
+                ))}
               </div>
-              {uploadFiles.length > 0 && <div style={{ maxHeight: '140px', overflow: 'auto', background: t.bgInput, borderRadius: '8px', padding: '10px' }}>{uploadFiles.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}><span>{f.name}</span><span style={{ color: t.textMuted }}>{formatFileSize(f.size)}</span></div>)}</div>}
-              <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Category</label><Select theme={theme} value={selectedCat || cats[0]?.id || ''} onChange={setSelectedCat}>{cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</Select></div>
-              <Btn theme={theme} onClick={handleUpload} disabled={!uploadFiles.length} color="#22c55e">Upload {uploadFiles.length} Files</Btn>
+
+              {uploadMode === 'files' ? (
+                <>
+                  <div style={{ textAlign: 'center', padding: '40px', border: `2px dashed ${t.border}`, borderRadius: '12px', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
+                    <div style={{ marginBottom: '12px', opacity: 0.5 }}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                    <p style={{ margin: 0, fontSize: '14px' }}>{uploadFiles.length ? `${uploadFiles.length} files selected` : 'Click to select files'}</p>
+                    <p style={{ margin: '6px 0 0', fontSize: '11px', color: t.textMuted }}>Images, videos, audio, documents</p>
+                    <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => setUploadFiles(Array.from(e.target.files))} />
+                  </div>
+                  {uploadFiles.length > 0 && <div style={{ maxHeight: '140px', overflow: 'auto', background: t.bgInput, borderRadius: '8px', padding: '10px' }}>{uploadFiles.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{f.name}</span><span style={{ color: t.textMuted, flexShrink: 0 }}>{formatFileSize(f.size)}</span></div>)}</div>}
+                  <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Category (folder)</label><Select theme={theme} value={selectedCat || cats[0]?.id || ''} onChange={setSelectedCat}>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
+                  <Btn theme={theme} onClick={handleUpload} disabled={!uploadFiles.length} color="#22c55e">Upload {uploadFiles.length || ''} Files</Btn>
+                </>
+              ) : (
+                <>
+                  {/* Folder picker */}
+                  <div style={{ textAlign: 'center', padding: '32px', border: `2px dashed ${Object.keys(folderGroups).length ? t.primary : t.border}`, borderRadius: '12px', cursor: 'pointer', background: Object.keys(folderGroups).length ? `${t.primary}08` : 'transparent', transition: 'all 0.2s' }} onClick={() => folderInputRef.current?.click()}>
+                    <div style={{ fontSize: '36px', marginBottom: '10px' }}>📁</div>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>
+                      {Object.keys(folderGroups).length ? `${Object.keys(folderGroups).length} sub-folder${Object.keys(folderGroups).length > 1 ? 's' : ''} detected` : 'Select a folder'}
+                    </p>
+                    <p style={{ margin: '6px 0 0', fontSize: '11px', color: t.textMuted }}>Subfolders become categories automatically</p>
+                    <input ref={folderInputRef} type="file" webkitdirectory="" directory="" multiple style={{ display: 'none' }} onChange={handleFolderSelect} />
+                  </div>
+
+                  {/* Subfolder → category mapping preview */}
+                  {Object.keys(folderGroups).length > 0 && (
+                    <div style={{ background: t.bgInput, borderRadius: '10px', overflow: 'hidden' }}>
+                      <div style={{ padding: '10px 14px', borderBottom: `1px solid ${t.border}`, fontSize: '11px', color: t.textMuted, fontWeight: '600', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>SUBFOLDER</span><span>→ CATEGORY</span>
+                      </div>
+                      {Object.entries(folderGroups).map(([sub, files]) => {
+                        const overrideId = catMappings[sub];
+                        const existingMatch = (selectedProject.categories || []).find(c =>
+                          c.name.toLowerCase() === sub.toLowerCase() || c.id === sub.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+                        );
+                        const displayCatName = overrideId
+                          ? ((selectedProject.categories || []).find(c => c.id === overrideId)?.name || overrideId)
+                          : existingMatch ? existingMatch.name : sub;
+                        const isNew = !overrideId && !existingMatch;
+                        return (
+                          <div key={sub} style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', borderBottom: `1px solid ${t.border}`, gap: '10px' }}>
+                            <span style={{ fontSize: '11px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📁 {sub === '__root__' ? '(root)' : sub}</span>
+                            <span style={{ fontSize: '10px', color: t.textMuted, flexShrink: 0 }}>{files.length} files</span>
+                            <span style={{ fontSize: '11px', color: isNew ? '#f59e0b' : '#22c55e', flexShrink: 0, fontWeight: '600' }}>→ {displayCatName}{isNew ? ' ✦new' : ''}</span>
+                            <select value={overrideId || ''} onChange={e => setCatMappings(m => ({ ...m, [sub]: e.target.value || undefined }))} style={{ fontSize: '10px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, padding: '2px 4px', cursor: 'pointer', maxWidth: '100px' }}>
+                              <option value="">Auto</option>
+                              {(selectedProject.categories || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {Object.keys(folderGroups).length > 0 && (
+                    <div style={{ fontSize: '11px', color: t.textMuted, padding: '4px 0' }}>
+                      {Object.values(folderGroups).flat().length} total files across {Object.keys(folderGroups).length} folders
+                    </div>
+                  )}
+
+                  <Btn theme={theme} onClick={handleFolderUpload} disabled={!Object.keys(folderGroups).length} color="#22c55e">
+                    📁 Upload {Object.values(folderGroups).flat().length || ''} Files
+                  </Btn>
+                </>
+              )}
             </div>
           </Modal>
         )}
