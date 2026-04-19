@@ -91,6 +91,7 @@ export default function SharePage({ params }) {
   const [confirmingSelection, setConfirmingSelection] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [hoveredCard, setHoveredCard] = useState(null);
+  const [colorFilter, setColorFilter] = useState(null); // 'red' | 'yellow' | 'green' | null
   const fileInputRef = useRef(null);
 
   // Get token from params
@@ -109,6 +110,34 @@ export default function SharePage({ params }) {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Keyboard shortcuts when modal is open
+  useEffect(() => {
+    if (!selectedAsset || !isClient) return;
+    const handleKey = async (e) => {
+      // Arrow navigation
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const list = assets;
+        const idx = list.findIndex(a => a.id === selectedAsset.id);
+        if (idx === -1) return;
+        const next = e.key === 'ArrowRight' ? list[idx + 1] : list[idx - 1];
+        if (next) setSelectedAsset(next);
+        return;
+      }
+      // S — toggle select
+      if (e.key === 's' || e.key === 'S') { e.preventDefault(); await handleToggleSelect(selectedAsset.id); return; }
+      // P — red pick, M — yellow maybe, G — green alt, U — clear
+      if (e.key === 'p' || e.key === 'P') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'red'); }
+      if (e.key === 'm' || e.key === 'M') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'yellow'); }
+      if (e.key === 'g' || e.key === 'G') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'green'); }
+      if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (project.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); await updateProjectData(project.id, { assets: updated }); setProject({ ...project, assets: updated }); setSelectedAsset({ ...selectedAsset, colorLabel: null }); }
+      // Escape — close modal
+      if (e.key === 'Escape') setSelectedAsset(null);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [selectedAsset, project, assets, isClient]);
 
   // Load project
   useEffect(() => {
@@ -136,7 +165,8 @@ export default function SharePage({ params }) {
   const isEditor = link?.type === 'editor';
   const cats = project?.categories || [];
   const getAssets = () => { let a = (project?.assets || []).filter(x => !x.deleted); if (selectedCat) a = a.filter(x => x.category === selectedCat); return a; };
-  const assets = getAssets();
+  const allAssets = getAssets();
+  const assets = colorFilter ? allAssets.filter(a => a.colorLabel === colorFilter) : allAssets;
   const getCatCount = id => (project?.assets || []).filter(a => !a.deleted && a.category === id).length;
   const selectedCount = (project?.assets || []).filter(a => a.isSelected).length;
 
@@ -154,6 +184,15 @@ export default function SharePage({ params }) {
     await updateProjectData(project.id, { assets: updated });
     setProject({ ...project, assets: updated });
     if (selectedAsset?.id === assetId) setSelectedAsset({ ...selectedAsset, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' });
+  };
+
+  const handleColorLabel = async (assetId, label) => {
+    const asset = (project.assets || []).find(a => a.id === assetId);
+    const newLabel = asset?.colorLabel === label ? null : label; // toggle off if same
+    const updated = (project.assets || []).map(a => a.id === assetId ? { ...a, colorLabel: newLabel } : a);
+    await updateProjectData(project.id, { assets: updated });
+    setProject({ ...project, assets: updated });
+    if (selectedAsset?.id === assetId) setSelectedAsset({ ...selectedAsset, colorLabel: newLabel });
   };
 
   const handleConfirmSelection = async () => {
@@ -429,6 +468,21 @@ export default function SharePage({ params }) {
             </div>
           )}
 
+          {/* Color + Filter pills — client only */}
+          {isClient && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '1px' }}>Filter:</span>
+              {[{ key: 'red', color: '#ef4444', label: '🔴 Picks' }, { key: 'yellow', color: '#f59e0b', label: '🟡 Maybe' }, { key: 'green', color: '#22c55e', label: '🟢 Alt' }].map(({ key, color, label }) => (
+                <button key={key} onClick={() => setColorFilter(colorFilter === key ? null : key)} style={{ padding: '6px 14px', background: colorFilter === key ? color : 'rgba(255,255,255,0.06)', border: `1px solid ${colorFilter === key ? color : 'rgba(255,255,255,0.1)'}`, borderRadius: '20px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: colorFilter === key ? '600' : '400', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  {label}
+                  <span style={{ opacity: 0.7, fontSize: '10px' }}>({allAssets.filter(a => a.colorLabel === key).length})</span>
+                </button>
+              ))}
+              {colorFilter && <button onClick={() => setColorFilter(null)} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>Clear</button>}
+              <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{assets.length} images · P=pick · M=maybe · ←→=navigate</span>
+            </div>
+          )}
+
           {/* Assets Grid */}
           <div style={{
             display: 'grid',
@@ -479,6 +533,7 @@ export default function SharePage({ params }) {
                   height: isMobile ? '120px' : '170px',
                   background: '#0a0a0f',
                   overflow: 'hidden',
+                  position: 'relative',
                 }}>
                   {a.thumbnail ? (
                     <img src={a.thumbnail} alt="" style={{
@@ -492,6 +547,10 @@ export default function SharePage({ params }) {
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span style={{ fontSize: '32px', opacity: 0.5 }}>{a.type === 'video' ? '▶' : '◻'}</span>
                     </div>
+                  )}
+                  {/* Color label stripe */}
+                  {a.colorLabel && (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: a.colorLabel === 'red' ? '#ef4444' : a.colorLabel === 'yellow' ? '#f59e0b' : '#22c55e', zIndex: 5 }} />
                   )}
                 </div>
                 <div style={{ padding: isMobile ? '10px' : '14px' }}>
@@ -681,6 +740,21 @@ export default function SharePage({ params }) {
                     }}>
                       {selectedAsset.isSelected ? '✓ Selected' : 'Mark as Selected'}
                     </button>
+
+                    {/* Color label picker */}
+                    <div style={{ marginTop: '14px' }}>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Mark as</div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {[{ key: 'red', color: '#ef4444', label: '🔴 Pick (P)' }, { key: 'yellow', color: '#f59e0b', label: '🟡 Maybe (M)' }, { key: 'green', color: '#22c55e', label: '🟢 Alt (G)' }].map(({ key, color, label }) => (
+                          <button key={key} onClick={() => handleColorLabel(selectedAsset.id, key)} style={{ flex: 1, padding: '8px 6px', background: selectedAsset.colorLabel === key ? color : 'rgba(255,255,255,0.05)', border: `1px solid ${selectedAsset.colorLabel === key ? color : 'rgba(255,255,255,0.1)'}`, borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: selectedAsset.colorLabel === key ? '700' : '400', transition: 'all 0.15s', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== key ? 0.5 : 1 }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {selectedAsset.colorLabel && (
+                        <button onClick={() => handleColorLabel(selectedAsset.id, selectedAsset.colorLabel)} style={{ width: '100%', marginTop: '6px', padding: '6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'rgba(255,255,255,0.4)', fontSize: '10px', cursor: 'pointer' }}>Clear label (U)</button>
+                      )}
+                    </div>
                   </div>
                 )}
 

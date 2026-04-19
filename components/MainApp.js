@@ -14,6 +14,8 @@ import { canAccessHr, canManageEmployees, isHrFullAdmin, ensurePrimaryProducerEx
 import EmployeeModule from './hr/EmployeeModule';
 import ReleasesModule from './releases/ReleasesModule';
 import OnboardingFlow from './hr/OnboardingFlow';
+import AnnotationCanvas from './AnnotationCanvas';
+import ComparePanel from './ComparePanel';
 
 // Dynamic import MuxPlayer to avoid SSR issues
 const MuxPlayer = dynamic(() => import('./MuxPlayer'), { ssr: false });
@@ -5591,7 +5593,10 @@ export default function MainApp() {
     const [mentionSearch, setMentionSearch] = useState('');
     const [filterStars, setFilterStars] = useState(0);
     const [filterStatus, setFilterStatus] = useState('all');
+    const [colorFilter, setColorFilter] = useState(null); // 'red' | 'yellow' | 'green' | null
     const [sortBy, setSortBy] = useState('newest');
+    const [showComparePanel, setShowComparePanel] = useState(false);
+    const [compareAssetIds, setCompareAssetIds] = useState([]);
     const [newLinkName, setNewLinkName] = useState('');
     const [newLinkType, setNewLinkType] = useState('client');
     const [newLinkExpiry, setNewLinkExpiry] = useState('');
@@ -5639,6 +5644,15 @@ export default function MainApp() {
       if (!selectedAsset?.annotations || selectedAsset?.type !== 'video') return [];
       return selectedAsset.annotations.filter(a => a.videoTimestamp != null && Math.abs(a.videoTimestamp - videoTime) < 0.5);
     }, [selectedAsset?.annotations, selectedAsset?.type, videoTime]);
+
+    // Auto-pause video when entering annotate tab (side-effect must live in useEffect, not in render)
+    useEffect(() => {
+      if (assetTab === 'annotate' && videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+        setVideoPlaying(false);
+      }
+    }, [assetTab]);
+
     const handleVideoScrubMove = useCallback((e) => {
       if (!scrubBarRef.current) return;
       const rect = scrubBarRef.current.getBoundingClientRect();
@@ -5867,6 +5881,12 @@ export default function MainApp() {
           showToast(newSelected ? 'Selected' : 'Deselected', 'success');
         }
         
+        // Color label shortcuts: P=red pick, M=yellow maybe, G=green alt, U=clear
+        if (e.key === 'p' || e.key === 'P') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'red'); showToast('🔴 Marked as Pick', 'success'); }
+        if (e.key === 'm' || e.key === 'M') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'yellow'); showToast('🟡 Marked as Maybe', 'success'); }
+        if (e.key === 'g' || e.key === 'G') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'green'); showToast('🟢 Marked as Alt', 'success'); }
+        if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); setSelectedAsset({ ...selectedAsset, colorLabel: null }); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); showToast('Label cleared', 'success'); }
+
         // Escape — exit annotation mode first, then close lightbox
         if (e.key === 'Escape') {
           if (assetTab === 'annotate') {
@@ -6004,6 +6024,7 @@ export default function MainApp() {
     let displayAssets = [...assets];
     if (filterStars > 0) displayAssets = displayAssets.filter(a => (a.rating || 0) >= filterStars);
     if (filterStatus !== 'all') displayAssets = displayAssets.filter(a => a.status === filterStatus);
+    if (colorFilter) displayAssets = displayAssets.filter(a => a.colorLabel === colorFilter);
     if (sortBy === 'rating-desc') displayAssets = [...displayAssets].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     if (sortBy === 'rating-asc') displayAssets = [...displayAssets].sort((a, b) => (a.rating || 0) - (b.rating || 0));
     if (sortBy === 'name') displayAssets = [...displayAssets].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -6142,6 +6163,7 @@ export default function MainApp() {
               status: 'pending',
               rating: 0,
               isSelected: false,
+              colorLabel: null,
               assignedTo: null,
               uploadedBy: userProfile.id,
               uploadedByName: userProfile.name,
@@ -6220,9 +6242,10 @@ export default function MainApp() {
                       fileSize: file.size, 
                       mimeType: file.type, 
                       status: 'pending', 
-                      rating: 0, 
-                      isSelected: false, 
-                      assignedTo: null, 
+                      rating: 0,
+                      isSelected: false,
+                      colorLabel: null,
+                      assignedTo: null,
                       uploadedBy: userProfile.id, 
                       uploadedByName: userProfile.name, 
                       uploadedAt: new Date().toISOString(), 
@@ -6349,6 +6372,14 @@ export default function MainApp() {
 
     const handleRate = async (assetId, rating) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, rating } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
     const handleToggleSelect = async (assetId) => { const asset = (selectedProject.assets || []).find(a => a.id === assetId); const newSelected = !asset?.isSelected; const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
+    const handleColorLabel = async (assetId, label) => {
+      const asset = (selectedProject.assets || []).find(a => a.id === assetId);
+      const newLabel = asset?.colorLabel === label ? null : label; // toggle off if same
+      const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, colorLabel: newLabel } : a);
+      setSelectedAsset(prev => prev?.id === assetId ? { ...prev, colorLabel: newLabel } : prev);
+      await updateProject(selectedProject.id, { assets: updated });
+      await refreshProject();
+    };
     const handleBulkSelect = async (select) => { const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAssets(new Set()); showToast(`${selectedAssets.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
     const handleBulkDelete = async () => {
       if (!confirm(`Delete ${selectedAssets.size} assets? This cannot be undone.`)) return;
@@ -6778,6 +6809,9 @@ export default function MainApp() {
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', color: t.textMuted }}>{selectedAssets.size} selected</span>
+                {selectedAssets.size >= 2 && selectedAssets.size <= 4 && (
+                  <Btn theme={theme} onClick={() => { setCompareAssetIds([...selectedAssets]); setShowComparePanel(true); }} small color="#6366f1" title="Compare selected images side by side">⊞ Compare</Btn>
+                )}
                 <Btn theme={theme} onClick={() => handleBulkSelect(true)} small color="#22c55e" title="Mark as Selected">✓</Btn>
                 <Btn theme={theme} onClick={() => handleBulkSelect(false)} small outline title="Deselect">✗</Btn>
                 {isProducer && <Btn theme={theme} onClick={handleBulkDelete} small color="#ef4444" title="Delete Selected"></Btn>}
@@ -6947,8 +6981,16 @@ export default function MainApp() {
                     <option value="rating-asc">Rating: Low to High</option>
                     <option value="name">Name A-Z</option>
                   </select>
-                  {(filterStars > 0 || filterStatus !== 'all') && (
-                    <button onClick={() => { setFilterStars(0); setFilterStatus('all'); setSortBy('newest'); }} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>Clear filters</button>
+                  {/* Color label filter pills */}
+                  {[{ key: 'red', color: '#ef4444', label: '● Pick' }, { key: 'yellow', color: '#f59e0b', label: '● Maybe' }, { key: 'green', color: '#22c55e', label: '● Alt' }].map(({ key, color, label }) => (
+                    <button key={key} onClick={() => setColorFilter(colorFilter === key ? null : key)} style={{ padding: '6px 12px', background: colorFilter === key ? color : t.bgCard, border: `1px solid ${colorFilter === key ? color : t.border}`, borderRadius: '20px', color: colorFilter === key ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: colorFilter === key ? '600' : '400', transition: 'all 0.15s' }}>
+                      <span style={{ color: colorFilter === key ? '#fff' : color }}>{label.split(' ')[0]}</span>
+                      <span>{label.split(' ')[1]}</span>
+                      <span style={{ opacity: 0.7, fontSize: '10px' }}>({(assets || []).filter(a => a.colorLabel === key).length})</span>
+                    </button>
+                  ))}
+                  {(filterStars > 0 || filterStatus !== 'all' || colorFilter) && (
+                    <button onClick={() => { setFilterStars(0); setFilterStatus('all'); setColorFilter(null); setSortBy('newest'); }} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}>Clear filters</button>
                   )}
                   <span style={{ fontSize: '10px', color: t.textMuted, marginLeft: 'auto' }}>{displayAssets.length} assets</span>
                 </div>
@@ -7024,6 +7066,8 @@ export default function MainApp() {
                             </div>
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px', zIndex: 4 }}>{a.feedback.length}</div>}
                             {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px', zIndex: 4 }}>{new Date(a.dueDate) < new Date() ? 'Overdue ' : ''}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
+                            {/* Color label stripe — Capture One style */}
+                            {a.colorLabel && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: a.colorLabel === 'red' ? '#ef4444' : a.colorLabel === 'yellow' ? '#f59e0b' : '#22c55e', zIndex: 7 }} />}
                             {/* Always visible star rating overlay */}
                             {!appearance.showInfo && (
                               <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '12px', padding: '3px 8px', display: 'flex', gap: '2px', zIndex: 5 }}>
@@ -7738,10 +7782,17 @@ export default function MainApp() {
               </div>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 {/* Quick Rating in header */}
-                <div style={{ display: 'flex', gap: '2px', marginRight: '8px' }}>
+                <div style={{ display: 'flex', gap: '2px', marginRight: '4px' }}>
                   {[1,2,3,4,5].map(star => (
                     <span key={star} onClick={() => { handleRate(selectedAsset.id, star); setSelectedAsset({ ...selectedAsset, rating: star }); }} style={{ cursor: 'pointer', fontSize: '16px', color: star <= (selectedAsset.rating || 0) ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>★</span>
                   ))}
+                </div>
+                {/* Color label swatches — P=red, M=yellow, G=green, U=clear */}
+                <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginRight: '8px', padding: '4px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  {[{ label: 'red', color: '#ef4444', title: 'Pick (P)' }, { label: 'yellow', color: '#f59e0b', title: 'Maybe (M)' }, { label: 'green', color: '#22c55e', title: 'Alt (G)' }].map(({ label, color, title }) => (
+                    <div key={label} onClick={() => handleColorLabel(selectedAsset.id, label)} title={title} style={{ width: '14px', height: '14px', borderRadius: '50%', background: color, cursor: 'pointer', border: selectedAsset.colorLabel === label ? '2px solid #fff' : '2px solid transparent', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== label ? 0.4 : 1, transition: 'all 0.15s', boxShadow: selectedAsset.colorLabel === label ? `0 0 6px ${color}` : 'none' }} />
+                  ))}
+                  {selectedAsset.colorLabel && <div onClick={() => handleColorLabel(selectedAsset.id, selectedAsset.colorLabel)} title="Clear (U)" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', paddingLeft: '2px', lineHeight: 1 }}>✕</div>}
                 </div>
                 {/* Fullscreen toggle */}
                 <button onClick={() => setIsFullscreen(true)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>⛶ {!isMobile && 'Fullscreen'}</button>
@@ -8067,13 +8118,7 @@ export default function MainApp() {
                           </div>
 
                           {/* Video Annotation Overlay — pauses video and overlays drawing tools */}
-                          {assetTab === 'annotate' && (() => {
-                            // Auto-pause video when entering annotate mode
-                            if (videoRef.current && !videoRef.current.paused) {
-                              videoRef.current.pause();
-                              setVideoPlaying(false);
-                            }
-                            return (
+                          {assetTab === 'annotate' && (
                             <div
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -8088,10 +8133,12 @@ export default function MainApp() {
                                 videoOverlay={true}
                                 annotations={visibleVideoAnnotations}
                                 onChange={handleSaveVideoAnnotations}
+                                t={t}
+                                theme={theme}
+                                userName={userProfile?.name}
                               />
                             </div>
-                            );
-                          })()}
+                          )}
 
                           {/* Readonly video annotation markers — show at matching timestamps during preview */}
                           {assetTab === 'preview' && visibleVideoAnnotations.length > 0 && (
@@ -8117,7 +8164,14 @@ export default function MainApp() {
                         </div>
                       ) : selectedAsset.type === 'image' ? (
                         assetTab === 'annotate' ? (
-                          <AnnotationCanvas imageUrl={selectedAsset.url} annotations={selectedAsset.annotations || []} onChange={handleSaveAnnotations} />
+                          <AnnotationCanvas
+                            imageUrl={selectedAsset.url}
+                            annotations={selectedAsset.annotations || []}
+                            onChange={handleSaveAnnotations}
+                            t={t}
+                            theme={theme}
+                            userName={userProfile?.name}
+                          />
                         ) : (
                           <div 
                             ref={imageContainerRef}
@@ -8940,79 +8994,100 @@ export default function MainApp() {
 
         {/* SELECTION OVERVIEW MODAL */}
         {showSelectionOverview && (() => {
-          const selectedAssetsList = (selectedProject.assets || []).filter(a => !a.deleted && (a.isSelected || a.rating === 5));
+          const allProjectAssets = (selectedProject.assets || []).filter(a => !a.deleted);
+          const selectedAssetsList = allProjectAssets.filter(a => a.isSelected || a.rating === 5);
           const fiveStarAssets = selectedAssetsList.filter(a => a.rating === 5);
           const otherSelected = selectedAssetsList.filter(a => a.rating !== 5 && a.isSelected);
+          const redPicks = allProjectAssets.filter(a => a.colorLabel === 'red');
+          const yellowMaybe = allProjectAssets.filter(a => a.colorLabel === 'yellow');
           const editorsOnProject = team.filter(m => ['editor', 'video-editor', 'colorist', 'retoucher', 'photo-editor'].includes(m.role));
-          
+
+          const ColorThumbGrid = ({ items, borderColor, minSize = '80px' }) => (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minSize}, 1fr))`, gap: '6px' }}>
+              {items.slice(0, 24).map(asset => (
+                <div key={asset.id} onClick={() => { setShowSelectionOverview(false); setSelectedAsset(asset); setAssetTab('preview'); }} style={{ aspectRatio: '1', borderRadius: '6px', overflow: 'hidden', border: `2px solid ${borderColor}`, position: 'relative', cursor: 'pointer' }}>
+                  {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{asset.type === 'video' ? 'VID' : 'DOC'}</div>}
+                  {asset.rating > 0 && <div style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 4px', fontSize: '8px', color: '#fbbf24' }}>{'★'.repeat(asset.rating)}</div>}
+                  {asset.colorLabel && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: asset.colorLabel === 'red' ? '#ef4444' : asset.colorLabel === 'yellow' ? '#f59e0b' : '#22c55e' }} />}
+                </div>
+              ))}
+              {items.length > 24 && <div style={{ aspectRatio: '1', borderRadius: '6px', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: t.textMuted }}>+{items.length - 24}</div>}
+            </div>
+          );
+
           return (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-              <div style={{ background: t.bgCard, borderRadius: '16px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: t.bgCard, borderRadius: '16px', width: '100%', maxWidth: '900px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {/* Header */}
                 <div style={{ padding: '20px 24px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Confirm Selection</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: t.textMuted }}>Review selected assets before confirming</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: t.textMuted }}>Review your picks before sending to production</p>
                   </div>
                   <button onClick={() => setShowSelectionOverview(false)} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: t.textMuted }}>✕</button>
                 </div>
-                
+
                 {/* Content */}
                 <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
                   {/* Summary Stats */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
-                    <div style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '28px', fontWeight: '700', color: '#fbbf24' }}>{fiveStarAssets.length}</div>
-                      <div style={{ fontSize: '11px', color: t.textMuted }}> Final Picks</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '24px' }}>
+                    <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: '#ef4444' }}>{redPicks.length}</div>
+                      <div style={{ fontSize: '10px', color: t.textMuted }}>🔴 Red Picks</div>
                     </div>
-                    <div style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '28px', fontWeight: '700', color: '#22c55e' }}>{otherSelected.length}</div>
-                      <div style={{ fontSize: '11px', color: t.textMuted }}>Other Selected</div>
+                    <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: '#f59e0b' }}>{yellowMaybe.length}</div>
+                      <div style={{ fontSize: '10px', color: t.textMuted }}>🟡 Shortlist</div>
                     </div>
-                    <div style={{ background: t.bgInput, borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '28px', fontWeight: '700', color: '#6366f1' }}>{selectedAssetsList.length}</div>
-                      <div style={{ fontSize: '11px', color: t.textMuted }}>Total to Edit</div>
+                    <div style={{ background: t.bgInput, borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: '#fbbf24' }}>{fiveStarAssets.length}</div>
+                      <div style={{ fontSize: '10px', color: t.textMuted }}>⭐ 5-Star</div>
+                    </div>
+                    <div style={{ background: t.bgInput, borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: '#22c55e' }}>{otherSelected.length}</div>
+                      <div style={{ fontSize: '10px', color: t.textMuted }}>✓ Selected</div>
+                    </div>
+                    <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: '#6366f1' }}>{selectedAssetsList.length}</div>
+                      <div style={{ fontSize: '10px', color: t.textMuted }}>Total to Edit</div>
                     </div>
                   </div>
-                  
+
+                  {/* Red Picks section */}
+                  {redPicks.length > 0 && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /> Red Picks — Must Edit ({redPicks.length})
+                      </h4>
+                      <ColorThumbGrid items={redPicks} borderColor="#ef4444" minSize="90px" />
+                    </div>
+                  )}
+
+                  {/* Yellow Shortlist section */}
+                  {yellowMaybe.length > 0 && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} /> Yellow Shortlist — Maybe ({yellowMaybe.length})
+                      </h4>
+                      <ColorThumbGrid items={yellowMaybe} borderColor="#f59e0b" />
+                    </div>
+                  )}
+
                   {/* 5-Star Assets Grid */}
                   {fiveStarAssets.length > 0 && (
                     <div style={{ marginBottom: '20px' }}>
                       <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ color: '#fbbf24' }}>★★★★★</span> Final Picks ({fiveStarAssets.length})
+                        <span style={{ color: '#fbbf24' }}>★★★★★</span> 5-Star Picks ({fiveStarAssets.length})
                       </h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px' }}>
-                        {fiveStarAssets.map(asset => (
-                          <div key={asset.id} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', border: '2px solid #fbbf24', position: 'relative' }}>
-                            {asset.type === 'image' ? (
-                              <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>{asset.type === 'video' ? 'VID' : 'DOC'}</div>
-                            )}
-                            <div style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</div>
-                          </div>
-                        ))}
-                      </div>
+                      <ColorThumbGrid items={fiveStarAssets} borderColor="#fbbf24" minSize="90px" />
                     </div>
                   )}
-                  
+
                   {/* Other Selected Assets */}
                   {otherSelected.length > 0 && (
                     <div style={{ marginBottom: '20px' }}>
                       <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '600', color: t.textSecondary }}>Other Selected ({otherSelected.length})</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '6px' }}>
-                        {otherSelected.slice(0, 20).map(asset => (
-                          <div key={asset.id} style={{ aspectRatio: '1', borderRadius: '6px', overflow: 'hidden', border: '1px solid #22c55e', position: 'relative' }}>
-                            {asset.type === 'image' ? (
-                              <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{asset.type === 'video' ? 'VID' : 'DOC'}</div>
-                            )}
-                            {asset.rating > 0 && <div style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 4px', fontSize: '8px', color: '#fbbf24' }}>{'★'.repeat(asset.rating)}</div>}
-                          </div>
-                        ))}
-                        {otherSelected.length > 20 && <div style={{ aspectRatio: '1', borderRadius: '6px', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: t.textMuted }}>+{otherSelected.length - 20}</div>}
-                      </div>
+                      <ColorThumbGrid items={otherSelected} borderColor="#22c55e" />
                     </div>
                   )}
                   
@@ -9200,350 +9275,20 @@ export default function MainApp() {
           </div>
         )}
 
-        </div>
-      </div>
-    );
-  };
+        {/* COMPARE PANEL */}
+        {showComparePanel && compareAssetIds.length >= 2 && (
+          <ComparePanel
+            assets={(selectedProject.assets || []).filter(a => compareAssetIds.includes(a.id))}
+            t={t}
+            theme={theme}
+            onRate={(assetId, rating) => { handleRate(assetId, rating); }}
+            onSelect={(assetId) => handleToggleSelect(assetId)}
+            onColorLabel={(assetId, label) => handleColorLabel(assetId, label)}
+            onOpenLightbox={(asset) => { setShowComparePanel(false); setSelectedAsset(asset); setAssetTab('preview'); }}
+            onClose={() => setShowComparePanel(false)}
+          />
+        )}
 
-  // Annotation Canvas Component — Modern inline UX
-  // videoOverlay: if true, renders as transparent overlay (no image, used for video annotation)
-  const AnnotationCanvas = ({ imageUrl, annotations = [], onChange, videoOverlay = false }) => {
-    const [annots, setAnnots] = useState(annotations);
-    const [tool, setTool] = useState('rect');
-    const [color, setColor] = useState('#ef4444');
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [drawStart, setDrawStart] = useState(null);
-    const [currentPath, setCurrentPath] = useState([]);
-    const [currentEnd, setCurrentEnd] = useState(null);
-    const [dragging, setDragging] = useState(null);
-    const [resizing, setResizing] = useState(null);
-    const [selectedAnnot, setSelectedAnnot] = useState(null);
-    const [zoom, setZoom] = useState(100);
-    const [imageLoaded, setImageLoaded] = useState(false);
-    const [imageDims, setImageDims] = useState({ width: 0, height: 0 });
-    const [isPinching, setIsPinching] = useState(false);
-    const [inlineText, setInlineText] = useState('');
-    const [editingAnnotId, setEditingAnnotId] = useState(null);
-    const [newAnnotPos, setNewAnnotPos] = useState(null); // For inline text input after drawing
-    const lastPinchDistRef = useRef(0);
-    const containerRef = useRef(null);
-    const imageContainerRef = useRef(null);
-    const inlineInputRef = useRef(null);
-
-    const COLORS = ['#ef4444', '#f97316', '#fbbf24', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
-    const TOOLS = [
-      { id: 'rect', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>, label: 'Rectangle' },
-      { id: 'circle', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>, label: 'Circle' },
-      { id: 'arrow', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg>, label: 'Arrow' },
-      { id: 'freehand', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>, label: 'Draw' },
-      { id: 'text', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4,7 4,4 20,4 20,7"/><line x1="9.5" y1="4" x2="9.5" y2="20"/><line x1="14.5" y1="4" x2="14.5" y2="20"/><line x1="7" y1="20" x2="17" y2="20"/></svg>, label: 'Text' },
-    ];
-
-    // Sync with external annotations prop
-    useEffect(() => { setAnnots(annotations); }, [annotations]);
-
-    // In video overlay mode, image is always "loaded" (we overlay on video)
-    useEffect(() => { if (videoOverlay) setImageLoaded(true); }, [videoOverlay]);
-
-    const handleImageLoad = (e) => {
-      setImageLoaded(true);
-      setImageDims({ width: e.target.naturalWidth, height: e.target.naturalHeight });
-    };
-
-    const getPos = (e) => {
-      if (!imageContainerRef.current) return { x: 0, y: 0 };
-      const rect = imageContainerRef.current.getBoundingClientRect();
-      let clientX, clientY;
-      if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
-      else if (e.changedTouches && e.changedTouches.length > 0) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; }
-      else { clientX = e.clientX; clientY = e.clientY; }
-      return {
-        x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
-        y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100))
-      };
-    };
-
-    const getTouchDist = (touches) => {
-      if (touches.length < 2) return 0;
-      const dx = touches[0].clientX - touches[1].clientX;
-      const dy = touches[0].clientY - touches[1].clientY;
-      return Math.sqrt(dx * dx + dy * dy);
-    };
-
-    const handleTouchStart = (e) => {
-      if (e.touches.length === 2) { e.preventDefault(); setIsPinching(true); lastPinchDistRef.current = getTouchDist(e.touches); return; }
-      if (e.touches.length === 1 && !isPinching) handleStart(e);
-    };
-    const handleTouchMove = (e) => {
-      if (e.touches.length === 2 && isPinching) { e.preventDefault(); const dist = getTouchDist(e.touches); if (lastPinchDistRef.current > 0) setZoom(z => Math.max(50, Math.min(300, z * (dist / lastPinchDistRef.current)))); lastPinchDistRef.current = dist; return; }
-      if (e.touches.length === 1 && !isPinching) handleMove(e);
-    };
-    const handleTouchEnd = (e) => {
-      if (e.touches.length < 2) { setIsPinching(false); lastPinchDistRef.current = 0; }
-      if (e.touches.length === 0 && !isPinching) handleEnd(e);
-    };
-
-    const handleStart = (e) => {
-      if (dragging || resizing || isPinching || newAnnotPos) return;
-      e.preventDefault(); e.stopPropagation();
-      const pos = getPos(e);
-      setDrawStart(pos); setCurrentEnd(pos); setIsDrawing(true);
-      if (tool === 'freehand') setCurrentPath([pos]);
-      setSelectedAnnot(null);
-    };
-
-    const handleMove = (e) => {
-      if (isPinching) return;
-      if (dragging) { e.preventDefault(); const pos = getPos(e); setAnnots(prev => prev.map(a => a.id === dragging ? { ...a, x: Math.max(0, Math.min(100 - (a.width || 5), pos.x - (a.width || 5)/2)), y: Math.max(0, Math.min(100 - (a.height || 5), pos.y - (a.height || 5)/2)) } : a)); return; }
-      if (resizing) { e.preventDefault(); const pos = getPos(e); setAnnots(prev => { const annot = prev.find(a => a.id === resizing); if (!annot) return prev; return prev.map(a => a.id === resizing ? { ...a, width: Math.max(3, pos.x - annot.x), height: Math.max(3, pos.y - annot.y) } : a); }); return; }
-      if (!isDrawing || !drawStart) return;
-      e.preventDefault();
-      const pos = getPos(e);
-      setCurrentEnd(pos);
-      if (tool === 'freehand') setCurrentPath(prev => [...prev, pos]);
-    };
-
-    const handleEnd = (e) => {
-      if (dragging) { setDragging(null); onChange(annots); return; }
-      if (resizing) { setResizing(null); onChange(annots); return; }
-      if (!isDrawing || !drawStart) return;
-
-      const pos = currentEnd || drawStart;
-      const width = Math.abs(pos.x - drawStart.x);
-      const height = Math.abs(pos.y - drawStart.y);
-      const x = Math.min(pos.x, drawStart.x);
-      const y = Math.min(pos.y, drawStart.y);
-      const author = typeof userProfile !== 'undefined' ? userProfile?.name : 'You';
-
-      if (tool === 'text') {
-        // Show inline text input at click position
-        setNewAnnotPos({ x: drawStart.x, y: drawStart.y, type: 'text', color, author });
-        setInlineText('');
-        setTimeout(() => inlineInputRef.current?.focus(), 50);
-      } else if (tool === 'freehand' && currentPath.length > 2) {
-        const newAnnot = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author, text: '' };
-        setNewAnnotPos({ ...newAnnot, _isShape: true });
-        setInlineText('');
-        setTimeout(() => inlineInputRef.current?.focus(), 50);
-      } else if (width > 2 || height > 2) {
-        const newAnnot = { id: generateId(), type: tool, x, y, width: Math.max(width, 5), height: Math.max(height, 5), color, createdAt: new Date().toISOString(), author, text: '' };
-        setNewAnnotPos({ ...newAnnot, _isShape: true });
-        setInlineText('');
-        setTimeout(() => inlineInputRef.current?.focus(), 50);
-      }
-
-      setIsDrawing(false); setDrawStart(null); setCurrentEnd(null); setCurrentPath([]);
-    };
-
-    const confirmInlineAnnotation = () => {
-      if (!newAnnotPos) return;
-      let newAnnot;
-      if (newAnnotPos._isShape) {
-        const { _isShape, ...rest } = newAnnotPos;
-        newAnnot = { ...rest, text: inlineText.trim() || '' };
-      } else {
-        if (!inlineText.trim()) { setNewAnnotPos(null); setInlineText(''); return; }
-        newAnnot = { id: generateId(), type: 'text', x: newAnnotPos.x, y: newAnnotPos.y, text: inlineText.trim(), color: newAnnotPos.color, createdAt: new Date().toISOString(), author: newAnnotPos.author };
-      }
-      const updated = [...annots, newAnnot];
-      setAnnots(updated);
-      onChange(updated);
-      setNewAnnotPos(null); setInlineText('');
-    };
-
-    const cancelInlineAnnotation = () => { setNewAnnotPos(null); setInlineText(''); };
-
-    const deleteAnnot = (id, e) => {
-      if (e) e.stopPropagation();
-      const updated = annots.filter(a => a.id !== id);
-      setAnnots(updated);
-      onChange(updated);
-      setSelectedAnnot(null);
-    };
-
-    const renderAnnotation = (a) => {
-      const isSelected = selectedAnnot === a.id;
-      const labelStyle = { position: 'absolute', top: '-26px', left: '0', background: a.color, color: '#fff', padding: '3px 8px', borderRadius: '4px 4px 4px 0', fontSize: '10px', whiteSpace: 'nowrap', fontWeight: '600', zIndex: 11, pointerEvents: 'auto', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' };
-      const deleteBtn = isSelected ? <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', top: '-8px', right: '-8px', width: '20px', height: '20px', background: '#ef4444', border: '2px solid #fff', borderRadius: '50%', color: '#fff', fontSize: '11px', cursor: 'pointer', zIndex: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>×</button> : null;
-      const resizeHandle = isSelected ? <div onMouseDown={(e) => { e.stopPropagation(); setResizing(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setResizing(a.id); }} style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '10px', height: '10px', background: '#fff', border: `2px solid ${a.color}`, borderRadius: '2px', cursor: 'se-resize', zIndex: 12 }} /> : null;
-
-      if (a.type === 'freehand' && a.path) {
-        const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        const minX = Math.min(...a.path.map(p => p.x));
-        const minY = Math.min(...a.path.map(p => p.y));
-        return (
-          <div key={a.id} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible' }}>
-              <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: isSelected ? '4px' : '3px', pointerEvents: 'stroke', cursor: 'pointer', filter: isSelected ? `drop-shadow(0 0 3px ${a.color})` : 'none' }} onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }} />
-            </svg>
-            {a.text && <div style={{ ...labelStyle, left: `${minX}%`, top: `${Math.max(0, minY)}%`, transform: 'translateY(-100%)' }}>{a.text}</div>}
-            {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', left: `${minX}%`, top: `${minY}%`, transform: 'translate(-50%, -50%)', width: '20px', height: '20px', background: '#ef4444', border: '2px solid #fff', borderRadius: '50%', color: '#fff', fontSize: '11px', cursor: 'pointer', zIndex: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.3)', pointerEvents: 'auto' }}>×</button>}
-          </div>
-        );
-      }
-
-      if (a.type === 'text') {
-        return (
-          <div key={a.id}
-            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, color: '#fff', fontSize: '13px', fontWeight: '600', padding: '4px 10px', cursor: 'move', background: a.color, borderRadius: '4px', zIndex: 10, border: isSelected ? '2px solid #fff' : 'none', boxShadow: isSelected ? `0 0 0 2px ${a.color}, 0 2px 8px rgba(0,0,0,0.3)` : '0 2px 6px rgba(0,0,0,0.3)', maxWidth: '200px', wordBreak: 'break-word' }}
-            onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
-            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
-            onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-            {a.text}
-            {deleteBtn}
-          </div>
-        );
-      }
-
-      if (a.type === 'circle') {
-        return (
-          <div key={a.id}
-            style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2.5px solid ${a.color}`, borderRadius: '50%', background: `${a.color}15`, cursor: 'move', boxSizing: 'border-box', zIndex: 10, boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${a.color}` : 'none' }}
-            onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
-            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
-            onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-            {a.text && <div style={labelStyle}>{a.text}</div>}
-            {resizeHandle}{deleteBtn}
-          </div>
-        );
-      }
-
-      if (a.type === 'arrow') {
-        return (
-          <div key={a.id} style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, cursor: 'move', zIndex: 10 }}
-            onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
-            onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
-            onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-            {a.text && <div style={labelStyle}>{a.text}</div>}
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-              <defs><marker id={`arr-${a.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill={a.color} /></marker></defs>
-              <line x1="0" y1="50" x2="100" y2="50" stroke={a.color} strokeWidth={isSelected ? '4' : '3'} markerEnd={`url(#arr-${a.id})`} vectorEffect="non-scaling-stroke" style={{ filter: isSelected ? `drop-shadow(0 0 3px ${a.color})` : 'none' }} />
-            </svg>
-            {resizeHandle}{deleteBtn}
-          </div>
-        );
-      }
-
-      // Rectangle (default)
-      return (
-        <div key={a.id}
-          style={{ position: 'absolute', left: `${a.x}%`, top: `${a.y}%`, width: `${a.width}%`, height: `${a.height}%`, border: `2.5px solid ${a.color}`, borderRadius: '3px', background: `${a.color}15`, cursor: 'move', boxSizing: 'border-box', zIndex: 10, boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${a.color}` : 'none' }}
-          onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }}
-          onMouseDown={(e) => { e.stopPropagation(); setDragging(a.id); }}
-          onTouchStart={(e) => { e.stopPropagation(); setDragging(a.id); }}>
-          {a.text && <div style={labelStyle}>{a.text}</div>}
-          {resizeHandle}{deleteBtn}
-        </div>
-      );
-    };
-
-    const renderPreview = () => {
-      if (!isDrawing || !drawStart || !currentEnd || tool === 'text') return null;
-      if (tool === 'freehand' && currentPath.length > 1) {
-        const pathD = currentPath.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        return <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}><path d={pathD} stroke={color} strokeWidth="0.5" fill="none" strokeLinecap="round" opacity="0.7" vectorEffect="non-scaling-stroke" style={{ strokeWidth: '3px' }} /></svg>;
-      }
-      const x = Math.min(drawStart.x, currentEnd.x);
-      const y = Math.min(drawStart.y, currentEnd.y);
-      const w = Math.abs(currentEnd.x - drawStart.x);
-      const h = Math.abs(currentEnd.y - drawStart.y);
-      if (w < 1 && h < 1) return null;
-      return <div style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, border: `2px dashed ${color}`, borderRadius: tool === 'circle' ? '50%' : '3px', pointerEvents: 'none', opacity: 0.8, background: `${color}10` }} />;
-    };
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-        {/* Modern Toolbar */}
-        <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', alignItems: 'center', flexShrink: 0, background: t.bgSecondary, borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '10px', padding: '3px' }}>
-            {TOOLS.map(tl => (
-              <button key={tl.id} onClick={() => setTool(tl.id)} title={tl.label}
-                style={{ width: '34px', height: '34px', background: tool === tl.id ? t.primary : 'transparent', border: 'none', borderRadius: '8px', color: tool === tl.id ? '#fff' : t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-                {tl.icon}
-              </button>
-            ))}
-          </div>
-          <div style={{ width: '1px', height: '24px', background: t.border }} />
-          <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-            {COLORS.map(c => (
-              <button key={c} onClick={() => setColor(c)} style={{ width: '22px', height: '22px', background: c, border: color === c ? `2.5px solid ${t.text}` : '2px solid transparent', borderRadius: '50%', cursor: 'pointer', boxShadow: color === c ? `0 0 0 2px ${c}` : 'none', transition: 'all 0.15s' }} />
-            ))}
-          </div>
-          <div style={{ flex: 1 }} />
-          {!videoOverlay && (
-            <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '8px', padding: '3px', alignItems: 'center' }}>
-              <button onClick={() => setZoom(z => Math.max(50, z - 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '15px' }}>-</button>
-              <button onClick={() => setZoom(100)} style={{ padding: '2px 8px', fontSize: '10px', color: t.textMuted, background: 'transparent', border: 'none', cursor: 'pointer', minWidth: '36px' }}>{zoom}%</button>
-              <button onClick={() => setZoom(z => Math.min(300, z + 25))} style={{ width: '28px', height: '28px', background: 'transparent', border: 'none', borderRadius: '6px', color: t.textSecondary, cursor: 'pointer', fontSize: '15px' }}>+</button>
-            </div>
-          )}
-          {annots.length > 0 && <span style={{ fontSize: '10px', color: t.textMuted, marginLeft: '4px' }}>{annots.length}</span>}
-        </div>
-
-        {/* Canvas Area */}
-        <div
-          ref={containerRef}
-          style={{ flex: 1, display: 'flex', alignItems: videoOverlay ? 'stretch' : 'center', justifyContent: videoOverlay ? 'stretch' : 'center', overflow: videoOverlay ? 'hidden' : (zoom > 100 ? 'auto' : 'hidden'), background: videoOverlay ? 'transparent' : (theme === 'dark' ? '#0a0a0f' : '#e5e7eb'), position: 'relative' }}>
-
-          {!imageLoaded && !videoOverlay && (
-            <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: t.textMuted }}>
-              <div className="spinner" style={{ width: 20, height: 20, border: `2px solid ${t.primary}`, borderTopColor: 'transparent', borderRadius: '50%' }} />
-              <span style={{ fontSize: '11px' }}>Loading...</span>
-            </div>
-          )}
-
-          <div
-            ref={imageContainerRef}
-            onMouseDown={handleStart}
-            onMouseMove={handleMove}
-            onMouseUp={handleEnd}
-            onMouseLeave={handleEnd}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onClick={() => { setSelectedAnnot(null); if (!isDrawing) cancelInlineAnnotation(); }}
-            style={{
-              position: videoOverlay ? 'absolute' : 'relative',
-              top: videoOverlay ? 0 : undefined, left: videoOverlay ? 0 : undefined,
-              width: videoOverlay ? '100%' : undefined, height: videoOverlay ? '100%' : undefined,
-              cursor: 'crosshair', userSelect: 'none', touchAction: 'none',
-              transform: videoOverlay ? 'none' : `scale(${zoom / 100})`, transformOrigin: 'center center',
-              maxWidth: videoOverlay ? '100%' : (zoom <= 100 ? '100%' : 'none'), maxHeight: videoOverlay ? '100%' : (zoom <= 100 ? '100%' : 'none'),
-              zIndex: videoOverlay ? 10 : undefined
-            }}>
-            {!videoOverlay && (
-              <img
-                src={imageUrl} alt="" draggable={false} onLoad={handleImageLoad}
-                style={{
-                  display: 'block',
-                  maxWidth: zoom <= 100 ? '100%' : `${imageDims.width}px`,
-                  maxHeight: zoom <= 100 ? 'calc(100vh - 200px)' : `${imageDims.height}px`,
-                  width: 'auto', height: 'auto', objectFit: 'contain',
-                  pointerEvents: 'none', opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.2s'
-                }}
-              />
-            )}
-            {imageLoaded && annots.map(renderAnnotation)}
-            {imageLoaded && renderPreview()}
-
-            {/* Inline text input — appears right on the image where you drew */}
-            {newAnnotPos && (
-              <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', left: `${newAnnotPos.x || newAnnotPos.path?.[0]?.x || 0}%`, top: `${(newAnnotPos.y || newAnnotPos.path?.[0]?.y || 0)}%`, transform: 'translateY(-100%)', zIndex: 20 }}>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: t.bgCard, borderRadius: '8px', padding: '4px', boxShadow: '0 4px 20px rgba(0,0,0,0.4)', border: `2px solid ${newAnnotPos.color}` }}>
-                  <input
-                    ref={inlineInputRef}
-                    value={inlineText}
-                    onChange={(e) => setInlineText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') confirmInlineAnnotation(); if (e.key === 'Escape') cancelInlineAnnotation(); }}
-                    placeholder="Add note..."
-                    style={{ width: '180px', padding: '6px 8px', border: 'none', outline: 'none', fontSize: '12px', background: 'transparent', color: t.text }}
-                  />
-                  <button onClick={confirmInlineAnnotation} style={{ width: '28px', height: '28px', background: newAnnotPos.color, border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>+</button>
-                  <button onClick={cancelInlineAnnotation} style={{ width: '28px', height: '28px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>×</button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     );
