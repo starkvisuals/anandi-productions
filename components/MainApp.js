@@ -6924,93 +6924,40 @@ export default function MainApp() {
             </div>
           </div>
 
-          {/* Action Bar: Categories (left) + Actions (right) */}
-          <div style={{ padding: '10px 16px', background: t.bgSecondary, borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', position: 'sticky', top: '56px', zIndex: 30 }}>
-            {/* Category pill tabs - horizontally scrollable */}
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', flex: 1, paddingBottom: '2px', scrollbarWidth: 'none' }}>
-              <button onClick={() => setSelectedCat(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: !selectedCat ? `${t.primary}20` : t.bgCard, color: !selectedCat ? t.primary : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${!selectedCat ? t.primary + '40' : t.border}`, transition: 'all 0.2s ease' }}>
-                {Icons.folder(!selectedCat ? t.primary : t.textSecondary)} All <span style={{ fontSize: '10px', opacity: 0.7, background: !selectedCat ? `${t.primary}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{totalAssetCount}</span>
+          {/* Action Bar – Upload / Share / Edit / Settings */}
+          <div style={{ padding: '8px 16px', background: t.bgSecondary, borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+            {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)} small color="#22c55e">{Icons.upload('#fff')}{!isMobile && ' Upload'}</Btn>}
+            {isProducer && !isMobile && <Btn theme={theme} onClick={() => setShowShare(true)} small outline>{Icons.share(t.primary)}{!isMobile && ' Share'}</Btn>}
+            {isProducer && (
+              <button
+                onClick={() => {
+                  setEditProjectData({
+                    name: selectedProject.name,
+                    client: selectedProject.client || '',
+                    categories: selectedProject.categories || [],
+                    status: selectedProject.status || 'active',
+                    type: selectedProject.type || 'photoshoot',
+                    requiredFormats: selectedProject.requiredFormats || [],
+                    requiredSizes: selectedProject.requiredSizes || [],
+                    maxRevisions: selectedProject.maxRevisions || 0,
+                    versionUploadRoles: selectedProject.versionUploadRoles || ['producer', 'editor'],
+                    approvalWorkflow: selectedProject.approvalWorkflow || 'producer',
+                    notifyOnUpload: selectedProject.notifyOnUpload ?? true,
+                    notifyOnVersion: selectedProject.notifyOnVersion ?? true,
+                    notifyOnApproval: selectedProject.notifyOnApproval ?? true,
+                    notifyOnDeadline: selectedProject.notifyOnDeadline ?? true
+                  });
+                  setShowEditProject(true);
+                }}
+                style={{ background: t.bgCard, border: `1px solid ${t.border}`, cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', color: t.textSecondary, fontSize: '12px' }}
+                title="Edit Project"
+              >
+                {Icons.edit(t.textSecondary)}{!isMobile && ' Edit'}
               </button>
-              <button onClick={() => setSelectedCat('__videos__')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: selectedCat === '__videos__' ? `${t.primary}20` : t.bgCard, color: selectedCat === '__videos__' ? t.primary : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === '__videos__' ? t.primary + '40' : t.border}`, transition: 'all 0.2s ease' }}>
-                {Icons.video(selectedCat === '__videos__' ? t.primary : t.textSecondary)} Videos <span style={{ fontSize: '10px', opacity: 0.7, background: selectedCat === '__videos__' ? `${t.primary}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{videoCount}</span>
-              </button>
-              {cats.map(cat => (
-                renamingCat === cat.id ? (
-                  <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <input
-                      autoFocus
-                      value={renameValue}
-                      onChange={e => setRenameValue(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleRenameCategory(cat.id, renameValue);
-                        if (e.key === 'Escape') { setRenamingCat(null); setRenameValue(''); }
-                      }}
-                      style={{ padding: '5px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '20px', color: t.text, fontSize: '12px', outline: 'none', width: '120px' }}
-                    />
-                    <button onClick={() => handleRenameCategory(cat.id, renameValue)} style={{ padding: '5px 10px', background: t.primary, border: 'none', borderRadius: '20px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>✓</button>
-                    <button onClick={() => { setRenamingCat(null); setRenameValue(''); }} style={{ padding: '5px 8px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '20px', color: t.textMuted, fontSize: '12px', cursor: 'pointer' }}>✕</button>
-                  </div>
-                ) : (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCat(cat.id)}
-                    onContextMenu={isProducer ? (e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, catId: cat.id }); } : undefined}
-                    title={isProducer ? 'Right-click to rename or delete' : cat.name}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: selectedCat === cat.id ? `${cat.color}20` : t.bgCard, color: selectedCat === cat.id ? cat.color : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === cat.id ? cat.color + '40' : t.border}`, transition: 'all 0.2s ease' }}
-                  >
-                    {Icons[cat.icon] ? Icons[cat.icon](selectedCat === cat.id ? cat.color : t.textSecondary) : Icons.file(selectedCat === cat.id ? cat.color : t.textSecondary)} {cat.name} <span style={{ fontSize: '10px', opacity: 0.7, background: selectedCat === cat.id ? `${cat.color}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{getCatCount(cat.id)}</span>
-                  </button>
-                )
-              ))}
-              {/* + New Folder button */}
-              {isProducer && !showAddCat && (
-                <button onClick={() => setShowAddCat(true)} title="Add new folder" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '7px 12px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', background: 'transparent', color: t.textMuted, border: `1px dashed ${t.border}`, whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
-                  + Folder
-                </button>
-              )}
-              {isProducer && showAddCat && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input autoFocus value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); if (e.key === 'Escape') { setShowAddCat(false); setNewCatName(''); } }} placeholder="Folder name…" style={{ padding: '5px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '20px', color: t.text, fontSize: '12px', outline: 'none', width: '130px' }} />
-                  <button onClick={handleAddCategory} style={{ padding: '5px 10px', background: t.primary, border: 'none', borderRadius: '20px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>✓</button>
-                  <button onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '5px 8px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '20px', color: t.textMuted, fontSize: '12px', cursor: 'pointer' }}>✕</button>
-                </div>
-              )}
-            </div>
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-              {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)} small color="#22c55e">{Icons.upload('#fff')}{!isMobile && ' Upload'}</Btn>}
-              {isProducer && !isMobile && <Btn theme={theme} onClick={() => setShowShare(true)} small outline>{Icons.share(t.primary)}{!isMobile && ' Share'}</Btn>}
-              {isProducer && (
-                <button
-                  onClick={() => {
-                    setEditProjectData({
-                      name: selectedProject.name,
-                      client: selectedProject.client || '',
-                      categories: selectedProject.categories || [],
-                      status: selectedProject.status || 'active',
-                      type: selectedProject.type || 'photoshoot',
-                      requiredFormats: selectedProject.requiredFormats || [],
-                      requiredSizes: selectedProject.requiredSizes || [],
-                      maxRevisions: selectedProject.maxRevisions || 0,
-                      versionUploadRoles: selectedProject.versionUploadRoles || ['producer', 'editor'],
-                      approvalWorkflow: selectedProject.approvalWorkflow || 'producer',
-                      notifyOnUpload: selectedProject.notifyOnUpload ?? true,
-                      notifyOnVersion: selectedProject.notifyOnVersion ?? true,
-                      notifyOnApproval: selectedProject.notifyOnApproval ?? true,
-                      notifyOnDeadline: selectedProject.notifyOnDeadline ?? true
-                    });
-                    setShowEditProject(true);
-                  }}
-                  style={{ background: t.bgCard, border: `1px solid ${t.border}`, cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', color: t.textSecondary, fontSize: '12px' }}
-                  title="Edit Project"
-                >
-                  {Icons.edit(t.textSecondary)}{!isMobile && ' Edit'}
-                </button>
-              )}
-              <div style={{ position: 'relative' }}>
-                <Btn theme={theme} onClick={() => setShowAppearance(!showAppearance)} small outline>{Icons.settings(t.primary)}</Btn>
-                {showAppearance && <AppearancePanel settings={appearance} onChange={setAppearance} onClose={() => setShowAppearance(false)} theme={theme} />}
-              </div>
+            )}
+            <div style={{ position: 'relative' }}>
+              <Btn theme={theme} onClick={() => setShowAppearance(!showAppearance)} small outline>{Icons.settings(t.primary)}</Btn>
+              {showAppearance && <AppearancePanel settings={appearance} onChange={setAppearance} onClose={() => setShowAppearance(false)} theme={theme} />}
             </div>
           </div>
 
@@ -7131,14 +7078,13 @@ export default function MainApp() {
           )}
 
           {/* Tab Content */}
-          <div style={{ padding: '16px' }}>
+          <div style={{ padding: tab === 'assets' ? 0 : '16px' }}>
             {tab === 'assets' && (
               <div
-                style={{ width: '100%', position: 'relative' }}
+                style={{ display: 'flex', minHeight: '500px', position: 'relative' }}
                 onDragOver={isProducer ? handleAssetAreaDragOver : undefined}
                 onDragLeave={isProducer ? handleAssetAreaDragLeave : undefined}
                 onDrop={isProducer ? handleAssetAreaDrop : undefined}
-                onContextMenu={isProducer ? (e) => handleContextMenu(e) : undefined}
               >
                 {/* Drag-over overlay */}
                 {isDraggingOver && (
@@ -7148,7 +7094,191 @@ export default function MainApp() {
                     <div style={{ fontSize: '12px', color: t.textMuted }}>Each folder becomes a category automatically</div>
                   </div>
                 )}
-                {assets.length === 0 ? (
+
+                {/* ── LEFT FOLDER SIDEBAR ── */}
+                {!isMobile && (
+                  <div style={{ width: '220px', flexShrink: 0, borderRight: `1px solid ${t.border}`, display: 'flex', flexDirection: 'column', paddingTop: '12px', minHeight: '500px', background: t.bgSecondary }}>
+
+                    {/* All Files */}
+                    <button onClick={() => setSelectedCat(null)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', borderLeft: !selectedCat ? `3px solid ${t.primary}` : '3px solid transparent', color: !selectedCat ? t.primary : t.text, fontWeight: !selectedCat ? '600' : '400', fontSize: '13px', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { if (selectedCat) e.currentTarget.style.background = t.bgInput; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" fill={!selectedCat ? t.primary : t.textMuted}/></svg>
+                      <span style={{ flex: 1 }}>All Files</span>
+                      <span style={{ fontSize: '11px', color: t.textMuted, background: t.bgInput, padding: '1px 7px', borderRadius: '10px' }}>{totalAssetCount}</span>
+                    </button>
+
+                    {/* Videos */}
+                    {videoCount > 0 && (
+                      <button onClick={() => setSelectedCat('__videos__')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', borderLeft: selectedCat === '__videos__' ? `3px solid ${t.primary}` : '3px solid transparent', color: selectedCat === '__videos__' ? t.primary : t.text, fontWeight: selectedCat === '__videos__' ? '600' : '400', fontSize: '13px', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { if (selectedCat !== '__videos__') e.currentTarget.style.background = t.bgInput; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="2" y="5" width="12" height="10" rx="1.5" fill={selectedCat === '__videos__' ? t.primary : t.textMuted}/><path d="M14 8.5l4-2.5v7l-4-2.5V8.5z" fill={selectedCat === '__videos__' ? t.primary : t.textMuted}/></svg>
+                        <span style={{ flex: 1 }}>Videos</span>
+                        <span style={{ fontSize: '11px', color: t.textMuted, background: t.bgInput, padding: '1px 7px', borderRadius: '10px' }}>{videoCount}</span>
+                      </button>
+                    )}
+
+                    {/* Folders */}
+                    {cats.length > 0 && <div style={{ height: '1px', background: t.border, margin: '8px 0' }} />}
+
+                    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '8px' }}>
+                      {cats.map(cat => (
+                        renamingCat === cat.id ? (
+                          <div key={cat.id} style={{ padding: '4px 12px' }}>
+                            <input
+                              autoFocus value={renameValue}
+                              onChange={e => setRenameValue(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleRenameCategory(cat.id, renameValue); if (e.key === 'Escape') { setRenamingCat(null); setRenameValue(''); } }}
+                              style={{ width: '100%', padding: '6px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '8px', color: t.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                            <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                              <button onClick={() => handleRenameCategory(cat.id, renameValue)} style={{ flex: 1, padding: '5px', background: t.primary, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>✓ Save</button>
+                              <button onClick={() => { setRenamingCat(null); setRenameValue(''); }} style={{ padding: '5px 8px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            key={cat.id}
+                            onClick={() => setSelectedCat(cat.id)}
+                            onContextMenu={isProducer ? (e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, catId: cat.id }); } : undefined}
+                            title={isProducer ? 'Right-click to rename or delete' : cat.name}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', borderLeft: selectedCat === cat.id ? `3px solid ${cat.color}` : '3px solid transparent', color: selectedCat === cat.id ? cat.color : t.text, fontWeight: selectedCat === cat.id ? '600' : '400', fontSize: '13px', transition: 'all 0.15s' }}
+                            onMouseEnter={e => { if (selectedCat !== cat.id) e.currentTarget.style.background = t.bgInput; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                          >
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: cat.color, flexShrink: 0 }} />
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.name}</span>
+                            <span style={{ fontSize: '11px', color: t.textMuted, background: t.bgInput, padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>{getCatCount(cat.id)}</span>
+                          </button>
+                        )
+                      ))}
+                    </div>
+
+                    {/* + New Folder */}
+                    {isProducer && (
+                      <div style={{ borderTop: `1px solid ${t.border}`, padding: '10px 12px' }}>
+                        {!showAddCat ? (
+                          <button onClick={() => setShowAddCat(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: t.textMuted, background: 'transparent', border: `1px dashed ${t.border}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px', padding: '7px 10px', width: '100%', transition: 'all 0.15s' }}>
+                            <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span> New Folder
+                          </button>
+                        ) : (
+                          <div>
+                            <input autoFocus value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); if (e.key === 'Escape') { setShowAddCat(false); setNewCatName(''); } }} placeholder="Folder name…" style={{ width: '100%', padding: '6px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '8px', color: t.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box', marginBottom: '6px' }} />
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button onClick={handleAddCategory} style={{ flex: 1, padding: '6px', background: t.primary, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>✓ Create</button>
+                              <button onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '6px 8px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── RIGHT CONTENT AREA ── */}
+                <div style={{ flex: 1, minWidth: 0, padding: '16px', overflow: 'hidden' }}
+                  onContextMenu={isProducer ? (e) => handleContextMenu(e) : undefined}
+                >
+                  {/* Breadcrumb when inside a folder */}
+                  {selectedCat && !['__videos__', '__selected__', '__not_selected__'].includes(selectedCat) && (() => {
+                    const bc = cats.find(c => c.id === selectedCat);
+                    return bc ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '14px', fontSize: '13px' }}>
+                        <button onClick={() => setSelectedCat(null)} style={{ color: t.primary, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', padding: 0 }}>All Files</button>
+                        <span style={{ color: t.textMuted }}>›</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: bc.color, display: 'inline-block' }} />
+                          <span style={{ fontWeight: '600', color: t.text }}>{bc.name}</span>
+                        </span>
+                        <span style={{ color: t.textMuted, fontSize: '11px' }}>({getCatCount(selectedCat)} items)</span>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {/* Folder Cards View — when no folder selected and folders exist */}
+                  {!selectedCat && cats.length > 0 ? (
+                    <div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '14px' }}>
+                        {cats.map(cat => {
+                          const catAssets = (selectedProject.assets || []).filter(a => !a.deleted && a.category === cat.id);
+                          const thumbs = catAssets.filter(a => a.thumbnail || a.url).slice(0, 4);
+                          return (
+                            <div key={cat.id}
+                              className="hover-lift"
+                              onClick={() => setSelectedCat(cat.id)}
+                              onContextMenu={isProducer ? (e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, catId: cat.id }); } : undefined}
+                              style={{ cursor: 'pointer', background: t.bgCard, borderRadius: '12px', overflow: 'hidden', border: `1px solid ${t.border}`, transition: 'all 0.2s', userSelect: 'none' }}
+                            >
+                              {/* Thumbnail mosaic */}
+                              {thumbs.length === 0 ? (
+                                <div style={{ height: '140px', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <svg width="52" height="52" viewBox="0 0 20 20" fill="none"><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" fill={t.border}/></svg>
+                                </div>
+                              ) : (
+                                <div style={{ height: '140px', display: 'grid', gridTemplateColumns: thumbs.length >= 2 ? '1fr 1fr' : '1fr', gridTemplateRows: thumbs.length >= 3 ? '1fr 1fr' : '1fr', gap: '1px', background: '#000', overflow: 'hidden' }}>
+                                  {thumbs.map((a, i) => (
+                                    <img key={i} src={a.thumbnail || a.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                  ))}
+                                </div>
+                              )}
+                              {/* Folder info row */}
+                              <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: cat.color, flexShrink: 0 }} />
+                                <span style={{ fontWeight: '600', fontSize: '13px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{cat.name}</span>
+                                <span style={{ fontSize: '11px', color: t.textMuted, flexShrink: 0 }}>{catAssets.length} {catAssets.length === 1 ? 'item' : 'items'}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Uncategorized assets below folder cards */}
+                      {(() => {
+                        const catIds = new Set(cats.map(c => c.id));
+                        const ungrouped = (selectedProject.assets || []).filter(a => !a.deleted && (!a.category || !catIds.has(a.category)));
+                        if (!ungrouped.length) return null;
+                        return (
+                          <div style={{ marginTop: '28px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '600', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Uncategorized ({ungrouped.length})</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
+                              {ungrouped.map(a => (
+                                <div key={a.id} onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', background: t.bgCard, borderRadius: '10px', overflow: 'hidden', border: `1px solid ${t.border}` }}>
+                                  <div style={{ height: '100px', background: '#000', overflow: 'hidden' }}>
+                                    {(a.thumbnail || a.url) && <img src={a.thumbnail || a.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                  </div>
+                                  <div style={{ padding: '6px 8px', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{a.name}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Empty project state */}
+                      {totalAssetCount === 0 && (
+                        <div style={{ textAlign: 'center', padding: '60px 20px', borderRadius: '14px', border: `2px dashed ${t.border}` }}>
+                          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📁</div>
+                          <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '6px' }}>No assets yet</p>
+                          {isProducer && <p style={{ color: t.textMuted, fontSize: '11px', marginBottom: '16px' }}>Drag folders from Finder, or click Upload</p>}
+                          {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>Upload</Btn>}
+                        </div>
+                      )}
+                    </div>
+                  ) : !selectedCat && cats.length === 0 && totalAssetCount === 0 ? (
+                    /* First-time empty state */
+                    <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `2px dashed ${t.border}` }}>
+                      <div style={{ fontSize: '48px', marginBottom: '12px' }}>📁</div>
+                      <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '6px' }}>No assets yet</p>
+                      {isProducer && <p style={{ color: t.textMuted, fontSize: '11px', marginBottom: '16px' }}>Drag folders from Finder, or click Upload</p>}
+                      {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>Upload</Btn>}
+                    </div>
+                  ) : (
+                  /* ── ASSET GRID / LIST / KANBAN ── */
+                  <>
+                  {assets.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `2px dashed ${t.border}`, cursor: isProducer ? 'default' : 'default' }}>
                     <div style={{ fontSize: '48px', marginBottom: '12px' }}>📁</div>
                     <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '6px' }}>No assets yet</p>
@@ -7365,6 +7495,9 @@ export default function MainApp() {
                   </div>
                   </div>
                 )}
+                  </>
+                  )}
+                </div>
               </div>
             )}
 
