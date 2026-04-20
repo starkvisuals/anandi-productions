@@ -216,6 +216,43 @@ const CARD_SIZES = { S: 160, M: 220, L: 300 };
 
 const formatDate = d => d ? new Date(d).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '';
 const formatTimeAgo = d => { if (!d) return ''; const s = Math.floor((Date.now() - new Date(d)) / 1000); if (s < 60) return 'Just now'; if (s < 3600) return `${Math.floor(s/60)}m ago`; if (s < 86400) return `${Math.floor(s/3600)}h ago`; return `${Math.floor(s/86400)}d ago`; };
+
+/**
+ * Recursively reads a FileSystemEntry (file or directory) from a drag-and-drop event.
+ * Returns a flat array of File objects, each with webkitRelativePath set to its path
+ * relative to the top-level dropped item (e.g. "7up/img001.jpg").
+ */
+async function readFolderEntry(entry, parentPath = '') {
+  if (!entry) return [];
+  if (entry.isFile) {
+    return new Promise(resolve => {
+      entry.file(file => {
+        const fullPath = parentPath ? `${parentPath}/${file.name}` : file.name;
+        try {
+          Object.defineProperty(file, 'webkitRelativePath', { value: fullPath, writable: false, configurable: true });
+        } catch (_) {}
+        resolve([file]);
+      }, () => resolve([]));
+    });
+  }
+  if (entry.isDirectory) {
+    const reader = entry.createReader();
+    const allEntries = [];
+    // readEntries returns max 100 items at a time — loop until empty
+    await new Promise(resolve => {
+      const readBatch = () => reader.readEntries(batch => {
+        if (!batch.length) return resolve();
+        allEntries.push(...batch);
+        readBatch();
+      }, () => resolve());
+      readBatch();
+    });
+    const childPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+    const nested = await Promise.all(allEntries.map(e => readFolderEntry(e, childPath)));
+    return nested.flat();
+  }
+  return [];
+}
 const formatFileSize = b => { if (!b) return '0 B'; if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1) + ' KB'; return (b/1048576).toFixed(1) + ' MB'; };
 const formatDuration = s => { if (!s) return ''; const m = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${m}:${sec.toString().padStart(2, '0')}`; };
 // Professional timecode format (HH:MM:SS:FF at 24fps)
@@ -5591,6 +5628,10 @@ export default function MainApp() {
     const [catMappings, setCatMappings] = useState({}); // { subfolderName: categoryId | '__new__' }
     const [showAddCat, setShowAddCat] = useState(false);
     const [newCatName, setNewCatName] = useState('');
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null); // { x, y, catId? }
+    const [renamingCat, setRenamingCat] = useState(null); // catId being renamed
+    const [renameValue, setRenameValue] = useState('');
     const [unmatchedFiles, setUnmatchedFiles] = useState([]); // Files that need manual matching
     const [showMatchModal, setShowMatchModal] = useState(false);
     const [newFeedback, setNewFeedback] = useState('');
@@ -5754,6 +5795,14 @@ export default function MainApp() {
       document.addEventListener('click', handleClick);
       return () => document.removeEventListener('click', handleClick);
     }, [showSpeedMenu]);
+
+    // Close context menu on outside click
+    useEffect(() => {
+      if (!contextMenu) return;
+      const handleClick = () => setContextMenu(null);
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }, [contextMenu]);
 
     // Global mouse up to stop scrubbing
     useEffect(() => {
@@ -6387,6 +6436,78 @@ export default function MainApp() {
       showToast(`Folder "${name}" created`, 'success');
     };
 
+    // ─── Drag-and-drop: files + folders dropped directly onto the asset grid ──
+    const handleAssetAreaDragOver = (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      setIsDraggingOver(true);
+    };
+    const handleAssetAreaDragLeave = (e) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOver(false);
+    };
+    const handleAssetAreaDrop = async (e) => {
+      e.preventDefault();
+      setIsDraggingOver(false);
+      const items = Array.from(e.dataTransfer.items || []);
+      const entries = items.map(i => i.webkitGetAsEntry?.()).filter(Boolean);
+
+      if (!entries.length) {
+        // No FileSystem API — fall back to plain file list
+        const files = Array.from(e.dataTransfer.files || []);
+        if (files.length) { setUploadFiles(files); setUploadMode('files'); setShowUpload(true); }
+        return;
+      }
+
+      // Read all entries (files + folders) recursively
+      const fileArrays = await Promise.all(entries.map(entry => readFolderEntry(entry)));
+      const allFiles = fileArrays.flat().filter(f => !f.name.startsWith('.'));
+
+      const hasDir = entries.some(e => e.isDirectory);
+      if (hasDir) {
+        // Group by the top-level dropped folder name (first path segment)
+        const groups = {};
+        for (const file of allFiles) {
+          const parts = (file.webkitRelativePath || file.name).split('/');
+          const group = parts.length > 1 ? parts[0] : '__root__';
+          if (!groups[group]) groups[group] = [];
+          groups[group].push(file);
+        }
+        setFolderGroups(groups);
+        setUploadMode('folder');
+        setShowUpload(true);
+      } else {
+        setUploadFiles(allFiles);
+        setUploadMode('files');
+        setShowUpload(true);
+      }
+    };
+
+    // ─── Right-click context menu ──────────────────────────────────────────────
+    const handleContextMenu = (e, catId = null) => {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, catId });
+    };
+
+    const handleDeleteCategory = async (catId) => {
+      if (!confirm(`Delete folder "${cats.find(c => c.id === catId)?.name}"? Assets inside will still exist but won't be in this folder.`)) return;
+      const updated = (selectedProject.categories || []).filter(c => c.id !== catId);
+      await updateProject(selectedProject.id, { categories: updated });
+      await refreshProject();
+      if (selectedCat === catId) setSelectedCat(null);
+      setContextMenu(null);
+    };
+
+    const handleRenameCategory = async (catId, newName) => {
+      const trimmed = newName.trim();
+      if (!trimmed) return;
+      const updated = (selectedProject.categories || []).map(c => c.id === catId ? { ...c, name: trimmed } : c);
+      await updateProject(selectedProject.id, { categories: updated });
+      await refreshProject();
+      setRenamingCat(null);
+      setRenameValue('');
+      setContextMenu(null);
+    };
+
     const handleUploadVersion = async () => {
       if (!versionFile || !selectedAsset) return;
       setUploadingVersion(true);
@@ -6814,9 +6935,32 @@ export default function MainApp() {
                 {Icons.video(selectedCat === '__videos__' ? t.primary : t.textSecondary)} Videos <span style={{ fontSize: '10px', opacity: 0.7, background: selectedCat === '__videos__' ? `${t.primary}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{videoCount}</span>
               </button>
               {cats.map(cat => (
-                <button key={cat.id} onClick={() => setSelectedCat(cat.id)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: selectedCat === cat.id ? `${cat.color}20` : t.bgCard, color: selectedCat === cat.id ? cat.color : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === cat.id ? cat.color + '40' : t.border}`, transition: 'all 0.2s ease' }}>
-                  {Icons[cat.icon] ? Icons[cat.icon](selectedCat === cat.id ? cat.color : t.textSecondary) : Icons.file(selectedCat === cat.id ? cat.color : t.textSecondary)} {cat.name} <span style={{ fontSize: '10px', opacity: 0.7, background: selectedCat === cat.id ? `${cat.color}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{getCatCount(cat.id)}</span>
-                </button>
+                renamingCat === cat.id ? (
+                  <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleRenameCategory(cat.id, renameValue);
+                        if (e.key === 'Escape') { setRenamingCat(null); setRenameValue(''); }
+                      }}
+                      style={{ padding: '5px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '20px', color: t.text, fontSize: '12px', outline: 'none', width: '120px' }}
+                    />
+                    <button onClick={() => handleRenameCategory(cat.id, renameValue)} style={{ padding: '5px 10px', background: t.primary, border: 'none', borderRadius: '20px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>✓</button>
+                    <button onClick={() => { setRenamingCat(null); setRenameValue(''); }} style={{ padding: '5px 8px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '20px', color: t.textMuted, fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ) : (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCat(cat.id)}
+                    onContextMenu={isProducer ? (e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, catId: cat.id }); } : undefined}
+                    title={isProducer ? 'Right-click to rename or delete' : cat.name}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: selectedCat === cat.id ? `${cat.color}20` : t.bgCard, color: selectedCat === cat.id ? cat.color : t.textSecondary, whiteSpace: 'nowrap', border: `1px solid ${selectedCat === cat.id ? cat.color + '40' : t.border}`, transition: 'all 0.2s ease' }}
+                  >
+                    {Icons[cat.icon] ? Icons[cat.icon](selectedCat === cat.id ? cat.color : t.textSecondary) : Icons.file(selectedCat === cat.id ? cat.color : t.textSecondary)} {cat.name} <span style={{ fontSize: '10px', opacity: 0.7, background: selectedCat === cat.id ? `${cat.color}15` : t.bgInput, padding: '1px 6px', borderRadius: '8px' }}>{getCatCount(cat.id)}</span>
+                  </button>
+                )
               ))}
               {/* + New Folder button */}
               {isProducer && !showAddCat && (
@@ -6989,11 +7133,26 @@ export default function MainApp() {
           {/* Tab Content */}
           <div style={{ padding: '16px' }}>
             {tab === 'assets' && (
-              <div style={{ width: '100%' }}>
+              <div
+                style={{ width: '100%', position: 'relative' }}
+                onDragOver={isProducer ? handleAssetAreaDragOver : undefined}
+                onDragLeave={isProducer ? handleAssetAreaDragLeave : undefined}
+                onDrop={isProducer ? handleAssetAreaDrop : undefined}
+                onContextMenu={isProducer ? (e) => handleContextMenu(e) : undefined}
+              >
+                {/* Drag-over overlay */}
+                {isDraggingOver && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: `${t.primary}18`, border: `3px dashed ${t.primary}`, borderRadius: '14px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', pointerEvents: 'none' }}>
+                    <div style={{ fontSize: '48px' }}>📁</div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: t.primary }}>Drop folders or files here</div>
+                    <div style={{ fontSize: '12px', color: t.textMuted }}>Each folder becomes a category automatically</div>
+                  </div>
+                )}
                 {assets.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `1px solid ${t.bgGlassBorder}` }}>
-                    <div style={{ marginBottom: '14px', opacity: 0.5 }}><svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
-                    <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '16px' }}>No assets</p>
+                  <div style={{ textAlign: 'center', padding: '60px 20px', background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: '14px', border: `2px dashed ${t.border}`, cursor: isProducer ? 'default' : 'default' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>📁</div>
+                    <p style={{ color: t.textMuted, fontSize: '13px', marginBottom: '6px' }}>No assets yet</p>
+                    {isProducer && <p style={{ color: t.textMuted, fontSize: '11px', marginBottom: '16px' }}>Drag folders from Finder, or click Upload</p>}
                     {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)}>Upload</Btn>}
                   </div>
                 ) : viewMode === 'kanban' ? (
@@ -9452,6 +9611,86 @@ export default function MainApp() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* RIGHT-CLICK CONTEXT MENU */}
+        {contextMenu && (
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: contextMenu.y,
+              left: contextMenu.x,
+              zIndex: 3000,
+              background: t.bgCard,
+              border: `1px solid ${t.border}`,
+              borderRadius: '10px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+              minWidth: '180px',
+              overflow: 'hidden',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            }}
+          >
+            {/* New Folder option (always visible) */}
+            <button
+              onClick={() => { setShowAddCat(true); setContextMenu(null); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                width: '100%', padding: '10px 14px',
+                background: 'transparent', border: 'none',
+                color: t.text, fontSize: '13px', cursor: 'pointer',
+                textAlign: 'left',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = t.bgSecondary}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              📁 New Folder
+            </button>
+
+            {/* Folder-specific options */}
+            {contextMenu.catId && (() => {
+              const cat = (selectedProject.categories || []).find(c => c.id === contextMenu.catId);
+              if (!cat) return null;
+              return (
+                <>
+                  <div style={{ height: '1px', background: t.border, margin: '2px 0' }} />
+                  <button
+                    onClick={() => {
+                      setRenamingCat(contextMenu.catId);
+                      setRenameValue(cat.name);
+                      setContextMenu(null);
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      width: '100%', padding: '10px 14px',
+                      background: 'transparent', border: 'none',
+                      color: t.text, fontSize: '13px', cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = t.bgSecondary}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    ✏️ Rename &ldquo;{cat.name}&rdquo;
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(contextMenu.catId)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      width: '100%', padding: '10px 14px',
+                      background: 'transparent', border: 'none',
+                      color: '#ef4444', fontSize: '13px', cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    🗑 Delete &ldquo;{cat.name}&rdquo;
+                  </button>
+                </>
+              );
+            })()}
           </div>
         )}
 
