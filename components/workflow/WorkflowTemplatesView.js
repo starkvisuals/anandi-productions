@@ -2,11 +2,22 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
 import { getTemplates } from '../../lib/workflow/helpers';
+import WorkflowTemplateEditor from './WorkflowTemplateEditor';
 
 export default function WorkflowTemplatesView({ t, theme, userProfile }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editor, setEditor] = useState(null);
+
+  const refreshTemplates = async () => {
+    try {
+      const rows = await getTemplates(db);
+      setTemplates(rows);
+    } catch (err) {
+      console.error('[WorkflowTemplatesView] refresh failed', err);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -25,13 +36,14 @@ export default function WorkflowTemplatesView({ t, theme, userProfile }) {
   }, []);
 
   const handleNew = () => {
-    console.log('[WorkflowTemplatesView] New Template (A8 will wire this)');
+    setEditor({ mode: 'new' });
   };
   const handleEdit = (tpl) => {
-    console.log('[WorkflowTemplatesView] Edit', tpl.id);
+    if (tpl.isSystemDefault) return;
+    setEditor({ mode: 'edit', templateId: tpl.id });
   };
   const handleDuplicate = (tpl) => {
-    console.log('[WorkflowTemplatesView] Duplicate', tpl.id);
+    setEditor({ mode: 'duplicate', templateId: tpl.id });
   };
   const handleArchive = (tpl) => {
     console.log('[WorkflowTemplatesView] Archive', tpl.id);
@@ -91,8 +103,6 @@ export default function WorkflowTemplatesView({ t, theme, userProfile }) {
         </div>
         <button
           onClick={handleNew}
-          disabled
-          title="Template editor coming in A8"
           style={{
             ...btnBase,
             padding: '8px 14px',
@@ -100,8 +110,7 @@ export default function WorkflowTemplatesView({ t, theme, userProfile }) {
             background: t.accent,
             color: '#fff',
             border: 'none',
-            opacity: 0.5,
-            cursor: 'not-allowed',
+            cursor: 'pointer',
           }}
         >
           + New Template
@@ -254,6 +263,19 @@ export default function WorkflowTemplatesView({ t, theme, userProfile }) {
             );
           })}
         </div>
+      )}
+
+      {editor && (
+        <WorkflowTemplateEditor
+          mode={editor.mode}
+          templateId={editor.templateId}
+          t={t}
+          onClose={() => setEditor(null)}
+          onSaved={async () => {
+            setEditor(null);
+            await refreshTemplates();
+          }}
+        />
       )}
     </div>
   );
