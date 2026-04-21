@@ -25,12 +25,19 @@ const WORKFLOW_TYPES = new Set([
 
 // Derive a short, mobile-friendly {subject, body} pair from a workflow
 // template type + data payload. Degrades gracefully on missing fields.
+function absolutizeUrl(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://anandi-productions.vercel.app';
+  return `${base.replace(/\/$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 function getWorkflowCopy(type, data) {
   const d = data || {};
   const project = d.projectName || 'your project';
   const block = d.blockLabel || 'a block';
   const asset = d.assetName || 'an asset';
-  const share = d.shareUrl || '';
+  const share = absolutizeUrl(d.shareUrl);
   const due = d.dueAt || d.dueDate || '';
   const corrections = d.correctionsCount ?? d.correctionCount;
   const round = d.roundNumber;
@@ -207,6 +214,12 @@ export async function POST(request) {
       };
 
       const t = templates[type] || templates.default;
+      // Prefer a workflow shareUrl (absolutized) for the CTA when present.
+      const ctaHref = (data && data.shareUrl)
+        ? (/^https?:\/\//i.test(data.shareUrl)
+            ? data.shareUrl
+            : `${appUrl.replace(/\/$/, '')}${data.shareUrl.startsWith('/') ? '' : '/'}${data.shareUrl}`)
+        : appUrl;
 
       return `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -229,7 +242,7 @@ export async function POST(request) {
             ${data.status ? `<p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0;"><strong>Status:</strong> ${data.status}</p>` : ''}
             ${data.reason ? `<p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0;"><strong>Reason:</strong> ${data.reason}</p>` : ''}
             <div style="text-align: center;">
-              <a href="${appUrl}" style="display: inline-block; margin-top: 20px; padding: 14px 28px; background: ${t.buttonColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">${t.buttonText}</a>
+              <a href="${ctaHref}" style="display: inline-block; margin-top: 20px; padding: 14px 28px; background: ${t.buttonColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">${t.buttonText}</a>
             </div>
           </div>
           <div style="text-align: center; margin-top: 20px;">
