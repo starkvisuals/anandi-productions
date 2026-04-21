@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import { canAccessHr, canManageEmployees, isHrFullAdmin, ensurePrimaryProducerExists, listPendingApprovals } from '@/lib/hr';
 import EmployeeModule from './hr/EmployeeModule';
 import ReleasesModule from './releases/ReleasesModule';
+import WorkflowTemplatesView from './workflow/WorkflowTemplatesView';
 import OnboardingFlow from './hr/OnboardingFlow';
 import AnnotationCanvas from './AnnotationCanvas';
 import ComparePanel from './ComparePanel';
@@ -2255,7 +2256,8 @@ export default function MainApp() {
       ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads', shortcut: '\u2318 5' }] : []),
       ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team', shortcut: isClientView ? '\u2318 6' : '\u2318 5' }] : []),
       ...(canManageEmployeesNow ? [{ id: 'employees', icon: 'user', label: 'Employees', shortcut: '\u2318 6', badge: hrPendingCount }] : []),
-      ...(isProducer || canManageEmployeesNow ? [{ id: 'releases', icon: 'document', label: 'Releases', shortcut: '\u2318 7' }] : [])
+      ...(isProducer || canManageEmployeesNow ? [{ id: 'releases', icon: 'document', label: 'Releases', shortcut: '\u2318 7' }] : []),
+      ...(isProducer ? [{ id: 'workflow-templates', icon: 'settings', label: 'Workflow Templates', shortcut: '\u2318 8' }] : [])
     ];
 
     return (
@@ -10698,6 +10700,7 @@ export default function MainApp() {
             {view === 'downloads' && <StableDownloadsView />}
             {view === 'employees' && canManageEmployeesNow && <EmployeeModule t={t} />}
             {view === 'releases' && <ReleasesModule t={t} userProfile={userProfile} />}
+            {view === 'workflow-templates' && isProducer && <WorkflowTemplatesView t={t} theme={theme} userProfile={userProfile} />}
           </motion.div>
         </AnimatePresence>
 
