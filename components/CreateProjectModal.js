@@ -27,14 +27,7 @@ const PROJECT_TYPES = [
   { value: 'documentary', label: 'Documentary' },
 ];
 
-const BUILT_IN_TEMPLATES = [
-  { id: 'photoshoot-basic', name: 'Basic Photoshoot', type: 'photoshoot', categories: ['statics'], workflow: 'direct', maxRevisions: 3, turnaroundHours: 24, formats: ['jpeg'], sizes: [] },
-  { id: 'photoshoot-full', name: 'Full Photoshoot', type: 'photoshoot', categories: ['statics', 'videos'], workflow: 'standard', maxRevisions: 3, turnaroundHours: 24, formats: ['jpeg', 'tiff'], sizes: ['1080p'] },
-  { id: 'ad-film', name: 'Ad Film', type: 'ad-film', categories: ['videos', 'vfx', 'audio', 'cgi'], workflow: 'agency', maxRevisions: 5, turnaroundHours: 48, formats: ['mp4', 'mov', 'psd'], sizes: ['4k', '1080p'] },
-  { id: 'product-video', name: 'Product Video', type: 'product-video', categories: ['videos', 'cgi'], workflow: 'standard', maxRevisions: 3, turnaroundHours: 24, formats: ['mp4', 'mov'], sizes: ['1080p'] },
-  { id: 'social-media', name: 'Social Media Pack', type: 'social-media', categories: ['statics', 'videos'], workflow: 'direct', maxRevisions: 2, turnaroundHours: 12, formats: ['jpeg', 'png', 'mp4'], sizes: ['1080p', 'instagram-square', 'story'] },
-  { id: 'reels', name: 'Reels/Shorts', type: 'reels', categories: ['videos'], workflow: 'direct', maxRevisions: 2, turnaroundHours: 12, formats: ['mp4'], sizes: ['story'] },
-];
+// Note: BUILT_IN_TEMPLATES removed — replaced by Firestore workflowTemplates in B1.
 
 const DELIVERABLE_FORMATS = [
   { id: 'jpeg', label: 'JPEG', icon: '🖼' },
@@ -123,12 +116,16 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
   const [sizes, setSizes] = useState([]);
   const [workflowDeliverables, setWorkflowDeliverables] = useState([]);
 
+  // Seed deliverables ONLY when the template changes and the user hasn't
+  // already added custom rows — prevents silently destroying edits on template switch.
   useEffect(() => {
     if (!workflowTemplateId || workflowTemplates.length === 0) return;
+    // Don't overwrite user edits — only seed when the list is empty.
+    if (workflowDeliverables.length > 0) return;
     const tpl = workflowTemplates.find(tp => tp.id === workflowTemplateId);
     if (!tpl) return;
     let defaults;
-    if (tpl.defaultDeliverables) {
+    if (tpl.defaultDeliverables?.length) {
       defaults = tpl.defaultDeliverables;
     } else if (tpl.name === 'Photoshoot') {
       defaults = [
@@ -139,10 +136,10 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
         { name: 'Social cutdowns', type: 'video', qty: 3 },
       ];
     } else {
-      setWorkflowDeliverables([]);
       return;
     }
     setWorkflowDeliverables(defaults.map((d, i) => ({ ...d, id: Date.now() + i })));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowTemplateId, workflowTemplates]);
 
   // Step 5: Summary
@@ -152,6 +149,8 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
 
   const canProceed = () => {
     if (step === 0) return name.trim() && client.trim();
+    // Step 1: require a workflow template selection (or templates not yet loaded — allow through)
+    if (step === 1) return workflowTemplateId || workflowTemplates.length === 0;
     return true;
   };
 

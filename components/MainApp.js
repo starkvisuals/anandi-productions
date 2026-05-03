@@ -4500,8 +4500,16 @@ export default function MainApp() {
 
     const handleCreate = async (config) => {
       try {
+        // Generate a 24-char CSPRNG token: prefer randomUUID (128-bit), fall back to
+        // getRandomValues (18 bytes = 144-bit → 36 hex chars, trimmed to 24).
+        // Math.random is NOT used — it is not a CSPRNG.
         const photographerUploadToken = config.generatePhotographerToken
-          ? (crypto?.randomUUID?.()?.replace(/-/g, '').slice(0, 24) ?? (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2))).slice(0, 24)
+          ? (() => {
+              if (crypto?.randomUUID) return crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+              const buf = new Uint8Array(18);
+              crypto.getRandomValues(buf);
+              return Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+            })()
           : null;
         const proj = await createProject({
           name: config.name, client: config.client, type: config.type, deadline: config.deadline,
