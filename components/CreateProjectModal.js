@@ -148,6 +148,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
   // Step 5: Summary
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
+  const [generatePhotographerToken, setGeneratePhotographerToken] = useState(false);
 
   const canProceed = () => {
     if (step === 0) return name.trim() && client.trim();
@@ -182,6 +183,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
         templateName: saveAsTemplate ? templateName : null,
         workflowTemplateId: workflowTemplateId || null,
         workflowDeliverables,
+        generatePhotographerToken,
       });
       onClose();
     } catch (e) {
@@ -636,6 +638,21 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
           <div style={{ fontSize: '12px', color: t.text, fontWeight: '500' }}>Save as template for reuse</div>
           {saveAsTemplate && <input value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Template name..." style={{ ...inputStyle, marginTop: '8px', fontSize: '12px', padding: '8px 10px' }} onFocus={e => e.target.style.borderColor = t.primary} onBlur={e => e.target.style.borderColor = t.border} />}
         </div>
+      </div>
+
+      {/* Photographer upload token */}
+      <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <input
+          type="checkbox"
+          id="gen-photo-token"
+          checked={generatePhotographerToken}
+          onChange={e => setGeneratePhotographerToken(e.target.checked)}
+          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: t.primary, flexShrink: 0 }}
+        />
+        <label htmlFor="gen-photo-token" style={{ flex: 1, cursor: 'pointer' }}>
+          <div style={{ fontSize: '12px', color: t.text, fontWeight: '500' }}>Generate photographer upload link</div>
+          <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>Creates a secure token so photographers can upload files directly</div>
+        </label>
       </div>
     </div>
   );
