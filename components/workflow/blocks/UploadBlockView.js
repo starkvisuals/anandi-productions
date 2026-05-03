@@ -24,6 +24,12 @@ export default function UploadBlockView({ project, block, actorId, isProducer, t
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef(null);
 
+  // D5: invite state
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteSent, setInviteSent] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   const maxMB = block?.config?.maxFileSizeMB || 50;
   const maxBytes = maxMB * 1024 * 1024;
   const acceptTypes = block?.config?.acceptedMimeTypes || 'image/*';
@@ -163,6 +169,46 @@ export default function UploadBlockView({ project, block, actorId, isProducer, t
   const text = t?.text || '#fff';
   const muted = t?.muted || '#888';
 
+  // D5: invite helpers
+  const showInvite = isProducer && block?.config?.allowPublicLink && project?.photographerUploadToken;
+  const inviteUrl = showInvite
+    ? `${process.env.NEXT_PUBLIC_APP_URL || ''}/photographer-upload/${project.photographerUploadToken}`
+    : '';
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleSendInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviteSending(true);
+    setInviteSent(false);
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'photographer.upload-invite',
+          to: [inviteEmail.trim()],
+          data: {
+            projectName: project.name,
+            blockLabel: block.label,
+            shareUrl: inviteUrl,
+          },
+        }),
+      });
+      setInviteEmail('');
+      setInviteSent(true);
+      setTimeout(() => setInviteSent(false), 3000);
+    } catch (err) {
+      console.error('[UploadBlockView] invite send error:', err);
+    }
+    setInviteSending(false);
+  };
+
   return (
     <div style={{ padding: 24, maxWidth: 720, margin: '0 auto' }}>
       <h3 style={{ color: text, marginBottom: 16, fontSize: 18, fontWeight: 600 }}>
@@ -275,6 +321,54 @@ export default function UploadBlockView({ project, block, actorId, isProducer, t
         >
           Done uploading
         </button>
+      )}
+
+      {/* D5: Invite Photographer section (producer only, when public link is configured) */}
+      {showInvite && (
+        <details style={{ marginTop: 24 }}>
+          <summary style={{ cursor: 'pointer', color: muted, fontSize: 13, userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>📸</span> <span>Invite Photographer</span>
+          </summary>
+          <div style={{ marginTop: 12, padding: 16, background: bg, border: `1px solid ${border}`, borderRadius: 10 }}>
+            {/* Read-only URL + copy */}
+            <div style={{ fontSize: 12, color: muted, marginBottom: 6 }}>Upload link</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <input
+                readOnly
+                value={inviteUrl}
+                style={{ flex: 1, padding: '8px 12px', background: '#0d0d12', border: `1px solid ${border}`, borderRadius: 6, color: text, fontSize: 12, outline: 'none' }}
+              />
+              <button
+                onClick={handleCopy}
+                style={{ padding: '8px 14px', background: copied ? '#22c55e' : '#6366f1', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
+            {/* Email invite */}
+            <div style={{ fontSize: 12, color: muted, marginBottom: 6 }}>Email invite</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="email"
+                placeholder="photographer@example.com"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+                style={{ flex: 1, padding: '8px 12px', background: '#0d0d12', border: `1px solid ${border}`, borderRadius: 6, color: text, fontSize: 12, outline: 'none' }}
+              />
+              <button
+                onClick={handleSendInvite}
+                disabled={inviteSending || !inviteEmail.trim()}
+                style={{ padding: '8px 14px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: inviteSending ? 'default' : 'pointer', opacity: inviteSending ? 0.7 : 1, whiteSpace: 'nowrap' }}
+              >
+                {inviteSending ? 'Sending...' : 'Send invite'}
+              </button>
+            </div>
+            {inviteSent && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#22c55e' }}>Sent!</div>
+            )}
+          </div>
+        </details>
       )}
     </div>
   );
