@@ -4,6 +4,7 @@ import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Logo from '@/components/Logo';
+import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
 
 const STATUS = {
   'pending': { label: 'Pending', bg: '#fef3c7', color: '#92400e' },
@@ -91,7 +92,7 @@ export default function SharePage({ params }) {
   const [confirmingSelection, setConfirmingSelection] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [hoveredCard, setHoveredCard] = useState(null);
-  const [colorFilter, setColorFilter] = useState(null); // 'red' | 'yellow' | 'green' | null
+  const [colorFilter, setColorFilter] = useState(null); // string | null — any DEFAULT_COLOR_LABELS key
   const fileInputRef = useRef(null);
 
   // Get token from params
@@ -131,6 +132,10 @@ export default function SharePage({ params }) {
       if (e.key === 'p' || e.key === 'P') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'red'); }
       if (e.key === 'm' || e.key === 'M') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'yellow'); }
       if (e.key === 'g' || e.key === 'G') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'green'); }
+      if (e.key === 'b' || e.key === 'B') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'blue'); }
+      if (e.key === 'v' || e.key === 'V') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'purple'); }
+      if (e.key === 'o' || e.key === 'O') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'orange'); }
+      if (e.key === 'k' || e.key === 'K') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'gray'); }
       if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (project.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); await updateProjectData(project.id, { assets: updated }); setProject({ ...project, assets: updated }); setSelectedAsset({ ...selectedAsset, colorLabel: null }); }
       // Escape — close modal
       if (e.key === 'Escape') setSelectedAsset(null);
@@ -472,8 +477,9 @@ export default function SharePage({ params }) {
           {isClient && (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '1px' }}>Filter:</span>
-              {[{ key: 'red', color: '#ef4444', label: '🔴 Picks' }, { key: 'yellow', color: '#f59e0b', label: '🟡 Maybe' }, { key: 'green', color: '#22c55e', label: '🟢 Alt' }].map(({ key, color, label }) => (
-                <button key={key} onClick={() => setColorFilter(colorFilter === key ? null : key)} style={{ padding: '6px 14px', background: colorFilter === key ? color : 'rgba(255,255,255,0.06)', border: `1px solid ${colorFilter === key ? color : 'rgba(255,255,255,0.1)'}`, borderRadius: '20px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: colorFilter === key ? '600' : '400', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              {DEFAULT_COLOR_LABELS.map(({ key, hex, label }) => (
+                <button key={key} onClick={() => setColorFilter(colorFilter === key ? null : key)} style={{ padding: '6px 14px', background: colorFilter === key ? hex : 'rgba(255,255,255,0.06)', border: `1px solid ${colorFilter === key ? hex : 'rgba(255,255,255,0.1)'}`, borderRadius: '20px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: colorFilter === key ? '600' : '400', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: colorFilter === key ? '#fff' : hex, display: 'inline-block', flexShrink: 0 }} />
                   {label}
                   <span style={{ opacity: 0.7, fontSize: '10px' }}>({allAssets.filter(a => a.colorLabel === key).length})</span>
                 </button>
@@ -550,7 +556,7 @@ export default function SharePage({ params }) {
                   )}
                   {/* Color label stripe */}
                   {a.colorLabel && (
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: a.colorLabel === 'red' ? '#ef4444' : a.colorLabel === 'yellow' ? '#f59e0b' : '#22c55e', zIndex: 5 }} />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: DEFAULT_COLOR_LABELS.find(l => l.key === a.colorLabel)?.hex || '#6b7280', zIndex: 5 }} />
                   )}
                 </div>
                 <div style={{ padding: isMobile ? '10px' : '14px' }}>
@@ -745,8 +751,8 @@ export default function SharePage({ params }) {
                     <div style={{ marginTop: '14px' }}>
                       <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Mark as</div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        {[{ key: 'red', color: '#ef4444', label: '🔴 Pick (P)' }, { key: 'yellow', color: '#f59e0b', label: '🟡 Maybe (M)' }, { key: 'green', color: '#22c55e', label: '🟢 Alt (G)' }].map(({ key, color, label }) => (
-                          <button key={key} onClick={() => handleColorLabel(selectedAsset.id, key)} style={{ flex: 1, padding: '8px 6px', background: selectedAsset.colorLabel === key ? color : 'rgba(255,255,255,0.05)', border: `1px solid ${selectedAsset.colorLabel === key ? color : 'rgba(255,255,255,0.1)'}`, borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: selectedAsset.colorLabel === key ? '700' : '400', transition: 'all 0.15s', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== key ? 0.5 : 1 }}>
+                        {DEFAULT_COLOR_LABELS.map(({ key, hex, label }) => (
+                          <button key={key} onClick={() => handleColorLabel(selectedAsset.id, key)} style={{ flex: 1, padding: '8px 6px', background: selectedAsset.colorLabel === key ? hex : 'rgba(255,255,255,0.05)', border: `1px solid ${selectedAsset.colorLabel === key ? hex : 'rgba(255,255,255,0.1)'}`, borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: selectedAsset.colorLabel === key ? '700' : '400', transition: 'all 0.15s', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== key ? 0.5 : 1 }}>
                             {label}
                           </button>
                         ))}

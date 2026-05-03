@@ -7,6 +7,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage, db as firestoreDb } from '@/lib/firebase';
 import { getTemplate, materializeBlocksFromTemplate, getCurrentBlock } from '@/lib/workflow/helpers';
 import { runHook } from '@/lib/workflow/runner';
+import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
@@ -5681,7 +5682,7 @@ export default function MainApp() {
     const [mentionSearch, setMentionSearch] = useState('');
     const [filterStars, setFilterStars] = useState(0);
     const [filterStatus, setFilterStatus] = useState('all');
-    const [colorFilter, setColorFilter] = useState(null); // 'red' | 'yellow' | 'green' | null
+    const [colorFilter, setColorFilter] = useState(null); // string | null — any DEFAULT_COLOR_LABELS key
     const [sortBy, setSortBy] = useState('newest');
     const [showComparePanel, setShowComparePanel] = useState(false);
     const [compareAssetIds, setCompareAssetIds] = useState([]);
@@ -6003,6 +6004,10 @@ export default function MainApp() {
         if (e.key === 'p' || e.key === 'P') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'red'); showToast('🔴 Marked as Pick', 'success'); }
         if (e.key === 'm' || e.key === 'M') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'yellow'); showToast('🟡 Marked as Maybe', 'success'); }
         if (e.key === 'g' || e.key === 'G') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'green'); showToast('🟢 Marked as Alt', 'success'); }
+        if (e.key === 'b' || e.key === 'B') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'blue'); showToast('🔵 Marked as Hero', 'success'); }
+        if (e.key === 'v' || e.key === 'V') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'purple'); showToast('🟣 Marked as Reject', 'success'); }
+        if (e.key === 'o' || e.key === 'O') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'orange'); showToast('🟠 Marked as Review', 'success'); }
+        if (e.key === 'k' || e.key === 'K') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'gray'); showToast('⚫ Marked as Skip', 'success'); }
         if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); setSelectedAsset({ ...selectedAsset, colorLabel: null }); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); showToast('Label cleared', 'success'); }
 
         // Escape — exit annotation mode first, then close lightbox
@@ -7490,10 +7495,10 @@ export default function MainApp() {
                     <option value="name">Name A-Z</option>
                   </select>
                   {/* Color label filter pills */}
-                  {[{ key: 'red', color: '#ef4444', label: '● Pick' }, { key: 'yellow', color: '#f59e0b', label: '● Maybe' }, { key: 'green', color: '#22c55e', label: '● Alt' }].map(({ key, color, label }) => (
-                    <button key={key} onClick={() => setColorFilter(colorFilter === key ? null : key)} style={{ padding: '6px 12px', background: colorFilter === key ? color : t.bgCard, border: `1px solid ${colorFilter === key ? color : t.border}`, borderRadius: '20px', color: colorFilter === key ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: colorFilter === key ? '600' : '400', transition: 'all 0.15s' }}>
-                      <span style={{ color: colorFilter === key ? '#fff' : color }}>{label.split(' ')[0]}</span>
-                      <span>{label.split(' ')[1]}</span>
+                  {DEFAULT_COLOR_LABELS.map(({ key, hex, label }) => (
+                    <button key={key} onClick={() => setColorFilter(colorFilter === key ? null : key)} style={{ padding: '6px 12px', background: colorFilter === key ? hex : t.bgCard, border: `1px solid ${colorFilter === key ? hex : t.border}`, borderRadius: '20px', color: colorFilter === key ? '#fff' : t.textSecondary, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: colorFilter === key ? '600' : '400', transition: 'all 0.15s' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: colorFilter === key ? '#fff' : hex, display: 'inline-block', flexShrink: 0 }} />
+                      <span>{label}</span>
                       <span style={{ opacity: 0.7, fontSize: '10px' }}>({(assets || []).filter(a => a.colorLabel === key).length})</span>
                     </button>
                   ))}
@@ -7575,7 +7580,7 @@ export default function MainApp() {
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px', zIndex: 4 }}>{a.feedback.length}</div>}
                             {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px', zIndex: 4 }}>{new Date(a.dueDate) < new Date() ? 'Overdue ' : ''}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
                             {/* Color label stripe — Capture One style */}
-                            {a.colorLabel && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: a.colorLabel === 'red' ? '#ef4444' : a.colorLabel === 'yellow' ? '#f59e0b' : '#22c55e', zIndex: 7 }} />}
+                            {a.colorLabel && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: DEFAULT_COLOR_LABELS.find(l => l.key === a.colorLabel)?.hex || '#6b7280', zIndex: 7 }} />}
                             {/* Always visible star rating overlay */}
                             {!appearance.showInfo && (
                               <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '12px', padding: '3px 8px', display: 'flex', gap: '2px', zIndex: 5 }}>
@@ -8364,9 +8369,12 @@ export default function MainApp() {
                 </div>
                 {/* Color label swatches — P=red, M=yellow, G=green, U=clear */}
                 <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginRight: '8px', padding: '4px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  {[{ label: 'red', color: '#ef4444', title: 'Pick (P)' }, { label: 'yellow', color: '#f59e0b', title: 'Maybe (M)' }, { label: 'green', color: '#22c55e', title: 'Alt (G)' }].map(({ label, color, title }) => (
-                    <div key={label} onClick={() => handleColorLabel(selectedAsset.id, label)} title={title} style={{ width: '14px', height: '14px', borderRadius: '50%', background: color, cursor: 'pointer', border: selectedAsset.colorLabel === label ? '2px solid #fff' : '2px solid transparent', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== label ? 0.4 : 1, transition: 'all 0.15s', boxShadow: selectedAsset.colorLabel === label ? `0 0 6px ${color}` : 'none' }} />
-                  ))}
+                  {DEFAULT_COLOR_LABELS.map(({ key, hex, label }, i) => {
+                    const shortcuts = ['P','M','G','B','V','O','K'];
+                    return (
+                      <div key={key} onClick={() => handleColorLabel(selectedAsset.id, key)} title={`${label} (${shortcuts[i]})`} style={{ width: '14px', height: '14px', borderRadius: '50%', background: hex, cursor: 'pointer', border: selectedAsset.colorLabel === key ? '2px solid #fff' : '2px solid transparent', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== key ? 0.4 : 1, transition: 'all 0.15s', boxShadow: selectedAsset.colorLabel === key ? `0 0 6px ${hex}` : 'none' }} />
+                    );
+                  })}
                   {selectedAsset.colorLabel && <div onClick={() => handleColorLabel(selectedAsset.id, selectedAsset.colorLabel)} title="Clear (U)" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', paddingLeft: '2px', lineHeight: 1 }}>✕</div>}
                 </div>
                 {/* Fullscreen toggle */}
@@ -9583,7 +9591,7 @@ export default function MainApp() {
                 <div key={asset.id} onClick={() => { setShowSelectionOverview(false); setSelectedAsset(asset); setAssetTab('preview'); }} style={{ aspectRatio: '1', borderRadius: '6px', overflow: 'hidden', border: `2px solid ${borderColor}`, position: 'relative', cursor: 'pointer' }}>
                   {asset.type === 'image' ? <img src={asset.thumbnail || asset.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{asset.type === 'video' ? 'VID' : 'DOC'}</div>}
                   {asset.rating > 0 && <div style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 4px', fontSize: '8px', color: '#fbbf24' }}>{'★'.repeat(asset.rating)}</div>}
-                  {asset.colorLabel && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: asset.colorLabel === 'red' ? '#ef4444' : asset.colorLabel === 'yellow' ? '#f59e0b' : '#22c55e' }} />}
+                  {asset.colorLabel && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: DEFAULT_COLOR_LABELS.find(l => l.key === asset.colorLabel)?.hex || '#6b7280' }} />}
                 </div>
               ))}
               {items.length > 24 && <div style={{ aspectRatio: '1', borderRadius: '6px', background: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: t.textMuted }}>+{items.length - 24}</div>}
