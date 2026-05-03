@@ -121,6 +121,29 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
   // Step 4: Deliverables
   const [formats, setFormats] = useState([]);
   const [sizes, setSizes] = useState([]);
+  const [workflowDeliverables, setWorkflowDeliverables] = useState([]);
+
+  useEffect(() => {
+    if (!workflowTemplateId || workflowTemplates.length === 0) return;
+    const tpl = workflowTemplates.find(tp => tp.id === workflowTemplateId);
+    if (!tpl) return;
+    let defaults;
+    if (tpl.defaultDeliverables) {
+      defaults = tpl.defaultDeliverables;
+    } else if (tpl.name === 'Photoshoot') {
+      defaults = [
+        { name: 'Hero', type: 'image', qty: 5 },
+        { name: 'Product', type: 'image', qty: 20 },
+        { name: 'Lifestyle', type: 'image', qty: 10 },
+        { name: 'BTS', type: 'image', qty: 5 },
+        { name: 'Social cutdowns', type: 'video', qty: 3 },
+      ];
+    } else {
+      setWorkflowDeliverables([]);
+      return;
+    }
+    setWorkflowDeliverables(defaults.map((d, i) => ({ ...d, id: Date.now() + i })));
+  }, [workflowTemplateId, workflowTemplates]);
 
   // Step 5: Summary
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
@@ -158,6 +181,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
         saveAsTemplate,
         templateName: saveAsTemplate ? templateName : null,
         workflowTemplateId: workflowTemplateId || null,
+        workflowDeliverables,
       });
       onClose();
     } catch (e) {
@@ -483,6 +507,53 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <div style={{ fontSize: '12px', color: t.textMuted, lineHeight: '1.5' }}>
         Optional: set file format and size requirements. Editors will see these as a checklist before marking work complete.
+      </div>
+
+      {/* Workflow Deliverables */}
+      <div>
+        <label style={labelStyle}>Workflow Deliverables</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {workflowDeliverables.map((row, idx) => (
+            <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                value={row.name}
+                onChange={e => setWorkflowDeliverables(prev => prev.map((r, i) => i === idx ? { ...r, name: e.target.value } : r))}
+                placeholder="Name"
+                style={{ ...inputStyle, flex: 2, fontSize: '12px', padding: '7px 10px' }}
+                onFocus={e => e.target.style.borderColor = t.primary}
+                onBlur={e => e.target.style.borderColor = t.border}
+              />
+              <select
+                value={row.type}
+                onChange={e => setWorkflowDeliverables(prev => prev.map((r, i) => i === idx ? { ...r, type: e.target.value } : r))}
+                style={{ ...inputStyle, flex: 1, fontSize: '12px', padding: '7px 10px', cursor: 'pointer' }}
+              >
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="other">Other</option>
+              </select>
+              <input
+                type="number"
+                value={row.qty}
+                min={1}
+                onChange={e => setWorkflowDeliverables(prev => prev.map((r, i) => i === idx ? { ...r, qty: Number(e.target.value) } : r))}
+                style={{ ...inputStyle, width: '64px', flex: 'none', fontSize: '12px', padding: '7px 10px' }}
+                onFocus={e => e.target.style.borderColor = t.primary}
+                onBlur={e => e.target.style.borderColor = t.border}
+              />
+              <button
+                onClick={() => setWorkflowDeliverables(prev => prev.filter((_, i) => i !== idx))}
+                style={{ background: 'none', border: 'none', color: t.danger, cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '0 4px', flexShrink: 0 }}
+              >×</button>
+            </div>
+          ))}
+          <button
+            onClick={() => setWorkflowDeliverables(prev => [...prev, { id: Date.now(), name: '', type: 'image', qty: 1 }])}
+            style={{ alignSelf: 'flex-start', padding: '7px 14px', background: `${t.primary}10`, border: `1px dashed ${t.primary}50`, borderRadius: '8px', color: t.primary, fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}
+          >
+            + Add Row
+          </button>
+        </div>
       </div>
 
       <div>
