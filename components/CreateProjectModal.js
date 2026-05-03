@@ -1,5 +1,7 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { db } from '../lib/firebase';
+import { getTemplates } from '../lib/workflow/helpers';
 
 const DEFAULT_CATEGORIES = [
   { id: 'cgi', name: 'CGI', icon: '🧊', color: '#3b82f6' },
@@ -72,12 +74,24 @@ const THEMES = {
   },
 };
 
-const STEP_LABELS = ['Basics', 'Workflow', 'Teams', 'Deliverables', 'Summary'];
+const STEP_LABELS = ['Basics', 'Workflow Template', 'Workflow', 'Teams', 'Deliverables', 'Summary'];
 
-export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', teamMembers = [], savedTemplates = [] }) {
+export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', teamMembers = [] }) {
   const t = THEMES[theme];
   const [step, setStep] = useState(0);
   const [creating, setCreating] = useState(false);
+
+  // Workflow templates (B1)
+  const [workflowTemplates, setWorkflowTemplates] = useState([]);
+  const [workflowTemplateId, setWorkflowTemplateId] = useState('');
+
+  useEffect(() => {
+    getTemplates(db).then(tpls => {
+      setWorkflowTemplates(tpls);
+      const def = tpls.find(tp => tp.isSystemDefault);
+      if (def) setWorkflowTemplateId(def.id);
+    }).catch(err => console.error('[CreateProjectModal] failed to load workflow templates', err));
+  }, []);
 
   // Step 1: Basics
   const [name, setName] = useState('');
@@ -85,9 +99,8 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
   const [type, setType] = useState('photoshoot');
   const [deadline, setDeadline] = useState('');
   const [selectedCats, setSelectedCats] = useState(['statics']);
-  const [templateId, setTemplateId] = useState('');
 
-  // Step 2: Workflow
+  // Step 3: Workflow (was step 2)
   const [workflowType, setWorkflowType] = useState('standard');
   const [maxRevisions, setMaxRevisions] = useState(3);
   const [autoTurnaround, setAutoTurnaround] = useState(true);
@@ -112,22 +125,6 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
   // Step 5: Summary
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
-
-  const allTemplates = useMemo(() => [...BUILT_IN_TEMPLATES, ...savedTemplates], [savedTemplates]);
-
-  const applyTemplate = (tplId) => {
-    setTemplateId(tplId);
-    if (!tplId) return;
-    const tpl = allTemplates.find(t => t.id === tplId);
-    if (!tpl) return;
-    setType(tpl.type || 'photoshoot');
-    setSelectedCats(tpl.categories || ['statics']);
-    setWorkflowType(tpl.workflow || 'standard');
-    setMaxRevisions(tpl.maxRevisions || 3);
-    setTurnaroundHours(tpl.turnaroundHours || 24);
-    setFormats(tpl.formats || []);
-    setSizes(tpl.sizes || []);
-  };
 
   const canProceed = () => {
     if (step === 0) return name.trim() && client.trim();
@@ -160,7 +157,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
         agencyContacts: workflowType === 'agency' ? agencyContacts : [],
         saveAsTemplate,
         templateName: saveAsTemplate ? templateName : null,
-        templateId: templateId || null,
+        workflowTemplateId: workflowTemplateId || null,
       });
       onClose();
     } catch (e) {
@@ -212,22 +209,51 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
 
   // ── Step Renderers ──
 
+  const renderWorkflowTemplate = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ fontSize: '12px', color: t.textMuted, lineHeight: '1.5' }}>
+        Choose a workflow template that best fits your project type.
+      </div>
+      {workflowTemplates.length === 0 ? (
+        <div style={{ padding: '32px', textAlign: 'center', color: t.textMuted, fontSize: '13px' }}>
+          Loading templates...
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+          {workflowTemplates.map(tpl => {
+            const selected = workflowTemplateId === tpl.id;
+            const iconStr = tpl.icon && tpl.icon.length <= 4 ? tpl.icon : (tpl.name?.[0] || '?');
+            const color = tpl.color || '#6366f1';
+            return (
+              <div key={tpl.id} onClick={() => setWorkflowTemplateId(tpl.id)} style={{
+                border: `2px solid ${selected ? t.primary : t.border}`,
+                borderRadius: '12px',
+                padding: '16px',
+                cursor: 'pointer',
+                background: selected ? `${t.primary}15` : `${t.bgCard}CC`,
+                transition: 'all 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                  {iconStr}
+                </div>
+                <div style={{ fontWeight: '600', fontSize: '13px', color: t.text }}>{tpl.name}</div>
+                <div style={{ fontSize: '11px', color: t.textMuted, lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{tpl.description}</div>
+                <div style={{ fontSize: '10px', color: t.textMuted, marginTop: 'auto', paddingTop: '4px', borderTop: `1px solid ${t.borderLight}` }}>
+                  {tpl.blocks?.length || 0} blocks
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   const renderBasics = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Template selector */}
-      <div style={cardStyle}>
-        <label style={labelStyle}>Start from template</label>
-        <select value={templateId} onChange={e => applyTemplate(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-          <option value="">Start from scratch</option>
-          <optgroup label="Built-in Templates">
-            {BUILT_IN_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </optgroup>
-          {savedTemplates.length > 0 && <optgroup label="Your Templates">
-            {savedTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </optgroup>}
-        </select>
-      </div>
-
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div>
           <label style={labelStyle}>Project Name *</label>
@@ -543,7 +569,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
     </div>
   );
 
-  const stepRenderers = [renderBasics, renderWorkflow, renderTeams, renderDeliverables, renderSummary];
+  const stepRenderers = [renderBasics, renderWorkflowTemplate, renderWorkflow, renderTeams, renderDeliverables, renderSummary];
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', backdropFilter: 'blur(8px)' }} onClick={onClose}>
@@ -585,12 +611,12 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
             {step > 0 ? 'Back' : 'Cancel'}
           </button>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {step < 4 && step > 1 && (
-              <button onClick={() => setStep(4)} style={{ padding: '9px 18px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textMuted, fontSize: '12px', cursor: 'pointer' }}>
+            {step < 5 && step > 1 && (
+              <button onClick={() => setStep(5)} style={{ padding: '9px 18px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textMuted, fontSize: '12px', cursor: 'pointer' }}>
                 Skip to summary
               </button>
             )}
-            {step < 4 ? (
+            {step < 5 ? (
               <button onClick={() => setStep(step + 1)} disabled={!canProceed()} style={{
                 padding: '9px 22px', background: canProceed() ? `linear-gradient(135deg, ${t.primary}, ${t.accent})` : t.bgInput,
                 border: 'none', borderRadius: '8px', color: canProceed() ? '#fff' : t.textMuted,
