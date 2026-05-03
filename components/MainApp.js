@@ -16,6 +16,9 @@ import { canAccessHr, canManageEmployees, isHrFullAdmin, ensurePrimaryProducerEx
 import EmployeeModule from './hr/EmployeeModule';
 import ReleasesModule from './releases/ReleasesModule';
 import WorkflowTemplatesView from './workflow/WorkflowTemplatesView';
+import StageTimelineBar from './workflow/StageTimelineBar';
+import ProjectSnapshot from './workflow/ProjectSnapshot';
+import ActivityFeedDrawer from './workflow/ActivityFeedDrawer';
 import OnboardingFlow from './hr/OnboardingFlow';
 import AnnotationCanvas from './AnnotationCanvas';
 import ComparePanel from './ComparePanel';
@@ -5718,6 +5721,19 @@ export default function MainApp() {
     const [isScrubbing, setIsScrubbing] = useState(false);
     const videoContainerRef = useRef(null);
     const [videoFocused, setVideoFocused] = useState(false);
+    const [projectBlocks, setProjectBlocks] = useState([]);
+    const [showActivityFeed, setShowActivityFeed] = useState(false);
+
+    useEffect(() => {
+      if (!selectedProject?.id) return;
+      if (!selectedProject.workflowTemplateId) return;
+      import('@/lib/workflow/helpers').then(({ getProjectBlocks }) => {
+        getProjectBlocks(firestoreDb, selectedProject.id).then(blocks => {
+          setProjectBlocks(blocks);
+        }).catch(err => console.error('[ProjectDetail] blocks load failed', err));
+      });
+    }, [selectedProject?.id, selectedProject?.workflowTemplateId]);
+
     const videoTimeRAF = useRef(null);
     const handleVideoTimeUpdate = useCallback((e) => {
       if (videoTimeRAF.current) return;
@@ -7047,6 +7063,32 @@ export default function MainApp() {
             );
           })()}
 
+          {/* Workflow stage timeline — only for projects with blocks */}
+          {projectBlocks.length > 0 && (
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.border}` }}>
+              <StageTimelineBar
+                blocks={projectBlocks}
+                currentBlockId={selectedProject.currentBlockId}
+                onBlockClick={(block) => console.log('[C4] block clicked', block.id)}
+                theme={theme}
+              />
+            </div>
+          )}
+
+          {/* Project snapshot — collapsible overview, only with blocks */}
+          {projectBlocks.length > 0 && (
+            <div style={{ padding: '0 16px 12px' }}>
+              <ProjectSnapshot
+                project={selectedProject}
+                blocks={projectBlocks}
+                currentBlock={projectBlocks.find(b => b.id === selectedProject.currentBlockId) || null}
+                deliverables={selectedProject.workflowDeliverables || []}
+                t={t}
+                theme={theme}
+              />
+            </div>
+          )}
+
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -7074,6 +7116,21 @@ export default function MainApp() {
                 <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'kanban' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}>Kanban</button>
               </div>
             )}
+            <button
+              onClick={() => setShowActivityFeed(v => !v)}
+              style={{
+                marginLeft: 'auto',
+                padding: '6px 12px',
+                background: showActivityFeed ? t.primary : t.bgInput,
+                border: `1px solid ${showActivityFeed ? t.primary : t.border}`,
+                borderRadius: '8px',
+                color: showActivityFeed ? '#fff' : t.textMuted,
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+            >
+              ⚡ Activity
+            </button>
           </div>
 
           {/* Upload Progress - Floating Panel */}
@@ -9879,6 +9936,14 @@ export default function MainApp() {
             onClose={() => setShowComparePanel(false)}
           />
         )}
+
+        <ActivityFeedDrawer
+          projectId={selectedProject.id}
+          isOpen={showActivityFeed}
+          onClose={() => setShowActivityFeed(false)}
+          t={t}
+          theme={theme}
+        />
 
         </div>
       </div>
