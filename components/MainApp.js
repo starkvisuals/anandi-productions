@@ -8,6 +8,7 @@ import { auth, storage, db as firestoreDb } from '@/lib/firebase';
 import { getTemplate, materializeBlocksFromTemplate, getCurrentBlock } from '@/lib/workflow/helpers';
 import { runHook } from '@/lib/workflow/runner';
 import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
+const COLOR_SHORTCUT_MAP = { red: 'P', yellow: 'M', green: 'G', blue: 'B', purple: 'V', orange: 'O', gray: 'K' };
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
@@ -6001,13 +6002,16 @@ export default function MainApp() {
         }
         
         // Color label shortcuts: P=red pick, M=yellow maybe, G=green alt, U=clear
+        const isVideoShuttleActive = selectedAsset?.type === 'video' && !!videoRef?.current && assetTab !== 'annotate';
         if (e.key === 'p' || e.key === 'P') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'red'); showToast('🔴 Marked as Pick', 'success'); }
         if (e.key === 'm' || e.key === 'M') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'yellow'); showToast('🟡 Marked as Maybe', 'success'); }
         if (e.key === 'g' || e.key === 'G') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'green'); showToast('🟢 Marked as Alt', 'success'); }
-        if (e.key === 'b' || e.key === 'B') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'blue'); showToast('🔵 Marked as Hero', 'success'); }
-        if (e.key === 'v' || e.key === 'V') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'purple'); showToast('🟣 Marked as Reject', 'success'); }
-        if (e.key === 'o' || e.key === 'O') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'orange'); showToast('🟠 Marked as Review', 'success'); }
-        if (e.key === 'k' || e.key === 'K') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'gray'); showToast('⚫ Marked as Skip', 'success'); }
+        if (!isVideoShuttleActive) {
+          if (e.key === 'b' || e.key === 'B') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'blue'); showToast('🔵 Marked as Hero', 'success'); }
+          if (e.key === 'v' || e.key === 'V') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'purple'); showToast('🟣 Marked as Reject', 'success'); }
+          if (e.key === 'o' || e.key === 'O') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'orange'); showToast('🟠 Marked as Review', 'success'); }
+          if (e.key === 'k' || e.key === 'K') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'gray'); showToast('⚫ Marked as Skip', 'success'); }
+        }
         if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); setSelectedAsset({ ...selectedAsset, colorLabel: null }); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); showToast('Label cleared', 'success'); }
 
         // Escape — exit annotation mode first, then close lightbox
@@ -8367,12 +8371,11 @@ export default function MainApp() {
                     <span key={star} onClick={() => { handleRate(selectedAsset.id, star); setSelectedAsset({ ...selectedAsset, rating: star }); }} style={{ cursor: 'pointer', fontSize: '16px', color: star <= (selectedAsset.rating || 0) ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>★</span>
                   ))}
                 </div>
-                {/* Color label swatches — P=red, M=yellow, G=green, U=clear */}
+                {/* Color label swatches — P=red, M=yellow, G=green, B=blue, V=purple, O=orange, K=gray, U=clear */}
                 <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginRight: '8px', padding: '4px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  {DEFAULT_COLOR_LABELS.map(({ key, hex, label }, i) => {
-                    const shortcuts = ['P','M','G','B','V','O','K'];
+                  {DEFAULT_COLOR_LABELS.map(({ key, hex, label }) => {
                     return (
-                      <div key={key} onClick={() => handleColorLabel(selectedAsset.id, key)} title={`${label} (${shortcuts[i]})`} style={{ width: '14px', height: '14px', borderRadius: '50%', background: hex, cursor: 'pointer', border: selectedAsset.colorLabel === key ? '2px solid #fff' : '2px solid transparent', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== key ? 0.4 : 1, transition: 'all 0.15s', boxShadow: selectedAsset.colorLabel === key ? `0 0 6px ${hex}` : 'none' }} />
+                      <div key={key} onClick={() => handleColorLabel(selectedAsset.id, key)} title={`${label} (${COLOR_SHORTCUT_MAP[key]})`} style={{ width: '14px', height: '14px', borderRadius: '50%', background: hex, cursor: 'pointer', border: selectedAsset.colorLabel === key ? '2px solid #fff' : '2px solid transparent', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== key ? 0.4 : 1, transition: 'all 0.15s', boxShadow: selectedAsset.colorLabel === key ? `0 0 6px ${hex}` : 'none' }} />
                     );
                   })}
                   {selectedAsset.colorLabel && <div onClick={() => handleColorLabel(selectedAsset.id, selectedAsset.colorLabel)} title="Clear (U)" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', paddingLeft: '2px', lineHeight: 1 }}>✕</div>}

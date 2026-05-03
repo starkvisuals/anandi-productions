@@ -6,6 +6,8 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Logo from '@/components/Logo';
 import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
 
+const SHORTCUT_MAP = { red: 'P', yellow: 'M', green: 'G', blue: 'B', purple: 'V', orange: 'O', gray: 'K' };
+
 const STATUS = {
   'pending': { label: 'Pending', bg: '#fef3c7', color: '#92400e' },
   'selected': { label: 'Selected', bg: '#dbeafe', color: '#1e40af' },
@@ -752,7 +754,7 @@ export default function SharePage({ params }) {
                       <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Mark as</div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         {DEFAULT_COLOR_LABELS.map(({ key, hex, label }) => (
-                          <button key={key} onClick={() => handleColorLabel(selectedAsset.id, key)} style={{ flex: 1, padding: '8px 6px', background: selectedAsset.colorLabel === key ? hex : 'rgba(255,255,255,0.05)', border: `1px solid ${selectedAsset.colorLabel === key ? hex : 'rgba(255,255,255,0.1)'}`, borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: selectedAsset.colorLabel === key ? '700' : '400', transition: 'all 0.15s', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== key ? 0.5 : 1 }}>
+                          <button key={key} onClick={() => handleColorLabel(selectedAsset.id, key)} title={`${label} (${SHORTCUT_MAP[key]})`} style={{ flex: 1, padding: '8px 6px', background: selectedAsset.colorLabel === key ? hex : 'rgba(255,255,255,0.05)', border: `1px solid ${selectedAsset.colorLabel === key ? hex : 'rgba(255,255,255,0.1)'}`, borderRadius: '8px', color: '#fff', fontSize: '10px', cursor: 'pointer', fontWeight: selectedAsset.colorLabel === key ? '700' : '400', transition: 'all 0.15s', opacity: selectedAsset.colorLabel && selectedAsset.colorLabel !== key ? 0.5 : 1 }}>
                             {label}
                           </button>
                         ))}
