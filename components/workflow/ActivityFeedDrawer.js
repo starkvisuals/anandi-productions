@@ -10,22 +10,28 @@ const THEMES = {
 
 const FILTERS = ['All', 'Uploads', 'Approvals', 'Comments', 'Mentions'];
 
+// Explicit type sets aligned with ACTIVITY_TYPES in lib/workflow/constants.js.
+// Using substring matching on dot-namespaced strings led to asset-request.*
+// events being mis-categorised as Uploads (contains 'asset'). Use prefix sets instead.
+const UPLOAD_TYPES = new Set(['asset.uploaded', 'asset.version.uploaded', 'block.upload.requested']);
+const APPROVAL_TYPES = new Set(['approval.requested', 'approval.granted', 'approval.corrections.requested', 'approval.round-limit-hit', 'approval.reminder', 'approval.overdue']);
+const COMMENT_TYPES = new Set(['comment.posted']);
+
 function matchesFilter(item, filter) {
   if (filter === 'All') return true;
-  const type = (item.type || '').toLowerCase();
-  if (filter === 'Uploads')   return type.includes('asset') || type.includes('upload');
-  if (filter === 'Approvals') return type.includes('approval');
-  if (filter === 'Comments')  return type.includes('comment');
+  const type = item.type || '';
+  if (filter === 'Uploads')   return UPLOAD_TYPES.has(type);
+  if (filter === 'Approvals') return APPROVAL_TYPES.has(type);
+  if (filter === 'Comments')  return COMMENT_TYPES.has(type);
   if (filter === 'Mentions')  return type === 'mention';
   return false;
 }
 
 function dotColor(type, t) {
-  const lc = (type || '').toLowerCase();
-  if (lc.includes('asset') || lc.includes('upload')) return t.primary;
-  if (lc.includes('approval')) return t.success;
-  if (lc.includes('comment')) return t.warning;
-  if (lc === 'mention') return t.accent;
+  if (UPLOAD_TYPES.has(type))   return t.primary;
+  if (APPROVAL_TYPES.has(type)) return t.success;
+  if (COMMENT_TYPES.has(type))  return t.warning;
+  if (type === 'mention')       return t.accent;
   return t.textMuted;
 }
 
@@ -65,7 +71,7 @@ function ActivityItem({ item, t }) {
           {' '}{item.message || item.type}
         </div>
         <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '3px' }}>
-          {formatTimeAgo(item.createdAt)}
+          {formatTimeAgo(item.timestamp)}
         </div>
       </div>
     </div>
@@ -79,17 +85,20 @@ export default function ActivityFeedDrawer({ projectId, isOpen, onClose, t: tPro
   const [activeFilter, setFilter]   = useState('All');
 
   useEffect(() => {
-    if (!projectId) return;
+    // Only fetch when the drawer is open — avoids a Firestore read on every
+    // project navigation when the user never opens the feed.
+    if (!projectId || !isOpen) return;
     setLoading(true);
     setActivities([]);
     getDocs(query(
       collection(db, 'projects', projectId, 'activity'),
-      orderBy('createdAt', 'desc'),
+      // postActivity (lib/workflow/helpers.js) writes the field as `timestamp`.
+      orderBy('timestamp', 'desc'),
       limit(50),
     )).then(snap => {
       setActivities(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [projectId]);
+  }, [projectId, isOpen]);
 
   const filtered = activities.filter(a => matchesFilter(a, activeFilter));
 

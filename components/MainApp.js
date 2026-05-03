@@ -5726,7 +5726,14 @@ export default function MainApp() {
 
     useEffect(() => {
       if (!selectedProject?.id) return;
-      if (!selectedProject.workflowTemplateId) return;
+      if (!selectedProject.workflowTemplateId) {
+        // Legacy project — clear any stale blocks from a previous workflow project.
+        setProjectBlocks([]);
+        return;
+      }
+      // Clear stale blocks immediately so the previous project's timeline doesn't
+      // flash while the new project's blocks are loading.
+      setProjectBlocks([]);
       import('@/lib/workflow/helpers').then(({ getProjectBlocks }) => {
         getProjectBlocks(firestoreDb, selectedProject.id).then(blocks => {
           setProjectBlocks(blocks);
