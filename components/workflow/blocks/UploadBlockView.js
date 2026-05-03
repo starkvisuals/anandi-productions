@@ -1,5 +1,9 @@
 // components/workflow/blocks/UploadBlockView.js
-import { useState, useRef, useCallback } from 'react';
+// D8: completed upload state is persisted to sessionStorage keyed by blockId so
+// that a page reload shows what was already uploaded (File objects are not
+// serializable, so only completed metadata is persisted — in-flight files must
+// be re-added after reload).
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { storage, db } from '../../../lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -33,6 +37,44 @@ export default function UploadBlockView({ project, block, actorId, isProducer, t
   const maxMB = block?.config?.maxFileSizeMB || 50;
   const maxBytes = maxMB * 1024 * 1024;
   const acceptTypes = block?.config?.acceptedMimeTypes || 'image/*';
+  const sessionKey = block?.id ? `upload-block-${block.id}` : null;
+
+  // D8: Restore persisted completed items from sessionStorage on first mount.
+  useEffect(() => {
+    if (!sessionKey) return;
+    try {
+      const raw = sessionStorage.getItem(sessionKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved) && saved.length > 0) {
+        // Restore as ghost entries (no File object) so the user sees upload history.
+        setQueue(saved.map(s => ({ ...s, file: null, _restored: true })));
+      }
+    } catch {
+      // sessionStorage unavailable or parse error — ignore.
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionKey]);
+
+  // D8: Persist completed items to sessionStorage after each queue update.
+  useEffect(() => {
+    if (!sessionKey) return;
+    const completed = queue
+      .filter(i => i.status === 'done')
+      .map(({ id, seq, status, progress, previewUrl, error }) => ({
+        id, seq, status, progress, previewUrl, error,
+        name: null, // File.name not serializable — omit
+      }));
+    try {
+      if (completed.length > 0) {
+        sessionStorage.setItem(sessionKey, JSON.stringify(completed));
+      } else {
+        sessionStorage.removeItem(sessionKey);
+      }
+    } catch {
+      // Quota exceeded or private mode — ignore.
+    }
+  }, [queue, sessionKey]);
 
   const updateItem = useCallback((id, patch) => {
     setQueue(q => q.map(item => item.id === id ? { ...item, ...patch } : item));
@@ -156,6 +198,8 @@ export default function UploadBlockView({ project, block, actorId, isProducer, t
   };
 
   const hasDone = queue.some(i => i.status === 'done');
+  const hasRestored = queue.some(i => i._restored);
+  const hasActiveUploads = queue.some(i => i.status === 'uploading' || i.status === 'queued');
 
   const statusColor = (s) => {
     if (s === 'done') return '#22c55e';
@@ -214,6 +258,21 @@ export default function UploadBlockView({ project, block, actorId, isProducer, t
       <h3 style={{ color: text, marginBottom: 16, fontSize: 18, fontWeight: 600 }}>
         {block?.label || 'Upload Files'}
       </h3>
+
+      {/* D8: Reload banner — shown when we restored state from a previous session */}
+      {hasRestored && !hasActiveUploads && (
+        <div style={{
+          background: '#f59e0b20', border: '1px solid #f59e0b60', borderRadius: 8,
+          padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#f59e0b',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span>📋 Showing uploads from a previous session. Drop new files to continue.</span>
+          <button
+            onClick={() => { setQueue([]); if (sessionKey) sessionStorage.removeItem(sessionKey); }}
+            style={{ background: 'transparent', border: 'none', color: '#f59e0b', cursor: 'pointer', fontSize: 12, padding: 0 }}
+          >Clear</button>
+        </div>
+      )}
 
       {/* Drop zone */}
       <div
