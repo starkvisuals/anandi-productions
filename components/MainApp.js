@@ -4,7 +4,9 @@ import { useAuth } from '@/lib/auth-context';
 import { getProjects, getProject, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
 import { useKeyboardShortcuts, SHORTCUT_GROUPS } from '@/lib/useKeyboardShortcuts';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth, storage } from '@/lib/firebase';
+import { auth, storage, db as firestoreDb } from '@/lib/firebase';
+import { getTemplate, materializeBlocksFromTemplate, getCurrentBlock } from '@/lib/workflow/helpers';
+import { runHook } from '@/lib/workflow/runner';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
@@ -4498,6 +4500,9 @@ export default function MainApp() {
 
     const handleCreate = async (config) => {
       try {
+        const photographerUploadToken = config.generatePhotographerToken
+          ? (crypto?.randomUUID?.()?.replace(/-/g, '').slice(0, 24) ?? (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2))).slice(0, 24)
+          : null;
         const proj = await createProject({
           name: config.name, client: config.client, type: config.type, deadline: config.deadline,
           status: 'active', categories: config.categories || [], assets: [],
@@ -4514,12 +4519,36 @@ export default function MainApp() {
           teamGroups: config.teamGroups || [],
           deliverableFormats: config.deliverableFormats || [],
           deliverableSizes: config.deliverableSizes || [],
-          templateId: config.templateId || null,
           agencyContacts: config.agencyContacts || [],
           activityLog: [{ id: generateId(), type: 'created', message: `Project created by ${userProfile.name}`, userId: userProfile.id, timestamp: new Date().toISOString() }],
           createdBy: userProfile.id, createdByName: userProfile.name,
           selectionConfirmed: false, workflowPhase: 'selection',
+          workflowTemplateId: config.workflowTemplateId || null,
+          workflowDeliverables: config.workflowDeliverables || [],
+          revisionLimit: config.maxRevisions || 3,
+          photographerUploadToken,
         });
+        if (config.workflowTemplateId) {
+          try {
+            const tpl = await getTemplate(firestoreDb, config.workflowTemplateId);
+            if (tpl) {
+              await materializeBlocksFromTemplate(firestoreDb, proj.id, tpl, userProfile.id);
+              const firstBlock = await getCurrentBlock(firestoreDb, proj.id);
+              if (firstBlock) {
+                await runHook({
+                  db: firestoreDb,
+                  project: { ...proj, currentBlockId: firstBlock.id, shareToken: proj.shareToken || proj.id },
+                  block: firstBlock,
+                  hookName: 'onEnter',
+                  actorId: userProfile.id,
+                });
+              }
+            }
+          } catch (err) {
+            console.error('[handleCreate] workflow materialize failed', err);
+            showToast('Project created but workflow setup failed — see console', 'warning');
+          }
+        }
         setProjects([proj, ...projects]);
         setShowCreate(false);
         showToast('Project created!', 'success');
