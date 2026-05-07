@@ -72,7 +72,7 @@ function ColorSwatches({ currentLabel, onLabel, size = 14 }) {
 }
 
 // ── Lightbox ───────────────────────────────────────────────────────────────────
-function Lightbox({ assets, initialIndex, onClose, onRate, onColorLabel, onToggleSelect, t }) {
+function Lightbox({ assets, initialIndex, onClose, onRate, onColorLabel, onToggleSelect, t, readonly = false }) {
   const [idx, setIdx] = useState(initialIndex);
   const asset = assets[idx];
 
@@ -87,13 +87,15 @@ function Lightbox({ assets, initialIndex, onClose, onRate, onColorLabel, onToggl
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key === 'ArrowLeft') { prev(); return; }
       if (e.key === 'ArrowRight') { next(); return; }
-      if (e.key === 's' || e.key === 'S') { onToggleSelect(asset.id); return; }
-      const num = parseInt(e.key, 10);
-      if (num >= 1 && num <= 5) { onRate(asset.id, num === asset.rating ? 0 : num); return; }
-      const upper = e.key.toUpperCase();
-      if (SHORTCUT_TO_COLOR[upper]) {
-        const colorKey = SHORTCUT_TO_COLOR[upper];
-        onColorLabel(asset.id, colorKey === colorLabel ? null : colorKey);
+      if (!readonly) {
+        if (e.key === 's' || e.key === 'S') { onToggleSelect(asset.id); return; }
+        const num = parseInt(e.key, 10);
+        if (num >= 1 && num <= 5) { onRate(asset.id, num === asset.rating ? 0 : num); return; }
+        const upper = e.key.toUpperCase();
+        if (SHORTCUT_TO_COLOR[upper]) {
+          const colorKey = SHORTCUT_TO_COLOR[upper];
+          onColorLabel(asset.id, colorKey === colorLabel ? null : colorKey);
+        }
       }
     };
     window.addEventListener('keydown', handler);
@@ -178,47 +180,73 @@ function Lightbox({ assets, initialIndex, onClose, onRate, onColorLabel, onToggl
         {/* Star rating */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, width: 70 }}>Rating</span>
-          <StarRow
-            rating={asset.rating || 0}
-            onRate={r => onRate(asset.id, r)}
-            size={20}
-          />
+          {!readonly ? (
+            <StarRow
+              rating={asset.rating || 0}
+              onRate={r => onRate(asset.id, r)}
+              size={20}
+            />
+          ) : (
+            <StarRow
+              rating={asset.rating || 0}
+              onRate={() => {}}
+              size={20}
+              muteColor="rgba(255,255,255,0.15)"
+            />
+          )}
           <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>1–5</span>
         </div>
 
         {/* Color labels */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, width: 70 }}>Label</span>
-          <ColorSwatches
-            currentLabel={colorLabel}
-            onLabel={key => onColorLabel(asset.id, key)}
-            size={18}
-          />
+          {!readonly ? (
+            <ColorSwatches
+              currentLabel={colorLabel}
+              onLabel={key => onColorLabel(asset.id, key)}
+              size={18}
+            />
+          ) : (
+            labelInfo ? (
+              <span style={{
+                width: 14, height: 14, borderRadius: '50%',
+                background: labelInfo.hex, display: 'inline-block',
+                border: '2px solid rgba(255,255,255,0.5)',
+              }} />
+            ) : (
+              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>None</span>
+            )
+          )}
           {labelInfo && (
             <span style={{ color: labelInfo.hex, fontSize: 12, fontWeight: 600 }}>{labelInfo.label}</span>
           )}
         </div>
 
         {/* Select toggle */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingTop: 4 }}>
-          <button
-            onClick={() => onToggleSelect(asset.id)}
-            style={{
-              flex: 1, padding: '9px 0',
-              background: asset.isSelected ? t.success : 'rgba(255,255,255,0.07)',
-              border: `1px solid ${asset.isSelected ? t.success : 'rgba(255,255,255,0.15)'}`,
-              borderRadius: 8, color: '#fff', fontWeight: 600, fontSize: 14,
-              cursor: 'pointer', transition: 'background 0.15s',
-            }}
-          >
-            {asset.isSelected ? '✓ Selected' : 'Pick this'}
-          </button>
-        </div>
+        {!readonly && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingTop: 4 }}>
+            <button
+              onClick={() => onToggleSelect(asset.id)}
+              style={{
+                flex: 1, padding: '9px 0',
+                background: asset.isSelected ? t.success : 'rgba(255,255,255,0.07)',
+                border: `1px solid ${asset.isSelected ? t.success : 'rgba(255,255,255,0.15)'}`,
+                borderRadius: 8, color: '#fff', fontWeight: 600, fontSize: 14,
+                cursor: 'pointer', transition: 'background 0.15s',
+              }}
+            >
+              {asset.isSelected ? '✓ Selected' : 'Pick this'}
+            </button>
+          </div>
+        )}
 
         {/* Keyboard hints */}
         <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, lineHeight: 1.5 }}>
-          ← → navigate &nbsp;·&nbsp; 1–5 rate &nbsp;·&nbsp; S select &nbsp;·&nbsp;
-          {DEFAULT_COLOR_LABELS.map(c => `${COLOR_SHORTCUT_MAP[c.key]}=${c.label}`).join(' ')} &nbsp;·&nbsp; Esc close
+          {readonly
+            ? '← → navigate &nbsp;·&nbsp; Esc close'
+            : <>← → navigate &nbsp;·&nbsp; 1–5 rate &nbsp;·&nbsp; S select &nbsp;·&nbsp;
+              {DEFAULT_COLOR_LABELS.map(c => `${COLOR_SHORTCUT_MAP[c.key]}=${c.label}`).join(' ')} &nbsp;·&nbsp; Esc close</>
+          }
         </div>
       </div>
 
@@ -270,7 +298,7 @@ function Lightbox({ assets, initialIndex, onClose, onRate, onColorLabel, onToggl
 }
 
 // ── Asset card ─────────────────────────────────────────────────────────────────
-function AssetCard({ asset, onOpen, onRate, onColorLabel, onToggleSelect, t }) {
+function AssetCard({ asset, onOpen, onRate, onColorLabel, onToggleSelect, t, readonly = false }) {
   const [hovering, setHovering] = useState(false);
   const labelInfo = asset.colorLabel
     ? DEFAULT_COLOR_LABELS.find(c => c.key === asset.colorLabel)
@@ -340,21 +368,23 @@ function AssetCard({ asset, onOpen, onRate, onColorLabel, onToggleSelect, t }) {
         )}
 
         {/* Star rating overlay — bottom of image, shown on hover */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
-          padding: '18px 8px 8px',
-          display: 'flex', alignItems: 'center', gap: 4,
-          opacity: hovering || asset.rating ? 1 : 0,
-          transition: 'opacity 0.15s',
-          pointerEvents: hovering ? 'auto' : 'none',
-        }}>
-          <StarRow
-            rating={asset.rating || 0}
-            onRate={r => onRate(asset.id, r)}
-            size={14}
-          />
-        </div>
+        {!readonly && (
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+            padding: '18px 8px 8px',
+            display: 'flex', alignItems: 'center', gap: 4,
+            opacity: hovering || asset.rating ? 1 : 0,
+            transition: 'opacity 0.15s',
+            pointerEvents: hovering ? 'auto' : 'none',
+          }}>
+            <StarRow
+              rating={asset.rating || 0}
+              onRate={r => onRate(asset.id, r)}
+              size={14}
+            />
+          </div>
+        )}
       </div>
 
       {/* Card footer */}
@@ -464,6 +494,7 @@ export default function SelectionRoundView({
 
   // Force-submit (producer — submits whatever state exists, even 0 picks)
   const handleForceSubmit = useCallback(async () => {
+    if (!confirm('Force submit the current selection state? This will advance the workflow without waiting for the client to submit.')) return;
     setSubmitting(true);
     try {
       const allSelected = assets.filter(a => a.isSelected || a.colorLabel === 'red');
@@ -548,6 +579,23 @@ export default function SelectionRoundView({
             <div style={{ color: t.textMuted, fontSize: 13 }}>No assets to review yet.</div>
           )}
         </div>
+
+        {isProducer && (
+          <div style={{
+            margin: '12px 0 0',
+            padding: '8px 16px',
+            background: 'rgba(245,158,11,0.1)',
+            border: '1px solid rgba(245,158,11,0.25)',
+            borderRadius: 8,
+            fontSize: 12,
+            color: t.warning,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            🔒 Producer view — read-only. The client's selections are shown below. Use <strong>Force Submit</strong> to advance the project without waiting.
+          </div>
+        )}
       </div>
 
       {/* ── Filter bar ── */}
@@ -626,6 +674,7 @@ export default function SelectionRoundView({
                 onColorLabel={safeColorLabel}
                 onToggleSelect={safeToggleSelect}
                 t={t}
+                readonly={isProducer}
               />
             ))}
           </div>
@@ -642,20 +691,22 @@ export default function SelectionRoundView({
         flexShrink: 0,
         zIndex: 10,
       }}>
-        <button
-          onClick={handleSubmit}
-          disabled={submitting || picks.length === 0}
-          style={{
-            padding: '10px 28px', borderRadius: 9, fontWeight: 700, fontSize: 15,
-            background: picks.length > 0 ? t.success : 'rgba(34,197,94,0.3)',
-            color: picks.length > 0 ? '#fff' : 'rgba(255,255,255,0.5)',
-            border: 'none', cursor: picks.length > 0 && !submitting ? 'pointer' : 'not-allowed',
-            transition: 'background 0.15s',
-            opacity: submitting ? 0.7 : 1,
-          }}
-        >
-          {submitting ? 'Submitting…' : `Submit Selection (${picks.length} pick${picks.length !== 1 ? 's' : ''})`}
-        </button>
+        {!isProducer && (
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || picks.length === 0}
+            style={{
+              padding: '10px 28px', borderRadius: 9, fontWeight: 700, fontSize: 15,
+              background: picks.length > 0 ? t.success : 'rgba(34,197,94,0.3)',
+              color: picks.length > 0 ? '#fff' : 'rgba(255,255,255,0.5)',
+              border: 'none', cursor: picks.length > 0 && !submitting ? 'pointer' : 'not-allowed',
+              transition: 'background 0.15s',
+              opacity: submitting ? 0.7 : 1,
+            }}
+          >
+            {submitting ? 'Submitting…' : `Submit Selection (${picks.length} pick${picks.length !== 1 ? 's' : ''})`}
+          </button>
+        )}
 
         {isProducer && (
           <button
@@ -695,6 +746,7 @@ export default function SelectionRoundView({
           onColorLabel={safeColorLabel}
           onToggleSelect={safeToggleSelect}
           t={t}
+          readonly={isProducer}
         />
       )}
     </div>
