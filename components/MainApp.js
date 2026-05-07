@@ -33,6 +33,8 @@ const SelectionMobile = dynamic(() => import('./workflow/blocks/SelectionMobile'
 const SelectionHistory = dynamic(() => import('./workflow/blocks/SelectionHistory'), { ssr: false });
 const ProductionBlockView = dynamic(() => import('./workflow/blocks/ProductionBlockView'), { ssr: false });
 const ApprovalRoundView = dynamic(() => import('./workflow/blocks/ApprovalRoundView'), { ssr: false });
+const AdaptBlockView = dynamic(() => import('./workflow/blocks/AdaptBlockView'), { ssr: false });
+const DeliveryBlockView = dynamic(() => import('./workflow/blocks/DeliveryBlockView'), { ssr: false });
 
 // Mux Helper Functions
 const uploadToMux = async (file, projectId, assetId) => {
@@ -5248,10 +5250,10 @@ export default function MainApp() {
       p.client === userProfile?.name
     );
     
-    const approvedAssets = myProjects.flatMap(project => 
+    const approvedAssets = myProjects.flatMap(project =>
       (project.assets || [])
         .filter(a => !a.deleted && ['approved', 'delivered'].includes(a.status))
-        .map(a => ({ ...a, projectName: project.name, projectId: project.id }))
+        .map(a => ({ ...a, projectName: project.name, projectId: project.id, hiResUnlocked: project.hiResUnlocked === true }))
     );
     
     const [selectedForDownload, setSelectedForDownload] = useState(new Set());
@@ -5379,7 +5381,7 @@ export default function MainApp() {
                         <div style={{ position: 'absolute', top: '8px', right: '8px', width: '22px', height: '22px', borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#fff', boxShadow: '0 2px 6px rgba(34,197,94,0.4)' }}>✓</div>
                       )}
                       {asset.highResFiles?.length > 0 && (
-                        <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', borderRadius: '4px', padding: '2px 8px', fontSize: '8px', fontWeight: '700', color: '#fff', letterSpacing: '0.5px' }}>HD</div>
+                        <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: asset.hiResUnlocked ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'rgba(107,114,128,0.7)', borderRadius: '4px', padding: '2px 8px', fontSize: '8px', fontWeight: '700', color: '#fff', letterSpacing: '0.5px' }}>HD</div>
                       )}
                     </div>
                     <div style={{ padding: '10px' }}>
@@ -5390,20 +5392,34 @@ export default function MainApp() {
                       </div>
                       {asset.highResFiles?.length > 0 && (
                         <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
-                          {asset.highResFiles.map((f, i) => (
-                            <a key={i} href={f.url} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{
+                          {asset.hiResUnlocked ? (
+                            asset.highResFiles.map((f, i) => (
+                              <a key={i} href={f.url} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{
+                                padding: '3px 8px',
+                                background: 'rgba(34,197,94,0.15)',
+                                borderRadius: '6px',
+                                fontSize: '9px',
+                                color: '#22c55e',
+                                textDecoration: 'none',
+                                fontWeight: '500',
+                                transition: 'background 0.2s'
+                              }}>
+                                {f.formatLabel?.split(' ')[0] || f.format}
+                              </a>
+                            ))
+                          ) : (
+                            <span title="Hi-Res available after delivery" style={{
                               padding: '3px 8px',
-                              background: 'rgba(34,197,94,0.15)',
+                              background: 'rgba(107,114,128,0.12)',
                               borderRadius: '6px',
                               fontSize: '9px',
-                              color: '#22c55e',
-                              textDecoration: 'none',
+                              color: '#6b7280',
                               fontWeight: '500',
-                              transition: 'background 0.2s'
+                              cursor: 'default',
                             }}>
-                              {f.formatLabel?.split(' ')[0] || f.format}
-                            </a>
-                          ))}
+                              Hi-Res after delivery
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -6705,7 +6721,7 @@ export default function MainApp() {
           );
           resolvedSnapshotId = ref.id;
         }
-        await runHook({
+        const sideEffects = await runHook({
           db: firestoreDb,
           project: selectedProject,
           block: currentBlock,
@@ -6713,6 +6729,11 @@ export default function MainApp() {
           extra: currentBlock.type === BLOCK_TYPES.SelectionRound ? { snapshotId: resolvedSnapshotId, pickCount: resolvedPickCount } : {},
           actorId: userProfile?.id,
         });
+        // G3: hi-res unlock — fire when DeliveryBlock.onEnter sets stateMutations.unlockHiRes
+        if (sideEffects?.stateMutations?.unlockHiRes) {
+          const { unlockHiRes } = await import('@/lib/workflow/helpers');
+          await unlockHiRes(firestoreDb, selectedProject.id);
+        }
         // Refresh project blocks after advance
         const { getProjectBlocks } = await import('@/lib/workflow/helpers');
         const fresh = await getProjectBlocks(firestoreDb, selectedProject.id);
@@ -7282,6 +7303,37 @@ export default function MainApp() {
                     onApprove={() => handleBlockAdvance()}
                     onCorrections={handleApprovalCorrections}
                     onGrantExtraRound={handleGrantExtraRound}
+                  />
+                </div>
+              );
+            }
+
+            if (currentBlock.type === BLOCK_TYPES.AdaptBlock) {
+              return (
+                <div style={{ padding: '0 16px 16px' }}>
+                  <AdaptBlockView
+                    project={selectedProject}
+                    block={currentBlock}
+                    actorId={userProfile?.id}
+                    isProducer={isProducer}
+                    t={t}
+                    theme={theme}
+                    onBlockAdvance={handleBlockAdvance}
+                  />
+                </div>
+              );
+            }
+
+            if (currentBlock.type === BLOCK_TYPES.DeliveryBlock) {
+              return (
+                <div style={{ padding: '0 16px 16px' }}>
+                  <DeliveryBlockView
+                    project={selectedProject}
+                    block={currentBlock}
+                    actorId={userProfile?.id}
+                    isProducer={isProducer}
+                    t={t}
+                    theme={theme}
                   />
                 </div>
               );

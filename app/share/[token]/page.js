@@ -358,6 +358,19 @@ export default function SharePage({ params }) {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', color: '#e4e4e7', display: 'flex', flexDirection: 'column' }}>
+      {/* Hi-Res Available banner */}
+      {project.hiResUnlocked === true && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+          background: 'linear-gradient(135deg, #16a34a, #15803d)',
+          color: '#fff', padding: '14px 20px',
+          textAlign: 'center', fontSize: '14px', fontWeight: '600',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+        }}>
+          <span>&#127381;</span> Hi-Res files are now available for download below!
+        </div>
+      )}
+
       {/* Selection submitted banner */}
       {selectionSubmitted && (
         <div style={{
@@ -787,21 +800,41 @@ export default function SharePage({ params }) {
                     )}
                   </div>
                   {a.gdriveLink && (
-                    <a href={a.gdriveLink} target="_blank" rel="noopener noreferrer" style={{
-                      display: 'block',
-                      marginTop: '10px',
-                      padding: '8px',
-                      background: 'rgba(34,197,94,0.08)',
-                      borderRadius: '8px',
-                      color: '#22c55e',
-                      fontSize: '10px',
-                      textAlign: 'center',
-                      textDecoration: 'none',
-                      fontWeight: '600',
-                      border: '1px solid rgba(34,197,94,0.15)',
-                    }}>
-                      Download High-Res
-                    </a>
+                    project.hiResUnlocked === true ? (
+                      <a href={a.gdriveLink} target="_blank" rel="noopener noreferrer" style={{
+                        display: 'block',
+                        marginTop: '10px',
+                        padding: '8px',
+                        background: 'rgba(34,197,94,0.08)',
+                        borderRadius: '8px',
+                        color: '#22c55e',
+                        fontSize: '10px',
+                        textAlign: 'center',
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        border: '1px solid rgba(34,197,94,0.15)',
+                      }}>
+                        Download High-Res
+                      </a>
+                    ) : (
+                      <div style={{
+                        display: 'block',
+                        marginTop: '10px',
+                        padding: '8px',
+                        background: 'rgba(107,114,128,0.06)',
+                        borderRadius: '8px',
+                        color: '#6b7280',
+                        fontSize: '10px',
+                        textAlign: 'center',
+                        fontWeight: '600',
+                        border: '1px solid rgba(107,114,128,0.12)',
+                        cursor: 'default',
+                      }}
+                        title="Hi-Res available after delivery"
+                      >
+                        Hi-Res after delivery
+                      </div>
+                    )
                   )}
                 </div>
               </div>
@@ -988,21 +1021,41 @@ export default function SharePage({ params }) {
                     Download Preview
                   </a>
                   {selectedAsset.gdriveLink && (
-                    <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{
-                      display: 'block',
-                      marginTop: '10px',
-                      padding: '14px',
-                      background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                      borderRadius: '10px',
-                      color: '#fff',
-                      fontSize: '14px',
-                      textAlign: 'center',
-                      textDecoration: 'none',
-                      fontWeight: '600',
-                      boxShadow: '0 2px 12px rgba(34,197,94,0.3)',
-                    }}>
-                      Download High-Res
-                    </a>
+                    project.hiResUnlocked === true ? (
+                      <a href={selectedAsset.gdriveLink} target="_blank" rel="noopener noreferrer" style={{
+                        display: 'block',
+                        marginTop: '10px',
+                        padding: '14px',
+                        background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                        borderRadius: '10px',
+                        color: '#fff',
+                        fontSize: '14px',
+                        textAlign: 'center',
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        boxShadow: '0 2px 12px rgba(34,197,94,0.3)',
+                      }}>
+                        Download High-Res
+                      </a>
+                    ) : (
+                      <div style={{
+                        display: 'block',
+                        marginTop: '10px',
+                        padding: '14px',
+                        background: 'rgba(107,114,128,0.08)',
+                        borderRadius: '10px',
+                        color: '#6b7280',
+                        fontSize: '14px',
+                        textAlign: 'center',
+                        fontWeight: '600',
+                        border: '1px solid rgba(107,114,128,0.15)',
+                        cursor: 'default',
+                      }}
+                        title="Hi-Res available after delivery"
+                      >
+                        Hi-Res available after delivery
+                      </div>
+                    )
                   )}
                 </div>
               </div>
