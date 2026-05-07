@@ -1,10 +1,20 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Logo from '@/components/Logo';
 import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
+import dynamic from 'next/dynamic';
+const SelectionRoundView = dynamic(() => import('@/components/workflow/blocks/SelectionRoundView'), { ssr: false });
+const SelectionMobile = dynamic(() => import('@/components/workflow/blocks/SelectionMobile'), { ssr: false });
+
+const SHARE_THEME = {
+  bgCard: '#1a1a2e', bgInput: '#0d0d1a', bgSecondary: '#111118',
+  border: '#2a2a3a', borderLight: '#1e1e2e',
+  text: '#ffffff', textSecondary: 'rgba(255,255,255,0.7)', textMuted: 'rgba(255,255,255,0.4)',
+  primary: '#6366f1', success: '#22c55e', warning: '#f59e0b', danger: '#ef4444', accent: '#a855f7',
+};
 
 const SHORTCUT_MAP = { red: 'P', yellow: 'M', green: 'G', blue: 'B', purple: 'V', orange: 'O', gray: 'K' };
 
@@ -95,6 +105,8 @@ export default function SharePage({ params }) {
   const [isMobile, setIsMobile] = useState(false);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [colorFilter, setColorFilter] = useState(null); // string | null — any DEFAULT_COLOR_LABELS key
+  const [projectBlocks, setProjectBlocks] = useState([]);
+  const [selectionSubmitted, setSelectionSubmitted] = useState(false);
   const fileInputRef = useRef(null);
 
   // Get token from params
@@ -161,6 +173,18 @@ export default function SharePage({ params }) {
       }
       setProject(result.project);
       setLink(result.link);
+      // Fetch workflow blocks (for SelectionRound detection)
+      try {
+        const blocksSnap = await getDocs(
+          query(
+            collection(db, 'projects', result.project.id, 'blocks'),
+            orderBy('order', 'asc')
+          )
+        );
+        setProjectBlocks(blocksSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        // blocks unavailable; degrade gracefully
+      }
     } catch (e) {
       setError('Failed to load project');
     }
@@ -200,6 +224,20 @@ export default function SharePage({ params }) {
     await updateProjectData(project.id, { assets: updated });
     setProject({ ...project, assets: updated });
     if (selectedAsset?.id === assetId) setSelectedAsset({ ...selectedAsset, colorLabel: newLabel });
+  };
+
+  const handleClientSubmit = async (snapshotId, pickCount) => {
+    setSelectionSubmitted(true);
+    // Notify producer via email (fire-and-forget, don't await)
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'selection.submitted',
+        to: [], // producer email not known client-side; handled server-side if needed
+        data: { projectName: project.name, pickCount, snapshotId },
+      }),
+    }).catch(() => {}); // ignore failure
   };
 
   const handleConfirmSelection = async () => {
@@ -272,6 +310,16 @@ export default function SharePage({ params }) {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', color: '#e4e4e7', display: 'flex', flexDirection: 'column' }}>
+      {/* Selection submitted banner */}
+      {selectionSubmitted && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+          background: '#16a34a', color: '#fff', padding: '14px 20px',
+          textAlign: 'center', fontSize: '14px', fontWeight: '600',
+        }}>
+          ✓ Your selection has been submitted! We&apos;ll review your picks and be in touch.
+        </div>
+      )}
       {/* Professional Header */}
       <div style={{
         background: '#0a0a0f',
@@ -490,6 +538,42 @@ export default function SharePage({ params }) {
               <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{assets.length} images · P=pick · M=maybe · ←→=navigate</span>
             </div>
           )}
+
+          {/* SelectionRound block UI — shown to client when the active block is a SelectionRound */}
+          {(() => {
+            const currentBlock = projectBlocks.find(
+              b => b.id === project?.currentBlockId && b.status === 'in-progress' && b.type === 'SelectionRound'
+            );
+            if (!currentBlock || !isClient || selectionSubmitted) return null;
+
+            return (
+              <div style={{ padding: '0 0 16px' }}>
+                {isMobile ? (
+                  <SelectionMobile
+                    assets={project.assets || []}
+                    t={SHARE_THEME}
+                    onRate={handleRate}
+                    onColorLabel={handleColorLabel}
+                    onToggleSelect={handleToggleSelect}
+                    onDone={() => handleClientSubmit(null, 0)}
+                  />
+                ) : (
+                  <SelectionRoundView
+                    project={project}
+                    block={currentBlock}
+                    actorId="client"
+                    isProducer={false}
+                    t={SHARE_THEME}
+                    theme="dark"
+                    onBlockAdvance={handleClientSubmit}
+                    onRate={handleRate}
+                    onColorLabel={handleColorLabel}
+                    onToggleSelect={handleToggleSelect}
+                  />
+                )}
+              </div>
+            );
+          })()}
 
           {/* Assets Grid */}
           <div style={{
