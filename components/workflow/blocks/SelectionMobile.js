@@ -2,7 +2,7 @@
 // E3: Mobile-first swipe card interface for SelectionRound.
 // Pointer-event driven card swipe with auto-advance, quick color/star/select
 // actions, and a completion screen.
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { DEFAULT_COLOR_LABELS } from '../../../lib/workflow/constants';
 
 const SWIPE_THRESHOLD = 80; // px
@@ -93,6 +93,7 @@ export default function SelectionMobile({
   const pointerStartX = useRef(null);
   const pointerStartY = useRef(null);
   const cardRef = useRef(null);
+  const autoAdvanceTimer = useRef(null);
 
   const safeRate = useCallback(async (assetId, rating) => {
     try { await onRate(assetId, rating); } catch (e) { console.error('[SelectionMobile] onRate error', e); }
@@ -106,13 +107,20 @@ export default function SelectionMobile({
     try { await onToggleSelect(assetId); } catch (e) { console.error('[SelectionMobile] onToggleSelect error', e); }
   }, [onToggleSelect]);
 
+  const safeDone = useCallback(() => {
+    try { onDone(); } catch (e) { console.error('[SelectionMobile] onDone error', e); }
+  }, [onDone]);
+
   const advance = useCallback(() => {
     setIdx(prev => Math.min(prev + 1, assets.length));
   }, [assets.length]);
 
   const autoAdvance = useCallback(() => {
-    setTimeout(() => setIdx(prev => Math.min(prev + 1, assets.length)), 300);
+    clearTimeout(autoAdvanceTimer.current);
+    autoAdvanceTimer.current = setTimeout(() => setIdx(prev => Math.min(prev + 1, assets.length - 1)), 300);
   }, [assets.length]);
+
+  useEffect(() => () => clearTimeout(autoAdvanceTimer.current), []);
 
   // ── Pointer event handlers ───────────────────────────────────────────────────
   const handlePointerDown = useCallback((e) => {
@@ -131,6 +139,7 @@ export default function SelectionMobile({
   }, [dragging]);
 
   const handlePointerUp = useCallback(async (e) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
     if (!dragging || pointerStartX.current === null) return;
     const dx = e.clientX - pointerStartX.current;
     const dy = e.clientY - pointerStartY.current;
@@ -142,8 +151,8 @@ export default function SelectionMobile({
       const asset = assets[idx];
       setExiting(true);
       if (dx >= SWIPE_THRESHOLD && asset) {
-        // Swipe right → select
-        await safeToggleSelect(asset.id);
+        // Swipe right → select (only if not already selected)
+        if (!asset.isSelected) await safeToggleSelect(asset.id);
       }
       // Either direction: advance after animation
       setTimeout(() => {
@@ -160,9 +169,11 @@ export default function SelectionMobile({
     pointerStartY.current = null;
   }, [dragging, idx, assets, safeToggleSelect, advance]);
 
-  const handlePointerCancel = useCallback(() => {
-    setDragging(false);
+  const handlePointerCancel = useCallback((e) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    setExiting(false);
     setDragX(0);
+    setDragging(false);
     pointerStartX.current = null;
     pointerStartY.current = null;
   }, []);
@@ -201,7 +212,7 @@ export default function SelectionMobile({
   const showSkipOverlay = dragX < -40;
 
   // Progress percent
-  const progressPct = (idx / assets.length) * 100;
+  const progressPct = ((idx + 1) / assets.length) * 100;
 
   return (
     <div style={{
@@ -461,7 +472,7 @@ export default function SelectionMobile({
         <button
           onPointerDown={() => {
             if (idx >= assets.length - 1) {
-              onDone();
+              safeDone();
             } else {
               advance();
             }
