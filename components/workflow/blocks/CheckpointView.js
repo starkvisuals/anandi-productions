@@ -1,5 +1,7 @@
 // components/workflow/blocks/CheckpointView.js
 // G4: Producer-only gate — review all project assets and advance when ready.
+import { useState } from 'react';
+
 export default function CheckpointView({
   project,
   block,
@@ -9,6 +11,8 @@ export default function CheckpointView({
   theme,
   onBlockAdvance,
 }) {
+  const [busy, setBusy] = useState(false);
+
   if (!block || !project) return null;
 
   const surface    = t?.bgCard    || (theme === 'dark' ? '#1a1a1a' : '#ffffff');
@@ -126,22 +130,28 @@ export default function CheckpointView({
               Review the work above and advance when ready.
             </div>
             <button
-              onClick={() => onBlockAdvance && onBlockAdvance()}
+              onClick={async () => {
+                if (busy || !onBlockAdvance) return;
+                setBusy(true);
+                try { await onBlockAdvance(); } finally { setBusy(false); }
+              }}
+              disabled={busy}
               style={{
                 padding: '10px 22px',
-                background: accent,
+                background: busy ? `${accent}80` : accent,
                 color: '#fff',
                 border: 'none',
                 borderRadius: 8,
                 fontSize: 13,
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: busy ? 'default' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
+                transition: 'opacity 0.15s',
               }}
             >
-              Advance Workflow ›
+              {busy ? 'Advancing...' : 'Advance Workflow ›'}
             </button>
           </>
         ) : (

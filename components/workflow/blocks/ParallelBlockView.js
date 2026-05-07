@@ -8,7 +8,7 @@ export default function ParallelBlockView({
   t,
   theme,
 }) {
-  if (!block) return null;
+  if (!block || !project) return null;
 
   const surface   = t?.bgCard    || (theme === 'dark' ? '#1a1a1a' : '#ffffff');
   const surface2  = t?.bgInput   || (theme === 'dark' ? '#111117' : '#f4f4f5');

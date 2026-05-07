@@ -18,10 +18,10 @@ export default function AdaptBlockView({
   const [error, setError] = useState(null);
   const [localAdapts, setLocalAdapts] = useState(block?.config?.adapts || []);
 
-  if (!block) return null;
+  if (!block || !project) return null;
 
   const { label, config = {} } = block;
-  const { notes, adapts: _adapts } = config;
+  const { notes, adapts: _adapts } = block.config || {};
 
   // Use localAdapts for optimistic UI
   const adapts = localAdapts;
@@ -293,7 +293,7 @@ export default function AdaptBlockView({
 
         {/* Error */}
         {error && (
-          <span style={{ fontSize: 13, color: '#ef4444', marginLeft: 4 }}>{error}</span>
+          <span style={{ fontSize: 13, color: t?.danger || '#ef4444', marginLeft: 4 }}>{error}</span>
         )}
       </div>
     </div>

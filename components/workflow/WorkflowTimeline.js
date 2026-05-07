@@ -27,7 +27,7 @@ export default function WorkflowTimeline({ blocks, currentBlockId, t, theme }) {
   const text      = t?.text      || (theme === 'dark' ? '#f1f5f9' : '#0f172a');
   const textMuted = t?.textMuted || (theme === 'dark' ? '#94a3b8' : '#64748b');
   const accent    = t?.accent    || '#6366f1';
-  const success   = '#22c55e';
+  const success   = t?.success   || '#22c55e';
 
   return (
     <div style={{
