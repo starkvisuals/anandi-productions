@@ -30,6 +30,7 @@ const MuxPlayer = dynamic(() => import('./MuxPlayer'), { ssr: false });
 const UploadBlockView = dynamic(() => import('./workflow/blocks/UploadBlockView'), { ssr: false });
 const SelectionRoundView = dynamic(() => import('./workflow/blocks/SelectionRoundView'), { ssr: false });
 const SelectionMobile = dynamic(() => import('./workflow/blocks/SelectionMobile'), { ssr: false });
+const SelectionHistory = dynamic(() => import('./workflow/blocks/SelectionHistory'), { ssr: false });
 
 // Mux Helper Functions
 const uploadToMux = async (file, projectId, assetId) => {
@@ -7189,6 +7190,15 @@ export default function MainApp() {
                       />
                     : <SelectionRoundView {...blockProps} />
                   }
+                  {isProducer && (
+                    <SelectionHistory
+                      projectId={selectedProject.id}
+                      block={currentBlock}
+                      t={t}
+                      theme={theme}
+                      projectAssets={selectedProject.assets || []}
+                    />
+                  )}
                 </div>
               );
             }
