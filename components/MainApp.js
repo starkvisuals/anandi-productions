@@ -35,6 +35,9 @@ const ProductionBlockView = dynamic(() => import('./workflow/blocks/ProductionBl
 const ApprovalRoundView = dynamic(() => import('./workflow/blocks/ApprovalRoundView'), { ssr: false });
 const AdaptBlockView = dynamic(() => import('./workflow/blocks/AdaptBlockView'), { ssr: false });
 const DeliveryBlockView = dynamic(() => import('./workflow/blocks/DeliveryBlockView'), { ssr: false });
+const CheckpointView = dynamic(() => import('./workflow/blocks/CheckpointView'), { ssr: false });
+const ParallelBlockView = dynamic(() => import('./workflow/blocks/ParallelBlockView'), { ssr: false });
+const WorkflowTimeline = dynamic(() => import('./workflow/WorkflowTimeline'), { ssr: false });
 
 // Mux Helper Functions
 const uploadToMux = async (file, projectId, assetId) => {
@@ -7218,12 +7221,21 @@ export default function MainApp() {
             </div>
           )}
 
-          {/* Active block view — rendered above tabs when project has an active workflow block */}
-          {(() => {
-            const currentBlock = projectBlocks.find(b => b.id === selectedProject?.currentBlockId && b.status === 'in-progress');
-            if (!currentBlock) return null;
+          {/* Active block view — two-column layout: WorkflowTimeline sidebar + block view */}
+          {projectBlocks.length > 0 ? (
+            <div style={{ display: 'flex', alignItems: 'stretch', minHeight: 0 }}>
+              <WorkflowTimeline
+                blocks={projectBlocks}
+                currentBlockId={selectedProject?.currentBlockId}
+                t={t}
+                theme={theme}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {(() => {
+                  const currentBlock = projectBlocks.find(b => b.id === selectedProject?.currentBlockId && b.status === 'in-progress');
+                  if (!currentBlock) return null;
 
-            const blockProps = {
+                  const blockProps = {
               project: selectedProject,
               block: currentBlock,
               actorId: userProfile?.id,
@@ -7339,8 +7351,42 @@ export default function MainApp() {
               );
             }
 
+            if (currentBlock.type === BLOCK_TYPES.Checkpoint) {
+              return (
+                <div style={{ padding: '0 16px 16px' }}>
+                  <CheckpointView
+                    project={selectedProject}
+                    block={currentBlock}
+                    actorId={userProfile?.id}
+                    isProducer={isProducer}
+                    t={t}
+                    theme={theme}
+                    onBlockAdvance={handleBlockAdvance}
+                  />
+                </div>
+              );
+            }
+
+            if (currentBlock.type === BLOCK_TYPES.Parallel) {
+              return (
+                <div style={{ padding: '0 16px 16px' }}>
+                  <ParallelBlockView
+                    project={selectedProject}
+                    block={currentBlock}
+                    actorId={userProfile?.id}
+                    isProducer={isProducer}
+                    t={t}
+                    theme={theme}
+                  />
+                </div>
+              );
+            }
+
             return null;
-          })()}
+                })()}
+              </div>
+            </div>
+          ) : null}
 
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
