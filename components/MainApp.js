@@ -32,6 +32,7 @@ const SelectionRoundView = dynamic(() => import('./workflow/blocks/SelectionRoun
 const SelectionMobile = dynamic(() => import('./workflow/blocks/SelectionMobile'), { ssr: false });
 const SelectionHistory = dynamic(() => import('./workflow/blocks/SelectionHistory'), { ssr: false });
 const ProductionBlockView = dynamic(() => import('./workflow/blocks/ProductionBlockView'), { ssr: false });
+const ApprovalRoundView = dynamic(() => import('./workflow/blocks/ApprovalRoundView'), { ssr: false });
 
 // Mux Helper Functions
 const uploadToMux = async (file, projectId, assetId) => {
@@ -6721,6 +6722,44 @@ export default function MainApp() {
         console.error('[handleBlockAdvance]', err);
       }
     }, [projectBlocks, selectedProject, userProfile, firestoreDb, refreshProject]);
+    const handleApprovalCorrections = useCallback(async (correctionItems, correctionCount) => {
+      const currentBlock = projectBlocks.find(b => b.id === selectedProject?.currentBlockId);
+      if (!currentBlock) return;
+      const roundNumber = (currentBlock.revisionRound || 1);
+      const roundLimit = currentBlock.config?.roundLimit || 3;
+      try {
+        await runHook({
+          db: firestoreDb,
+          project: selectedProject,
+          block: currentBlock,
+          hookName: 'onRequestCorrections',
+          extra: { correctionItems, correctionCount, roundNumber, roundLimit },
+          actorId: userProfile?.id,
+        });
+        // Increment revisionRound on the block
+        const { updateBlock } = await import('@/lib/workflow/helpers');
+        await updateBlock(firestoreDb, selectedProject.id, currentBlock.id, { revisionRound: roundNumber + 1 });
+        const { getProjectBlocks } = await import('@/lib/workflow/helpers');
+        const fresh = await getProjectBlocks(firestoreDb, selectedProject.id);
+        setProjectBlocks(fresh);
+        await refreshProject();
+      } catch (err) { console.error('[handleApprovalCorrections]', err); }
+    }, [projectBlocks, selectedProject, userProfile, refreshProject]);
+
+    const handleGrantExtraRound = useCallback(async () => {
+      const currentBlock = projectBlocks.find(b => b.id === selectedProject?.currentBlockId);
+      if (!currentBlock) return;
+      try {
+        const { updateBlock } = await import('@/lib/workflow/helpers');
+        await updateBlock(firestoreDb, selectedProject.id, currentBlock.id, {
+          'config.roundLimit': (currentBlock.config?.roundLimit || 3) + 1,
+        });
+        const { getProjectBlocks } = await import('@/lib/workflow/helpers');
+        const fresh = await getProjectBlocks(firestoreDb, selectedProject.id);
+        setProjectBlocks(fresh);
+      } catch (err) { console.error('[handleGrantExtraRound]', err); }
+    }, [projectBlocks, selectedProject]);
+
     const handleBulkSelect = async (select) => { const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAssets(new Set()); showToast(`${selectedAssets.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
     const handleBulkDelete = async () => {
       if (!confirm(`Delete ${selectedAssets.size} assets? This cannot be undone.`)) return;
@@ -7217,6 +7256,25 @@ export default function MainApp() {
                     t={t}
                     theme={theme}
                     onBlockAdvance={handleBlockAdvance}
+                  />
+                </div>
+              );
+            }
+
+            if (currentBlock.type === BLOCK_TYPES.ApprovalRound) {
+              return (
+                <div style={{ padding: '0 16px 16px' }}>
+                  <ApprovalRoundView
+                    project={selectedProject}
+                    block={currentBlock}
+                    actorId={userProfile?.id}
+                    isProducer={isProducer}
+                    actorRole={userProfile?.role}
+                    t={t}
+                    theme={theme}
+                    onApprove={() => handleBlockAdvance()}
+                    onCorrections={handleApprovalCorrections}
+                    onGrantExtraRound={handleGrantExtraRound}
                   />
                 </div>
               );
