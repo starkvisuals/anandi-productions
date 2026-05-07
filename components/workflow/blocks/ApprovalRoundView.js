@@ -2,6 +2,7 @@
 // F3: Client/reviewer watches deliverables and either approves or requests corrections.
 import { useState, useCallback } from 'react';
 import { DEFAULT_REVISION_LIMIT } from '../../../lib/workflow/constants';
+import { correctionsToCSV, downloadCSV } from '../../../lib/workflow/exportSelections';
 
 // ── Round chip row ─────────────────────────────────────────────────────────────
 function RoundChips({ current, total, t }) {
@@ -418,8 +419,29 @@ export default function ApprovalRoundView({
           {/* Previous corrections history */}
           {(block.corrections || []).length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted, marginBottom: 6 }}>
-                Previous corrections:
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted }}>
+                  Previous corrections:
+                </div>
+                {isProducer && (
+                  <button
+                    onClick={() => {
+                      const csv = correctionsToCSV(block.corrections, block.label, project.name);
+                      downloadCSV(csv, `${project.name || 'Project'}-Corrections-${block.label || 'block'}.csv`.replace(/\s+/g, '-'));
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      background: 'transparent',
+                      border: `1px solid ${t.border}`,
+                      borderRadius: 5,
+                      color: t.textMuted,
+                      fontSize: 10,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ⬇ Export CSV
+                  </button>
+                )}
               </div>
               {[...(block.corrections || [])].reverse().map((c, i) => (
                 <div key={i} style={{ marginBottom: 8, padding: '8px 12px', background: c.resolved ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)', borderRadius: 6, borderLeft: `3px solid ${c.resolved ? t.success : t.danger || '#ef4444'}` }}>
