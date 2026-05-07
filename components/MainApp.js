@@ -7,7 +7,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage, db as firestoreDb } from '@/lib/firebase';
 import { getTemplate, materializeBlocksFromTemplate, getCurrentBlock } from '@/lib/workflow/helpers';
 import { runHook } from '@/lib/workflow/runner';
-import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
+import { DEFAULT_COLOR_LABELS, BLOCK_TYPES } from '@/lib/workflow/constants';
 const COLOR_SHORTCUT_MAP = { red: 'P', yellow: 'M', green: 'G', blue: 'B', purple: 'V', orange: 'O', gray: 'K' };
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,6 +27,9 @@ import ComparePanel from './ComparePanel';
 
 // Dynamic import MuxPlayer to avoid SSR issues
 const MuxPlayer = dynamic(() => import('./MuxPlayer'), { ssr: false });
+const UploadBlockView = dynamic(() => import('./workflow/blocks/UploadBlockView'), { ssr: false });
+const SelectionRoundView = dynamic(() => import('./workflow/blocks/SelectionRoundView'), { ssr: false });
+const SelectionMobile = dynamic(() => import('./workflow/blocks/SelectionMobile'), { ssr: false });
 
 // Mux Helper Functions
 const uploadToMux = async (file, projectId, assetId) => {
@@ -6675,6 +6678,27 @@ export default function MainApp() {
       await updateProject(selectedProject.id, { assets: updated });
       await refreshProject();
     };
+    const handleBlockAdvance = useCallback(async (snapshotId, pickCount) => {
+      const currentBlock = projectBlocks.find(b => b.id === selectedProject?.currentBlockId);
+      if (!currentBlock) return;
+      try {
+        await runHook({
+          db: firestoreDb,
+          project: selectedProject,
+          block: currentBlock,
+          hookName: currentBlock.type === BLOCK_TYPES.SelectionRound ? 'onClientSubmit' : 'onExit',
+          extra: currentBlock.type === BLOCK_TYPES.SelectionRound ? { snapshotId, pickCount } : {},
+          actorId: userProfile?.id,
+        });
+        // Refresh project blocks after advance
+        const { getProjectBlocks } = await import('@/lib/workflow/helpers');
+        const fresh = await getProjectBlocks(firestoreDb, selectedProject.id);
+        setProjectBlocks(fresh);
+        await refreshProject();
+      } catch (err) {
+        console.error('[handleBlockAdvance]', err);
+      }
+    }, [projectBlocks, selectedProject, userProfile, firestoreDb, refreshProject]);
     const handleBulkSelect = async (select) => { const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAssets(new Set()); showToast(`${selectedAssets.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
     const handleBulkDelete = async () => {
       if (!confirm(`Delete ${selectedAssets.size} assets? This cannot be undone.`)) return;
@@ -7104,6 +7128,53 @@ export default function MainApp() {
               />
             </div>
           )}
+
+          {/* Active block view — rendered above tabs when project has an active workflow block */}
+          {(() => {
+            const currentBlock = projectBlocks.find(b => b.id === selectedProject?.currentBlockId && b.status === 'in-progress');
+            if (!currentBlock) return null;
+
+            const blockProps = {
+              project: selectedProject,
+              block: currentBlock,
+              actorId: userProfile?.id,
+              isProducer,
+              t,
+              theme,
+              onBlockAdvance: handleBlockAdvance,
+              onRate: handleRate,
+              onColorLabel: handleColorLabel,
+              onToggleSelect: (assetId) => handleToggleSelect(assetId),
+            };
+
+            if (currentBlock.type === BLOCK_TYPES.UploadBlock) {
+              return (
+                <div style={{ padding: '0 16px 16px' }}>
+                  <UploadBlockView {...blockProps} />
+                </div>
+              );
+            }
+
+            if (currentBlock.type === BLOCK_TYPES.SelectionRound) {
+              return (
+                <div style={{ padding: '0 16px 16px' }}>
+                  {isMobile
+                    ? <SelectionMobile
+                        assets={selectedProject.assets || []}
+                        t={t}
+                        onRate={(id, r) => handleRate(id, r)}
+                        onColorLabel={(id, label) => handleColorLabel(id, label)}
+                        onToggleSelect={(id) => handleToggleSelect(id)}
+                        onDone={() => handleBlockAdvance(null, 0)}
+                      />
+                    : <SelectionRoundView {...blockProps} />
+                  }
+                </div>
+              );
+            }
+
+            return null;
+          })()}
 
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>

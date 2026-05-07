@@ -439,7 +439,7 @@ export default function SelectionRoundView({
   const handleSubmit = useCallback(async () => {
     setSubmitting(true);
     try {
-      await addDoc(
+      const snapRef = await addDoc(
         collection(db, 'projects', project.id, 'selectionSnapshots'),
         {
           blockId: block.id,
@@ -455,7 +455,7 @@ export default function SelectionRoundView({
           })),
         }
       );
-      onBlockAdvance();
+      onBlockAdvance(snapRef.id, picks.length);
     } catch (err) {
       console.error('[SelectionRoundView] submit error:', err);
     }
@@ -467,7 +467,7 @@ export default function SelectionRoundView({
     setSubmitting(true);
     try {
       const allSelected = assets.filter(a => a.isSelected || a.colorLabel === 'red');
-      await addDoc(
+      const forceRef = await addDoc(
         collection(db, 'projects', project.id, 'selectionSnapshots'),
         {
           blockId: block.id,
@@ -484,7 +484,7 @@ export default function SelectionRoundView({
           })),
         }
       );
-      onBlockAdvance();
+      onBlockAdvance(forceRef.id, allSelected.length);
     } catch (err) {
       console.error('[SelectionRoundView] force-submit error:', err);
     }
