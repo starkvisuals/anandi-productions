@@ -7197,6 +7197,7 @@ export default function MainApp() {
                       t={t}
                       theme={theme}
                       projectAssets={selectedProject.assets || []}
+                      projectName={selectedProject.name}
                     />
                   )}
                 </div>

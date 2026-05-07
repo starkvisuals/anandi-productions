@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { DEFAULT_COLOR_LABELS } from '../../../lib/workflow/constants';
+import { snapshotToCSV, downloadCSV } from '../../../lib/workflow/exportSelections';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -127,7 +128,7 @@ function Badge({ label, color, t }) {
 
 const MAX_VISIBLE_THUMBS = 10;
 
-function SubmissionRow({ snap, index, total, projectAssets, t }) {
+function SubmissionRow({ snap, index, total, projectAssets, projectName, t }) {
   const isLatest = index === 0;
   const submissionNum = total - index; // #1 is oldest; latest is highest number
   // We display newest-first so submission #(total) is index 0 (latest)
@@ -269,6 +270,27 @@ function SubmissionRow({ snap, index, total, projectAssets, t }) {
             </span>
           </div>
         )}
+
+        {/* Export CSV button */}
+        <button
+          onClick={() => {
+            const csv = snapshotToCSV(snap, projectAssets, projectName);
+            const idx = total - index; // submission number
+            downloadCSV(csv, `${projectName || 'Project'}-Selection-${String(idx).padStart(3, '0')}.csv`);
+          }}
+          style={{
+            marginTop: '8px',
+            padding: '5px 10px',
+            background: 'transparent',
+            border: `1px solid ${t.border}`,
+            borderRadius: '6px',
+            color: t.textSecondary,
+            fontSize: '11px',
+            cursor: 'pointer',
+          }}
+        >
+          ⬇ Export CSV
+        </button>
       </div>
 
       <style>{`
@@ -283,7 +305,7 @@ function SubmissionRow({ snap, index, total, projectAssets, t }) {
 
 // ── SelectionHistory (main export) ────────────────────────────────────────────
 
-export default function SelectionHistory({ projectId, block, t, theme, projectAssets }) {
+export default function SelectionHistory({ projectId, block, t, theme, projectAssets, projectName }) {
   const [snapshots, setSnapshots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -337,35 +359,49 @@ export default function SelectionHistory({ projectId, block, t, theme, projectAs
         <span style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>
           Selection History
         </span>
-        <button
-          onClick={fetchSnapshots}
-          disabled={loading}
-          title="Refresh"
-          style={{
-            background: 'transparent',
-            border: `1px solid ${t.border}`,
-            borderRadius: '6px',
-            padding: '4px 9px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            color: loading ? t.textMuted : t.textSecondary,
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            transition: 'opacity 0.15s',
-            opacity: loading ? 0.5 : 1,
-          }}
-        >
-          <span
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {snapshots.length > 0 && (
+            <button
+              onClick={() => {
+                const latest = snapshots[0]; // already sorted desc
+                const csv = snapshotToCSV(latest, safeAssets, projectName);
+                downloadCSV(csv, `${projectName || 'Project'}-Selection-latest.csv`);
+              }}
+              style={{ padding: '4px 8px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textSecondary, fontSize: '11px', cursor: 'pointer' }}
+            >
+              ⬇ Export Latest CSV
+            </button>
+          )}
+          <button
+            onClick={fetchSnapshots}
+            disabled={loading}
+            title="Refresh"
             style={{
-              display: 'inline-block',
-              animation: loading ? 'spin 0.8s linear infinite' : 'none',
+              background: 'transparent',
+              border: `1px solid ${t.border}`,
+              borderRadius: '6px',
+              padding: '4px 9px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              color: loading ? t.textMuted : t.textSecondary,
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'opacity 0.15s',
+              opacity: loading ? 0.5 : 1,
             }}
           >
-            ↻
-          </span>
-          Refresh
-        </button>
+            <span
+              style={{
+                display: 'inline-block',
+                animation: loading ? 'spin 0.8s linear infinite' : 'none',
+              }}
+            >
+              ↻
+            </span>
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div
@@ -408,6 +444,7 @@ export default function SelectionHistory({ projectId, block, t, theme, projectAs
               index={i}
               total={snapshots.length}
               projectAssets={safeAssets}
+              projectName={projectName}
               t={t}
             />
           ))
