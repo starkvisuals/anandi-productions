@@ -414,6 +414,28 @@ export default function ApprovalRoundView({
           <div style={{ fontSize: 13, fontWeight: 600, color: t.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Correction notes
           </div>
+
+          {/* Previous corrections history */}
+          {(block.corrections || []).length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted, marginBottom: 6 }}>
+                Previous corrections:
+              </div>
+              {[...(block.corrections || [])].reverse().map((c, i) => (
+                <div key={i} style={{ marginBottom: 8, padding: '8px 12px', background: c.resolved ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)', borderRadius: 6, borderLeft: `3px solid ${c.resolved ? t.success : t.danger || '#ef4444'}` }}>
+                  <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
+                    Round {c.round} {c.resolved ? '✓ Resolved' : '· Pending'}
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 14 }}>
+                    {c.items.map((item, j) => (
+                      <li key={j} style={{ fontSize: 12, color: t.textSecondary || t.textMuted }}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+
           <CorrectionList items={correctionItems} onChange={setCorrectionItems} t={t} />
           {correctionCount > 0 && (
             <div style={{ marginTop: 8, fontSize: 12, color: t.textMuted }}>

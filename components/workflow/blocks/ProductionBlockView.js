@@ -75,6 +75,11 @@ export default function ProductionBlockView({
   const statusColor = STATUS_COLORS[status] || '#6b7280';
   const statusLabel = STATUS_LABELS[status] || status;
 
+  // Pending corrections (unresolved, most recent round first)
+  const pendingCorrections = (block.corrections || [])
+    .filter(c => !c.resolved)
+    .sort((a, b) => b.round - a.round);
+
   // Who can act
   const isAssignee = actorRole === assignedRole;
   const canMarkComplete = isAssignee && status === 'in-progress';
@@ -350,6 +355,22 @@ export default function ProductionBlockView({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Corrections to address */}
+      {pendingCorrections.length > 0 && (
+        <div style={{ padding: '12px 20px', borderBottom: `1px solid ${border}` }}>
+          <div style={{ marginBottom: 0, padding: 12, background: 'rgba(239,68,68,0.08)', border: `1px solid rgba(239,68,68,0.2)`, borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#ef4444', marginBottom: 8 }}>
+              Corrections to address (Round {pendingCorrections[0].round}):
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 16 }}>
+              {pendingCorrections[0].items.map((item, i) => (
+                <li key={i} style={{ fontSize: 12, color: textMuted, marginBottom: 4 }}>{item}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 

@@ -6736,6 +6736,13 @@ export default function MainApp() {
           extra: { correctionItems, correctionCount, roundNumber, roundLimit },
           actorId: userProfile?.id,
         });
+        // Persist correction items to block.corrections
+        const { addBlockCorrection } = await import('@/lib/workflow/helpers');
+        await addBlockCorrection(firestoreDb, selectedProject.id, currentBlock.id, {
+          round: roundNumber,
+          items: correctionItems,
+          submittedBy: userProfile?.id,
+        });
         // Increment revisionRound on the block
         const { updateBlock } = await import('@/lib/workflow/helpers');
         await updateBlock(firestoreDb, selectedProject.id, currentBlock.id, { revisionRound: roundNumber + 1 });
