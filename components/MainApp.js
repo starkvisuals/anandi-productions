@@ -6682,12 +6682,32 @@ export default function MainApp() {
       const currentBlock = projectBlocks.find(b => b.id === selectedProject?.currentBlockId);
       if (!currentBlock) return;
       try {
+        // For SelectionRound with no snapshot (e.g. mobile onDone path), write one now
+        let resolvedSnapshotId = snapshotId;
+        let resolvedPickCount = pickCount ?? 0;
+        if (currentBlock.type === BLOCK_TYPES.SelectionRound && !resolvedSnapshotId) {
+          const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+          const picks = (selectedProject.assets || []).filter(a => a.isSelected || a.colorLabel === 'red');
+          resolvedPickCount = picks.length;
+          const ref = await addDoc(
+            collection(firestoreDb, 'projects', selectedProject.id, 'selectionSnapshots'),
+            {
+              blockId: currentBlock.id,
+              submittedBy: userProfile?.id,
+              submittedAt: serverTimestamp(),
+              pickCount: resolvedPickCount,
+              assets: picks.map(a => ({ id: a.id, name: a.name, colorLabel: a.colorLabel, rating: a.rating, isSelected: a.isSelected })),
+              source: 'mobile-done',
+            }
+          );
+          resolvedSnapshotId = ref.id;
+        }
         await runHook({
           db: firestoreDb,
           project: selectedProject,
           block: currentBlock,
           hookName: currentBlock.type === BLOCK_TYPES.SelectionRound ? 'onClientSubmit' : 'onExit',
-          extra: currentBlock.type === BLOCK_TYPES.SelectionRound ? { snapshotId, pickCount } : {},
+          extra: currentBlock.type === BLOCK_TYPES.SelectionRound ? { snapshotId: resolvedSnapshotId, pickCount: resolvedPickCount } : {},
           actorId: userProfile?.id,
         });
         // Refresh project blocks after advance
