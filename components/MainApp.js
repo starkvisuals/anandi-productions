@@ -38,6 +38,8 @@ const DeliveryBlockView = dynamic(() => import('./workflow/blocks/DeliveryBlockV
 const CheckpointView = dynamic(() => import('./workflow/blocks/CheckpointView'), { ssr: false });
 const ParallelBlockView = dynamic(() => import('./workflow/blocks/ParallelBlockView'), { ssr: false });
 const WorkflowTimeline = dynamic(() => import('./workflow/WorkflowTimeline'), { ssr: false });
+const InboxView = dynamic(() => import('./workflow/InboxView'), { ssr: false });
+const ActivityFeed = dynamic(() => import('./workflow/ActivityFeed'), { ssr: false });
 
 // Mux Helper Functions
 const uploadToMux = async (file, projectId, assetId) => {
@@ -986,6 +988,7 @@ export default function MainApp() {
   // have isEmployee so they also bypass. Only real employees with pending status get the gate.
   const needsOnboarding = isEmployeeUser && !isPrimaryProducer && userProfile?.onboardingStatus !== 'completed';
   const [hrPendingCount, setHrPendingCount] = useState(0);
+  const [inboxBadgeCount, setInboxBadgeCount] = useState(0);
 
   // Global keyboard shortcuts
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -2270,6 +2273,7 @@ export default function MainApp() {
       { id: 'dashboard', icon: 'dashboard', label: 'Dashboard', shortcut: '\u2318 1' },
       { id: 'tasks', icon: 'tasks', label: 'My Tasks', shortcut: '\u2318 2' },
       { id: 'projects', icon: 'folder', label: 'Projects', shortcut: '\u2318 3' },
+      { id: 'inbox', icon: 'bell', label: 'Inbox', shortcut: '\u2318I', badge: inboxBadgeCount },
       { id: 'calendar', icon: 'calendar', label: 'Calendar', shortcut: '\u2318 4' },
       ...(isClientView ? [{ id: 'downloads', icon: 'download', label: 'Downloads', shortcut: '\u2318 5' }] : []),
       ...(isProducer ? [{ id: 'team', icon: 'users', label: 'Team', shortcut: isClientView ? '\u2318 6' : '\u2318 5' }] : []),
@@ -7224,12 +7228,20 @@ export default function MainApp() {
           {/* Active block view — two-column layout: WorkflowTimeline sidebar + block view */}
           {projectBlocks.length > 0 ? (
             <div style={{ display: 'flex', alignItems: 'stretch', minHeight: 0 }}>
-              <WorkflowTimeline
-                blocks={projectBlocks}
-                currentBlockId={selectedProject?.currentBlockId}
-                t={t}
-                theme={theme}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                <WorkflowTimeline
+                  blocks={projectBlocks}
+                  currentBlockId={selectedProject?.currentBlockId}
+                  t={t}
+                  theme={theme}
+                />
+                <ActivityFeed
+                  projectId={selectedProject?.id}
+                  t={t}
+                  theme={theme}
+                  limit={10}
+                />
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 {(() => {
                   const currentBlock = projectBlocks.find(b => b.id === selectedProject?.currentBlockId && b.status === 'in-progress');
@@ -11099,6 +11111,20 @@ export default function MainApp() {
             {view === 'projects' && !selectedProjectId && <StableProjectsList />}
             {view === 'projects' && selectedProjectId && <StableProjectDetail />}
             {view === 'calendar' && <StableCalendarView />}
+            {view === 'inbox' && (
+              <InboxView
+                userId={userProfile?.id}
+                userRoles={userProfile?.role ? [userProfile.role] : []}
+                projects={projects}
+                t={t}
+                theme={theme}
+                onNavigateToProject={(projectId) => {
+                  setSelectedProjectId(projectId);
+                  setView('projects');
+                }}
+                onCountChange={setInboxBadgeCount}
+              />
+            )}
             {view === 'team' && <StableTeamManagement />}
             {view === 'downloads' && <StableDownloadsView />}
             {view === 'employees' && canManageEmployeesNow && <EmployeeModule t={t} />}
