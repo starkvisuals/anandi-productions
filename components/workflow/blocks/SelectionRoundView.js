@@ -133,7 +133,7 @@ function Lightbox({ assets, initialIndex, onClose, onRate, onColorLabel, onToggl
         {asset.isSelected && (
           <div style={{
             position: 'absolute', top: 10, right: 10,
-            background: '#22c55e', color: '#fff',
+            background: t.success, color: '#fff',
             borderRadius: 6, padding: '3px 9px', fontSize: 12, fontWeight: 700,
           }}>
             SELECTED
@@ -205,8 +205,8 @@ function Lightbox({ assets, initialIndex, onClose, onRate, onColorLabel, onToggl
             onClick={() => onToggleSelect(asset.id)}
             style={{
               flex: 1, padding: '9px 0',
-              background: asset.isSelected ? '#22c55e' : 'rgba(255,255,255,0.07)',
-              border: `1px solid ${asset.isSelected ? '#22c55e' : 'rgba(255,255,255,0.15)'}`,
+              background: asset.isSelected ? t.success : 'rgba(255,255,255,0.07)',
+              border: `1px solid ${asset.isSelected ? t.success : 'rgba(255,255,255,0.15)'}`,
               borderRadius: 8, color: '#fff', fontWeight: 600, fontSize: 14,
               cursor: 'pointer', transition: 'background 0.15s',
             }}
@@ -283,7 +283,7 @@ function AssetCard({ asset, onOpen, onRate, onColorLabel, onToggleSelect, t }) {
       onMouseLeave={() => setHovering(false)}
       style={{
         background: t.bgCard,
-        border: `1px solid ${asset.isSelected ? '#22c55e' : t.border}`,
+        border: `1px solid ${asset.isSelected ? t.success : t.border}`,
         borderRadius: 10,
         overflow: 'hidden',
         cursor: 'pointer',
@@ -313,7 +313,7 @@ function AssetCard({ asset, onOpen, onRate, onColorLabel, onToggleSelect, t }) {
         {asset.isSelected && (
           <div style={{
             position: 'absolute', top: 7, right: 7,
-            background: '#22c55e', color: '#fff',
+            background: t.success, color: '#fff',
             borderRadius: 5, padding: '2px 7px',
             fontSize: 11, fontWeight: 700, lineHeight: 1.4,
           }}>
@@ -432,16 +432,8 @@ export default function SelectionRoundView({
 
   // Keep lightbox asset data in sync when props update (rating/label/select changes)
   useEffect(() => {
-    if (!lightboxAsset) return;
-    const fresh = assets.find(a => a.id === lightboxAsset.id);
-    if (fresh && (
-      fresh.rating !== lightboxAsset.rating ||
-      fresh.colorLabel !== lightboxAsset.colorLabel ||
-      fresh.isSelected !== lightboxAsset.isSelected
-    )) {
-      setLightboxAsset(fresh);
-    }
-  }, [assets, lightboxAsset]);
+    setLightboxAsset(prev => prev ? (assets.find(a => a.id === prev.id) ?? prev) : null);
+  }, [assets]);
 
   // Submit handler
   const handleSubmit = useCallback(async () => {
@@ -499,6 +491,19 @@ export default function SelectionRoundView({
     setSubmitting(false);
   }, [assets, project.id, block.id, actorId, onBlockAdvance]);
 
+  // Safe-wrapped callbacks — lightbox survives if a handler throws
+  const safeRate = useCallback(async (id, r) => {
+    try { await onRate(id, r); } catch (e) { console.error('[SelectionRound] onRate error', e); }
+  }, [onRate]);
+
+  const safeColorLabel = useCallback(async (id, label) => {
+    try { await onColorLabel(id, label); } catch (e) { console.error('[SelectionRound] onColorLabel error', e); }
+  }, [onColorLabel]);
+
+  const safeToggleSelect = useCallback(async (id) => {
+    try { await onToggleSelect(id); } catch (e) { console.error('[SelectionRound] onToggleSelect error', e); }
+  }, [onToggleSelect]);
+
   // Active filter pill style helper
   const pillStyle = (active) => ({
     padding: '5px 12px', borderRadius: 20, fontSize: 13, fontWeight: active ? 600 : 400,
@@ -526,14 +531,15 @@ export default function SelectionRoundView({
               {block?.label || 'Select Images'}
             </h2>
             <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
-              <StatBadge label="Selected" value={selectedCount} color="#22c55e" />
-              <StatBadge label="Labeled" value={labeledCount} color={t.primary} />
-              <StatBadge label="Total" value={assets.length} color={t.textMuted} />
+              <StatBadge label="Selected" value={selectedCount} color={t.success} t={t} />
+              <StatBadge label="Labeled" value={labeledCount} color={t.primary} t={t} />
+              <StatBadge label="Total" value={assets.length} color={t.textMuted} t={t} />
               {selectionGoal && (
                 <StatBadge
                   label="Goal"
                   value={`${picks.length} / ${selectionGoal}`}
-                  color={picks.length >= selectionGoal ? '#22c55e' : '#f59e0b'}
+                  color={picks.length >= selectionGoal ? t.success : t.warning}
+                  t={t}
                 />
               )}
             </div>
@@ -616,9 +622,9 @@ export default function SelectionRoundView({
                 key={asset.id}
                 asset={asset}
                 onOpen={openLightbox}
-                onRate={onRate}
-                onColorLabel={onColorLabel}
-                onToggleSelect={onToggleSelect}
+                onRate={safeRate}
+                onColorLabel={safeColorLabel}
+                onToggleSelect={safeToggleSelect}
                 t={t}
               />
             ))}
@@ -641,7 +647,7 @@ export default function SelectionRoundView({
           disabled={submitting || picks.length === 0}
           style={{
             padding: '10px 28px', borderRadius: 9, fontWeight: 700, fontSize: 15,
-            background: picks.length > 0 ? '#22c55e' : 'rgba(34,197,94,0.3)',
+            background: picks.length > 0 ? t.success : 'rgba(34,197,94,0.3)',
             color: picks.length > 0 ? '#fff' : 'rgba(255,255,255,0.5)',
             border: 'none', cursor: picks.length > 0 && !submitting ? 'pointer' : 'not-allowed',
             transition: 'background 0.15s',
@@ -658,8 +664,8 @@ export default function SelectionRoundView({
             style={{
               padding: '10px 20px', borderRadius: 9, fontWeight: 600, fontSize: 14,
               background: 'transparent',
-              color: submitting ? t.textMuted : '#f59e0b',
-              border: `1px solid ${submitting ? t.border : '#f59e0b'}`,
+              color: submitting ? t.textMuted : t.warning,
+              border: `1px solid ${submitting ? t.border : t.warning}`,
               cursor: submitting ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s',
               opacity: submitting ? 0.6 : 1,
@@ -672,7 +678,7 @@ export default function SelectionRoundView({
         <div style={{ marginLeft: 'auto', color: t.textMuted, fontSize: 13 }}>
           {visible.length} of {assets.length} shown
           {selectionGoal && picks.length >= selectionGoal && (
-            <span style={{ marginLeft: 10, color: '#22c55e', fontWeight: 600 }}>
+            <span style={{ marginLeft: 10, color: t.success, fontWeight: 600 }}>
               Goal reached
             </span>
           )}
@@ -685,9 +691,9 @@ export default function SelectionRoundView({
           assets={visible}
           initialIndex={lightboxIndex}
           onClose={closeLightbox}
-          onRate={onRate}
-          onColorLabel={onColorLabel}
-          onToggleSelect={onToggleSelect}
+          onRate={safeRate}
+          onColorLabel={safeColorLabel}
+          onToggleSelect={safeToggleSelect}
           t={t}
         />
       )}
@@ -696,11 +702,11 @@ export default function SelectionRoundView({
 }
 
 // ── Small helper sub-component (no separate file needed) ─────────────────────
-function StatBadge({ label, value, color }) {
+function StatBadge({ label, value, color, t }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
       <span style={{ color, fontWeight: 700, fontSize: 15 }}>{value}</span>
-      <span style={{ color: 'rgba(128,128,128,0.8)', fontSize: 12 }}>{label}</span>
+      <span style={{ color: t ? t.textMuted : 'rgba(128,128,128,0.8)', fontSize: 12 }}>{label}</span>
     </div>
   );
 }
