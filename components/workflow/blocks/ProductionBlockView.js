@@ -1,8 +1,10 @@
 // components/workflow/blocks/ProductionBlockView.js
 // F1: Post-production task block — edit, grading, VFX, audio, etc.
 // Editor sees their brief + "Mark Complete"; producer sees status + "Force Complete".
-// No Firestore calls; all data via props.
+// F2: Producer can pin/unpin project assets as references via toggleReferencePin.
 import { useState } from 'react';
+import { db } from '../../../lib/firebase';
+import { toggleReferencePin } from '../../../lib/workflow/helpers';
 
 const SPECIALTY_LABELS = {
   edit:     'Video Editing',
@@ -41,16 +43,32 @@ export default function ProductionBlockView({
 }) {
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState(null);
+  const [pinning, setPinning] = useState(null); // assetId currently being toggled
+  const [localPinnedIds, setLocalPinnedIds] = useState(block.config?.referenceAssetIds || []);
+
+  const handleTogglePin = async (assetId) => {
+    if (!isProducer) return;
+    setPinning(assetId);
+    try {
+      await toggleReferencePin(db, project.id, block.id, assetId);
+      setLocalPinnedIds(prev =>
+        prev.includes(assetId) ? prev.filter(id => id !== assetId) : [...prev, assetId]
+      );
+    } catch (e) {
+      console.error('[ProductionBlockView] pin error', e);
+    }
+    setPinning(null);
+  };
 
   if (!block) return null;
 
   const { label, status, assignedRole, config = {}, slaHours } = block;
   const { specialty, notes, referenceAssetIds = [] } = config;
 
-  // Resolve reference assets from project.assets
+  // Resolve reference assets from project.assets — use localPinnedIds for optimistic updates
   const projectAssets = project?.assets || [];
-  const refAssets = referenceAssetIds.length > 0
-    ? projectAssets.filter(a => referenceAssetIds.includes(a.id))
+  const refAssets = localPinnedIds.length > 0
+    ? projectAssets.filter(a => localPinnedIds.includes(a.id))
     : [];
 
   const specialtyLabel = specialty ? (SPECIALTY_LABELS[specialty] || specialty) : SPECIALTY_LABELS.generic;
@@ -208,54 +226,130 @@ export default function ProductionBlockView({
         </div>
       </div>
 
-      {/* Reference Assets — only shown when there are refs */}
-      {refAssets.length > 0 && (
+      {/* Reference Assets — shown when there are pinned refs, or always for producers */}
+      {(refAssets.length > 0 || isProducer) && (
         <div style={sectionStyle}>
           <div style={labelStyle}>Reference Assets</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            {refAssets.map(asset => {
-              const thumbUrl = asset.url || asset.previewUrl || asset.hiResUrl;
-              return (
-                <div
-                  key={asset.id}
-                  title={asset.name || asset.originalName || asset.id}
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    border: `1px solid ${border}`,
-                    background: surface2,
-                    flexShrink: 0,
-                    position: 'relative',
-                  }}
-                >
-                  {thumbUrl ? (
-                    <img
-                      src={thumbUrl}
-                      alt={asset.name || 'Reference'}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div style={{
-                      width: '100%', height: '100%',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 20, color: textMuted,
-                    }}>
-                      ?
-                    </div>
-                  )}
+          {refAssets.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              {refAssets.map(asset => {
+                const thumbUrl = asset.url || asset.previewUrl || asset.hiResUrl;
+                const isPinned = localPinnedIds.includes(asset.id);
+                return (
+                  <div
+                    key={asset.id}
+                    title={asset.name || asset.originalName || asset.id}
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      border: `2px solid ${isPinned ? primary : border}`,
+                      background: surface2,
+                      flexShrink: 0,
+                      position: 'relative',
+                      opacity: pinning === asset.id ? 0.5 : 1,
+                      transition: 'border-color 0.15s, opacity 0.15s',
+                    }}
+                  >
+                    {thumbUrl ? (
+                      <img
+                        src={thumbUrl}
+                        alt={asset.name || 'Reference'}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%', height: '100%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 20, color: textMuted,
+                      }}>
+                        ?
+                      </div>
+                    )}
+                    {isProducer && (
+                      <button
+                        onClick={() => handleTogglePin(asset.id)}
+                        title={isPinned ? 'Unpin reference' : 'Pin as reference'}
+                        style={{
+                          position: 'absolute', top: 2, right: 2,
+                          background: isPinned ? primary : 'rgba(0,0,0,0.55)',
+                          border: 'none',
+                          borderRadius: 4,
+                          width: 18, height: 18,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 9, color: '#fff',
+                          cursor: 'pointer',
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        📌
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Placeholder for unresolved IDs */}
+              {localPinnedIds.length > refAssets.length && (
+                <div style={{ fontSize: 12, color: textMuted, alignSelf: 'center', marginLeft: 4 }}>
+                  +{localPinnedIds.length - refAssets.length} not found
                 </div>
-              );
-            })}
-            {/* Placeholder for unresolved IDs */}
-            {referenceAssetIds.length > refAssets.length && (
-              <div style={{ fontSize: 12, color: textMuted, alignSelf: 'center', marginLeft: 4 }}>
-                +{referenceAssetIds.length - refAssets.length} not found
+              )}
+            </div>
+          )}
+
+          {/* Pin from grid — producers only */}
+          {isProducer && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: textMuted, marginBottom: 6 }}>
+                Pin assets as references:
               </div>
-            )}
-          </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {(project.assets || []).slice(0, 20).map(asset => {
+                  const pinned = localPinnedIds.includes(asset.id);
+                  return (
+                    <div
+                      key={asset.id}
+                      onClick={() => handleTogglePin(asset.id)}
+                      title={asset.name || asset.originalName || asset.id}
+                      style={{
+                        position: 'relative',
+                        width: 56, height: 56,
+                        borderRadius: 6,
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        border: `2px solid ${pinned ? primary : border}`,
+                        opacity: pinning === asset.id ? 0.5 : 1,
+                        transition: 'border-color 0.15s, opacity 0.15s',
+                        background: surface2,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {asset.previewUrl && (
+                        <img src={asset.previewUrl} alt={asset.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      )}
+                      {pinned && (
+                        <div style={{
+                          position: 'absolute', top: 2, right: 2,
+                          background: primary, borderRadius: 3,
+                          width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 8, color: '#fff',
+                        }}>📌</div>
+                      )}
+                    </div>
+                  );
+                })}
+                {(project.assets || []).length > 20 && (
+                  <div style={{ fontSize: 11, color: textMuted, alignSelf: 'center' }}>
+                    + {(project.assets || []).length - 20} more — use the asset grid to pin
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
