@@ -8,6 +8,7 @@ import { auth, storage, db as firestoreDb } from '@/lib/firebase';
 import { getTemplate, materializeBlocksFromTemplate, getCurrentBlock } from '@/lib/workflow/helpers';
 import { runHook } from '@/lib/workflow/runner';
 import { DEFAULT_COLOR_LABELS, BLOCK_TYPES } from '@/lib/workflow/constants';
+import { checkProjectSLAReminders } from '@/lib/workflow/checkSLAReminders';
 const COLOR_SHORTCUT_MAP = { red: 'P', yellow: 'M', green: 'G', blue: 'B', purple: 'V', orange: 'O', gray: 'K' };
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1235,6 +1236,34 @@ export default function MainApp() {
       saveNotifications(updated);
     }
   };
+
+  // H6: SLA reminder checker — runs on mount and every 30 minutes
+  useEffect(() => {
+    if (!projects.length || !firestoreDb) return;
+    const runSLACheck = async () => {
+      for (const project of projects) {
+        try {
+          const { fired } = await checkProjectSLAReminders(firestoreDb, project);
+          for (const reminder of fired) {
+            try {
+              await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: reminder.template,
+                  to: (project.teamMembers || []).filter(m => m.role === 'producer' && !m.removedAt).map(m => m.email).filter(Boolean),
+                  data: { projectName: project.name, escalate: reminder.escalate },
+                }),
+              });
+            } catch (e) { console.error('[SLA] email failed', e); }
+          }
+        } catch (e) { console.error('[SLA] check failed for', project.id, e); }
+      }
+    };
+    runSLACheck();
+    const interval = setInterval(runSLACheck, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [projects, firestoreDb]);
 
   const [isTablet, setIsTablet] = useState(false);
   useEffect(() => { const check = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1200); }; check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
@@ -6746,6 +6775,7 @@ export default function MainApp() {
         const fresh = await getProjectBlocks(firestoreDb, selectedProject.id);
         setProjectBlocks(fresh);
         await refreshProject();
+        showToast(`Workflow advanced — next step unlocked`, 'success');
       } catch (err) {
         console.error('[handleBlockAdvance]', err);
       }
@@ -6778,6 +6808,7 @@ export default function MainApp() {
         const fresh = await getProjectBlocks(firestoreDb, selectedProject.id);
         setProjectBlocks(fresh);
         await refreshProject();
+        showToast('Corrections sent to editor', 'success');
       } catch (err) { console.error('[handleApprovalCorrections]', err); }
     }, [projectBlocks, selectedProject, userProfile, refreshProject]);
 
@@ -6792,6 +6823,7 @@ export default function MainApp() {
         const { getProjectBlocks } = await import('@/lib/workflow/helpers');
         const fresh = await getProjectBlocks(firestoreDb, selectedProject.id);
         setProjectBlocks(fresh);
+        showToast('Extra revision round granted', 'success');
       } catch (err) { console.error('[handleGrantExtraRound]', err); }
     }, [projectBlocks, selectedProject]);
 
@@ -11122,7 +11154,12 @@ export default function MainApp() {
                   setSelectedProjectId(projectId);
                   setView('projects');
                 }}
-                onCountChange={setInboxBadgeCount}
+                onCountChange={(count) => {
+                  if (count > 0 && inboxBadgeCount === 0 && view !== 'inbox') {
+                    showToast(`${count} workflow task${count > 1 ? 's' : ''} need your attention`, 'info');
+                  }
+                  setInboxBadgeCount(count);
+                }}
               />
             )}
             {view === 'team' && <StableTeamManagement />}
