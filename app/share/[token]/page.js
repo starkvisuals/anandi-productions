@@ -107,6 +107,7 @@ export default function SharePage({ params }) {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [colorFilter, setColorFilter] = useState(null); // string | null — any DEFAULT_COLOR_LABELS key
   const [projectBlocks, setProjectBlocks] = useState([]);
+  const [assetRequests, setAssetRequests] = useState([]);
   const [selectionSubmitted, setSelectionSubmitted] = useState(false);
   const [approvalSubmitted, setApprovalSubmitted] = useState(false); // 'approved' | 'corrections' | false
   const fileInputRef = useRef(null);
@@ -186,6 +187,19 @@ export default function SharePage({ params }) {
         setProjectBlocks(blocksSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) {
         // blocks unavailable; degrade gracefully
+      }
+      // Fetch approved/fulfilled asset requests for client view
+      try {
+        const { getDocs: gd, query: q, collection: col, where: wh, orderBy: ob } = await import('firebase/firestore');
+        const arSnap = await gd(
+          q(col(db, 'projects', result.project.id, 'assetRequests'),
+            wh('status', 'in', ['approved', 'fulfilled']),
+            ob('requestedAt', 'desc')
+          )
+        );
+        setAssetRequests(arSnap.docs.map(d => ({ ...d.data(), id: d.id })));
+      } catch (e) {
+        // asset requests unavailable; degrade gracefully
       }
     } catch (e) {
       setError('Failed to load project');
@@ -690,6 +704,21 @@ export default function SharePage({ params }) {
               </div>
             );
           })()}
+
+          {/* Pending Deliverables — read-only asset requests for client */}
+          {assetRequests.length > 0 && (
+            <div style={{ marginBottom: '24px', padding: '16px', background: SHARE_THEME.bgCard, borderRadius: '12px', border: `1px solid ${SHARE_THEME.border}` }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '600', color: SHARE_THEME.text }}>Pending Deliverables</h3>
+              {assetRequests.map(r => (
+                <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${SHARE_THEME.border}` }}>
+                  <span style={{ fontSize: '13px', color: SHARE_THEME.text }}>{r.title}</span>
+                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: r.status === 'fulfilled' ? '#22c55e22' : '#3b82f622', color: r.status === 'fulfilled' ? '#22c55e' : '#3b82f6' }}>
+                    {r.status === 'fulfilled' ? 'Done' : 'In Progress'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Assets Grid */}
           <div style={{

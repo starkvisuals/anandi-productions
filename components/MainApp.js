@@ -39,6 +39,7 @@ const DeliveryBlockView = dynamic(() => import('./workflow/blocks/DeliveryBlockV
 const CheckpointView = dynamic(() => import('./workflow/blocks/CheckpointView'), { ssr: false });
 const ParallelBlockView = dynamic(() => import('./workflow/blocks/ParallelBlockView'), { ssr: false });
 const WorkflowTimeline = dynamic(() => import('./workflow/WorkflowTimeline'), { ssr: false });
+const AssetRequestsPanel = dynamic(() => import('./workflow/AssetRequestsPanel'), { ssr: false });
 const InboxView = dynamic(() => import('./workflow/InboxView'), { ssr: false });
 const ActivityFeed = dynamic(() => import('./workflow/ActivityFeed'), { ssr: false });
 
@@ -7431,6 +7432,19 @@ export default function MainApp() {
               </div>
             </div>
           ) : null}
+
+          {/* Asset Requests side-channel */}
+          {selectedProject && (
+            <div style={{ marginTop: '24px', borderTop: `1px solid ${t.border}`, paddingTop: '24px', padding: '24px 16px 0' }}>
+              <AssetRequestsPanel
+                project={selectedProject}
+                userProfile={userProfile}
+                isProducer={isProducer}
+                t={t}
+                theme={theme}
+              />
+            </div>
+          )}
 
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
