@@ -8,6 +8,7 @@ import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
 import dynamic from 'next/dynamic';
 const SelectionRoundView = dynamic(() => import('@/components/workflow/blocks/SelectionRoundView'), { ssr: false });
 const SelectionMobile = dynamic(() => import('@/components/workflow/blocks/SelectionMobile'), { ssr: false });
+const ApprovalRoundView = dynamic(() => import('@/components/workflow/blocks/ApprovalRoundView'), { ssr: false });
 
 const SHARE_THEME = {
   bgCard: '#1a1a2e', bgInput: '#0d0d1a', bgSecondary: '#111118',
@@ -107,6 +108,7 @@ export default function SharePage({ params }) {
   const [colorFilter, setColorFilter] = useState(null); // string | null — any DEFAULT_COLOR_LABELS key
   const [projectBlocks, setProjectBlocks] = useState([]);
   const [selectionSubmitted, setSelectionSubmitted] = useState(false);
+  const [approvalSubmitted, setApprovalSubmitted] = useState(false); // 'approved' | 'corrections' | false
   const fileInputRef = useRef(null);
 
   // Get token from params
@@ -240,6 +242,52 @@ export default function SharePage({ params }) {
     }).catch(() => {}); // ignore failure
   };
 
+  const handleClientApprove = async () => {
+    setApprovalSubmitted('approved');
+    // Fire-and-forget notification
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'approval.granted',
+        to: [],
+        data: { projectName: project?.name },
+      }),
+    }).catch(() => {});
+  };
+
+  const handleClientCorrections = async (correctionItems, correctionCount) => {
+    setApprovalSubmitted('corrections');
+    // Persist correction items to Firestore (via updateDoc on the block)
+    try {
+      const { doc, updateDoc, arrayUnion } = await import('firebase/firestore');
+      const currentBlock = projectBlocks.find(
+        b => b.id === project?.currentBlockId && b.status === 'in-progress' && b.type === 'ApprovalRound'
+      );
+      if (currentBlock) {
+        await updateDoc(doc(db, 'projects', project.id, 'blocks', currentBlock.id), {
+          corrections: arrayUnion({
+            round: currentBlock.revisionRound || 1,
+            items: correctionItems,
+            submittedBy: 'client',
+            submittedAt: new Date().toISOString(),
+            resolved: false,
+          }),
+        });
+      }
+    } catch (e) { console.error('[share] corrections persist', e); }
+    // Fire-and-forget notification
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'approval.corrections.requested',
+        to: [],
+        data: { projectName: project?.name, correctionCount },
+      }),
+    }).catch(() => {});
+  };
+
   const handleConfirmSelection = async () => {
     setConfirmingSelection(true);
     const activity = { id: generateId(), type: 'selection', message: `Selection confirmed by ${link.name} (client)`, timestamp: new Date().toISOString() };
@@ -318,6 +366,16 @@ export default function SharePage({ params }) {
           textAlign: 'center', fontSize: '14px', fontWeight: '600',
         }}>
           ✓ Your selection has been submitted! We&apos;ll review your picks and be in touch.
+        </div>
+      )}
+      {approvalSubmitted === 'approved' && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, background: '#16a34a', color: '#fff', padding: '14px 20px', textAlign: 'center', fontSize: '14px', fontWeight: '600' }}>
+          ✓ Approved! The team has been notified.
+        </div>
+      )}
+      {approvalSubmitted === 'corrections' && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, background: '#d97706', color: '#fff', padding: '14px 20px', textAlign: 'center', fontSize: '14px', fontWeight: '600' }}>
+          ↩ Corrections submitted. The editor will address your feedback.
         </div>
       )}
       {/* Professional Header */}
@@ -571,6 +629,51 @@ export default function SharePage({ params }) {
                     onToggleSelect={handleToggleSelect}
                   />
                 )}
+              </div>
+            );
+          })()}
+
+          {/* ApprovalRound block UI — shown to client/reviewer when active block is ApprovalRound */}
+          {(() => {
+            const currentBlock = projectBlocks.find(
+              b => b.id === project?.currentBlockId && b.status === 'in-progress' && b.type === 'ApprovalRound'
+            );
+            if (!currentBlock || !isClient) return null;
+
+            if (approvalSubmitted === 'approved') {
+              return (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: SHARE_THEME.success }}>
+                  <div style={{ fontSize: '32px', marginBottom: '8px' }}>✓</div>
+                  <div style={{ fontSize: '16px', fontWeight: '600' }}>Approved! Thank you.</div>
+                  <div style={{ fontSize: '13px', opacity: 0.7, marginTop: '4px' }}>The team has been notified and will proceed to the next step.</div>
+                </div>
+              );
+            }
+
+            if (approvalSubmitted === 'corrections') {
+              return (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: SHARE_THEME.warning }}>
+                  <div style={{ fontSize: '32px', marginBottom: '8px' }}>↩</div>
+                  <div style={{ fontSize: '16px', fontWeight: '600' }}>Corrections submitted!</div>
+                  <div style={{ fontSize: '13px', opacity: 0.7, marginTop: '4px' }}>The editor will address your feedback and send a new version.</div>
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ padding: '0 0 16px' }}>
+                <ApprovalRoundView
+                  project={project}
+                  block={currentBlock}
+                  actorId="client"
+                  isProducer={false}
+                  actorRole={link?.type || 'client'}
+                  t={SHARE_THEME}
+                  theme="dark"
+                  onApprove={handleClientApprove}
+                  onCorrections={handleClientCorrections}
+                  onGrantExtraRound={() => {}} // no-op for clients
+                />
               </div>
             );
           })()}
