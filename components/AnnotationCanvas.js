@@ -22,9 +22,10 @@ import { generateId } from '@/lib/firestore';
  *   theme       – 'dark' | 'light'  (used for canvas background colour)
  *   userName    – display name of the current user (for annotation author)
  */
-export default function AnnotationCanvas({ imageUrl, annotations = [], onChange, videoOverlay = false, t, theme, userName }) {
+export default function AnnotationCanvas({ imageUrl, thumbnailUrl = null, annotations = [], onChange, videoOverlay = false, t, theme, userName }) {
   const [annots, setAnnots] = useState(annotations);
   const [tool, setTool] = useState('rect');
+  const [fullResLoaded, setFullResLoaded] = useState(false);
   const [color, setColor] = useState('#ef4444');
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState(null);
@@ -104,7 +105,9 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
   };
 
   const handleStart = (e) => {
-    if (dragging || resizing || isPinching || newAnnotPos) return;
+    if (dragging || resizing || isPinching) return;
+    // Dismiss the label popup (annotation already saved) when starting a new draw
+    if (newAnnotPos) { cancelInlineAnnotation(); }
     e.preventDefault(); e.stopPropagation();
     const pos = getPos(e);
     setDrawStart(pos); setCurrentEnd(pos); setIsDrawing(true);
@@ -146,18 +149,27 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
     const y = Math.min(pos.y, drawStart.y);
     const author = userName || 'You';
 
+    let newAnnot = null;
+
     if (tool === 'text') {
+      // Text tool still needs input — position input immediately
       setNewAnnotPos({ x: drawStart.x, y: drawStart.y, type: 'text', color, author });
       setInlineText('');
       setTimeout(() => inlineInputRef.current?.focus(), 50);
     } else if (tool === 'freehand' && currentPath.length > 2) {
-      const newAnnot = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author, text: '' };
-      setNewAnnotPos({ ...newAnnot, _isShape: true });
-      setInlineText('');
-      setTimeout(() => inlineInputRef.current?.focus(), 50);
+      newAnnot = { id: generateId(), type: 'freehand', path: currentPath, color, createdAt: new Date().toISOString(), author, text: '' };
     } else if (width > 2 || height > 2) {
-      const newAnnot = { id: generateId(), type: tool, x, y, width: Math.max(width, 5), height: Math.max(height, 5), color, createdAt: new Date().toISOString(), author, text: '' };
-      setNewAnnotPos({ ...newAnnot, _isShape: true });
+      newAnnot = { id: generateId(), type: tool, x, y, width: Math.max(width, 5), height: Math.max(height, 5), color, createdAt: new Date().toISOString(), author, text: '' };
+    }
+
+    if (newAnnot) {
+      // Save immediately — annotation is persisted now
+      const updated = [...annotsRef.current, newAnnot];
+      annotsRef.current = updated;
+      setAnnots(updated);
+      onChange(updated);
+      // Show optional label popup (non-blocking — annotation already saved)
+      setNewAnnotPos({ ...newAnnot, _isShape: true, _saved: true });
       setInlineText('');
       setTimeout(() => inlineInputRef.current?.focus(), 50);
     }
@@ -167,20 +179,40 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
 
   const confirmInlineAnnotation = () => {
     if (!newAnnotPos) return;
-    let newAnnot;
-    if (newAnnotPos._isShape) {
-      const { _isShape, ...rest } = newAnnotPos;
-      newAnnot = { ...rest, text: inlineText.trim() || '' };
-    } else {
-      if (!inlineText.trim()) { setNewAnnotPos(null); setInlineText(''); return; }
-      newAnnot = { id: generateId(), type: 'text', x: newAnnotPos.x, y: newAnnotPos.y, text: inlineText.trim(), color: newAnnotPos.color, createdAt: new Date().toISOString(), author: newAnnotPos.author };
+
+    if (newAnnotPos._isShape && newAnnotPos._saved) {
+      // Annotation already saved — just update its text label if user typed one
+      if (inlineText.trim()) {
+        const updated = annotsRef.current.map(a =>
+          a.id === newAnnotPos.id ? { ...a, text: inlineText.trim() } : a
+        );
+        annotsRef.current = updated;
+        setAnnots(updated);
+        onChange(updated);
+      }
+      setNewAnnotPos(null); setInlineText('');
+      return;
     }
-    const updated = [...annots, newAnnot];
-    setAnnots(updated);
-    onChange(updated);
+
+    if (newAnnotPos._isShape) {
+      const { _isShape, _saved, ...rest } = newAnnotPos;
+      const newAnnot = { ...rest, text: inlineText.trim() || '' };
+      const updated = [...annotsRef.current, newAnnot];
+      annotsRef.current = updated;
+      setAnnots(updated); onChange(updated);
+    } else {
+      // Text tool — still requires text
+      if (!inlineText.trim()) { setNewAnnotPos(null); setInlineText(''); return; }
+      const newAnnot = { id: generateId(), type: 'text', x: newAnnotPos.x, y: newAnnotPos.y, text: inlineText.trim(), color: newAnnotPos.color, createdAt: new Date().toISOString(), author: newAnnotPos.author };
+      const updated = [...annotsRef.current, newAnnot];
+      annotsRef.current = updated;
+      setAnnots(updated); onChange(updated);
+    }
     setNewAnnotPos(null); setInlineText('');
   };
 
+  // cancelInlineAnnotation: if annotation was already saved (_saved), only dismiss the label popup.
+  // The annotation itself is preserved in annots.
   const cancelInlineAnnotation = () => { setNewAnnotPos(null); setInlineText(''); };
 
   const deleteAnnot = (id, e) => {
@@ -313,7 +345,16 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
       {/* Canvas Area */}
       <div
         ref={containerRef}
-        style={{ flex: 1, display: 'flex', alignItems: videoOverlay ? 'stretch' : 'center', justifyContent: videoOverlay ? 'stretch' : 'center', overflow: videoOverlay ? 'hidden' : (zoom > 100 ? 'auto' : 'hidden'), background: videoOverlay ? 'transparent' : (theme === 'dark' ? '#0a0a0f' : '#e5e7eb'), position: 'relative' }}>
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: videoOverlay ? 'stretch' : (zoom > 100 ? 'flex-start' : 'center'),
+          justifyContent: videoOverlay ? 'stretch' : (zoom > 100 ? 'flex-start' : 'center'),
+          overflow: videoOverlay ? 'hidden' : (zoom > 100 ? 'auto' : 'hidden'),
+          background: videoOverlay ? 'transparent' : (theme === 'dark' ? '#0a0a0f' : '#e5e7eb'),
+          position: 'relative',
+          cursor: 'crosshair',
+        }}>
 
         {!imageLoaded && !videoOverlay && (
           <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: t.textMuted }}>
@@ -322,57 +363,81 @@ export default function AnnotationCanvas({ imageUrl, annotations = [], onChange,
           </div>
         )}
 
-        <div
-          ref={imageContainerRef}
-          onMouseDown={handleStart}
-          onMouseMove={handleMove}
-          onMouseUp={handleEnd}
-          onMouseLeave={handleEnd}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onClick={() => { setSelectedAnnot(null); if (!isDrawing) cancelInlineAnnotation(); }}
-          style={{
-            position: videoOverlay ? 'absolute' : 'relative',
-            top: videoOverlay ? 0 : undefined, left: videoOverlay ? 0 : undefined,
-            width: videoOverlay ? '100%' : undefined, height: videoOverlay ? '100%' : undefined,
-            cursor: 'crosshair', userSelect: 'none', touchAction: 'none',
-            transform: videoOverlay ? 'none' : `scale(${zoom / 100})`, transformOrigin: 'center center',
-            maxWidth: videoOverlay ? '100%' : (zoom <= 100 ? '100%' : 'none'), maxHeight: videoOverlay ? '100%' : (zoom <= 100 ? '100%' : 'none'),
-            zIndex: videoOverlay ? 10 : undefined
-          }}>
-          {!videoOverlay && (
-            <img
-              src={imageUrl} alt="" draggable={false} onLoad={handleImageLoad}
-              style={{
-                display: 'block',
-                maxWidth: zoom <= 100 ? '100%' : `${imageDims.width}px`,
-                maxHeight: zoom <= 100 ? 'calc(100vh - 200px)' : `${imageDims.height}px`,
-                width: 'auto', height: 'auto', objectFit: 'contain',
-                pointerEvents: 'none', opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.2s'
-              }}
-            />
-          )}
-          {imageLoaded && annots.map(renderAnnotation)}
-          {imageLoaded && renderPreview()}
-
-          {/* Inline text input — appears right where you drew */}
-          {newAnnotPos && (
-            <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', left: `${newAnnotPos.x || newAnnotPos.path?.[0]?.x || 0}%`, top: `${(newAnnotPos.y || newAnnotPos.path?.[0]?.y || 0)}%`, transform: 'translateY(-100%)', zIndex: 20 }}>
-              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: t.bgCard, borderRadius: '8px', padding: '4px', boxShadow: '0 4px 20px rgba(0,0,0,0.4)', border: `2px solid ${newAnnotPos.color}` }}>
-                <input
-                  ref={inlineInputRef}
-                  value={inlineText}
-                  onChange={(e) => setInlineText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') confirmInlineAnnotation(); if (e.key === 'Escape') cancelInlineAnnotation(); }}
-                  placeholder="Add note..."
-                  style={{ width: '180px', padding: '6px 8px', border: 'none', outline: 'none', fontSize: '12px', background: 'transparent', color: t.text }}
+        {/* Scroll wrapper — expands to accommodate zoom without transform-scale */}
+        <div style={{
+          width: videoOverlay ? '100%' : (zoom > 100 ? `${zoom}%` : '100%'),
+          height: videoOverlay ? '100%' : (zoom > 100 ? `${zoom}%` : '100%'),
+          minWidth: (!videoOverlay && zoom > 100) ? `${zoom}%` : undefined,
+          minHeight: (!videoOverlay && zoom > 100) ? `${zoom}%` : undefined,
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <div
+            ref={imageContainerRef}
+            onMouseDown={handleStart}
+            onMouseMove={handleMove}
+            onMouseUp={handleEnd}
+            onMouseLeave={handleEnd}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onClick={() => { setSelectedAnnot(null); if (!isDrawing) cancelInlineAnnotation(); }}
+            style={{
+              position: videoOverlay ? 'absolute' : 'relative',
+              top: videoOverlay ? 0 : undefined, left: videoOverlay ? 0 : undefined,
+              width: videoOverlay ? '100%' : (zoom > 100 ? '100%' : undefined),
+              height: videoOverlay ? '100%' : (zoom > 100 ? '100%' : undefined),
+              cursor: 'crosshair', userSelect: 'none', touchAction: 'none',
+              maxWidth: videoOverlay ? '100%' : (zoom <= 100 ? '100%' : 'none'),
+              maxHeight: videoOverlay ? '100%' : (zoom <= 100 ? '100%' : 'none'),
+              zIndex: videoOverlay ? 10 : undefined,
+              flexShrink: 0,
+            }}>
+            {!videoOverlay && (
+              <>
+                <img
+                  src={fullResLoaded || !thumbnailUrl ? imageUrl : thumbnailUrl}
+                  alt="" draggable={false} onLoad={handleImageLoad}
+                  style={{
+                    display: 'block',
+                    maxWidth: zoom <= 100 ? '100%' : 'none',
+                    maxHeight: zoom <= 100 ? 'calc(100vh - 200px)' : 'none',
+                    width: zoom > 100 ? '100%' : 'auto',
+                    height: zoom > 100 ? '100%' : 'auto',
+                    objectFit: 'contain',
+                    pointerEvents: 'none', opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.2s'
+                  }}
                 />
-                <button onClick={confirmInlineAnnotation} style={{ width: '28px', height: '28px', background: newAnnotPos.color, border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>+</button>
-                <button onClick={cancelInlineAnnotation} style={{ width: '28px', height: '28px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>×</button>
+                {/* Hidden preloader for full-res when thumbnail is shown */}
+                {!fullResLoaded && thumbnailUrl && (
+                  <img src={imageUrl} style={{ display: 'none' }} onLoad={() => setFullResLoaded(true)} alt="" />
+                )}
+              </>
+            )}
+            {imageLoaded && annots.map(renderAnnotation)}
+            {imageLoaded && renderPreview()}
+
+            {/* Inline label input — appears right where you drew; non-blocking (annotation already saved) */}
+            {newAnnotPos && (
+              <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', left: `${newAnnotPos.x || newAnnotPos.path?.[0]?.x || 0}%`, top: `${(newAnnotPos.y || newAnnotPos.path?.[0]?.y || 0)}%`, transform: 'translateY(-100%)', zIndex: 20 }}>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: t.bgCard, borderRadius: '8px', padding: '4px', boxShadow: '0 4px 20px rgba(0,0,0,0.4)', border: `2px solid ${newAnnotPos.color}` }}>
+                  <input
+                    ref={inlineInputRef}
+                    value={inlineText}
+                    onChange={(e) => setInlineText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') confirmInlineAnnotation(); if (e.key === 'Escape') cancelInlineAnnotation(); }}
+                    placeholder="Add label (optional)..."
+                    style={{ width: '180px', padding: '6px 8px', border: 'none', outline: 'none', fontSize: '12px', background: 'transparent', color: t.text }}
+                  />
+                  <button onClick={confirmInlineAnnotation} style={{ padding: '0 10px', height: '28px', background: newAnnotPos.color, border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', flexShrink: 0, whiteSpace: 'nowrap' }}>Save</button>
+                  <button onClick={cancelInlineAnnotation} style={{ width: '28px', height: '28px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>×</button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
