@@ -1,13 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
 
-const COLOR_LABEL_COLORS = {
-  red: '#ef4444',
-  yellow: '#f59e0b',
-  green: '#22c55e',
-};
+// Keyboard shortcut → color key map (mirrors MainApp lightbox shortcuts)
+const KEY_MAP = { p: 'red', m: 'yellow', g: 'green', b: 'blue', v: 'purple', o: 'orange', k: 'gray', u: null };
 
-function CompareTile({ asset, t, onRate, onSelect, onColorLabel, onOpenLightbox, tileCount }) {
+const COLOR_LABEL_COLORS = Object.fromEntries(DEFAULT_COLOR_LABELS.map(l => [l.key, l.hex]));
+
+function CompareTile({ asset, t, onRate, onSelect, onColorLabel, onOpenLightbox, tileCount, isFocused }) {
   const [localAsset, setLocalAsset] = useState(asset);
 
   const handleRate = (star) => {
@@ -37,11 +37,13 @@ function CompareTile({ asset, t, onRate, onSelect, onColorLabel, onOpenLightbox,
       background: t.bgCard,
       borderRadius: '12px',
       overflow: 'hidden',
-      border: `1px solid ${t.border}`,
+      border: isFocused ? '2px solid #6366f1' : `1px solid ${t.border}`,
+      boxShadow: isFocused ? '0 0 0 3px rgba(99,102,241,0.25)' : 'none',
       position: 'relative',
     }}>
       {/* Image / Video area */}
       <div
+        className="compare-img-area"
         onClick={() => onOpenLightbox(asset)}
         style={{
           flex: 1,
@@ -169,51 +171,31 @@ function CompareTile({ asset, t, onRate, onSelect, onColorLabel, onOpenLightbox,
           </button>
         </div>
 
-        {/* Color label swatches */}
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <span style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Label:</span>
-          {[
-            { key: 'red', label: 'Pick' },
-            { key: 'yellow', label: 'Maybe' },
-            { key: 'green', label: 'Alt' },
-          ].map(({ key, label }) => (
+        {/* Color label swatches — all 7 labels */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '2px' }}>Label:</span>
+          {DEFAULT_COLOR_LABELS.map(({ key, label, hex }) => (
             <button
               key={key}
               onClick={() => handleLabel(key)}
-              title={label}
+              title={`${label} (${KEY_MAP && Object.entries(KEY_MAP).find(([,v]) => v === key)?.[0]?.toUpperCase() || ''})`}
               style={{
-                width: '18px',
-                height: '18px',
+                width: tileCount > 3 ? '14px' : '16px',
+                height: tileCount > 3 ? '14px' : '16px',
                 borderRadius: '50%',
-                background: COLOR_LABEL_COLORS[key],
-                border: localAsset.colorLabel === key
-                  ? '2px solid #fff'
-                  : '2px solid transparent',
+                background: hex,
+                border: localAsset.colorLabel === key ? '2px solid #fff' : '2px solid transparent',
                 cursor: 'pointer',
-                opacity: localAsset.colorLabel && localAsset.colorLabel !== key ? 0.35 : 1,
+                opacity: localAsset.colorLabel && localAsset.colorLabel !== key ? 0.3 : 1,
                 transition: 'all 0.15s',
-                boxShadow: localAsset.colorLabel === key
-                  ? `0 0 8px ${COLOR_LABEL_COLORS[key]}`
-                  : 'none',
+                boxShadow: localAsset.colorLabel === key ? `0 0 6px ${hex}` : 'none',
                 flexShrink: 0,
                 outline: 'none',
               }}
             />
           ))}
           {localAsset.colorLabel && (
-            <button
-              onClick={() => handleLabel(localAsset.colorLabel)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: t.textMuted,
-                fontSize: '11px',
-                cursor: 'pointer',
-                padding: '0 2px',
-                lineHeight: 1,
-              }}
-              title="Clear label"
-            >✕</button>
+            <button onClick={() => handleLabel(localAsset.colorLabel)} style={{ background: 'transparent', border: 'none', color: t.textMuted, fontSize: '11px', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }} title="Clear label">✕</button>
           )}
         </div>
       </div>
@@ -223,6 +205,29 @@ function CompareTile({ asset, t, onRate, onSelect, onColorLabel, onOpenLightbox,
 
 export default function ComparePanel({ assets, t, theme, onRate, onSelect, onColorLabel, onOpenLightbox, onClose }) {
   const count = assets.length;
+  const [focusIdx, setFocusIdx] = useState(0); // keyboard-focused tile index
+
+  // Keyboard shortcuts: arrows to switch focused tile, P/M/G/B/V/O/K for labels, S to select/deselect, Esc to close
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      const asset = assets[focusIdx];
+      if (!asset) return;
+      const key = e.key.toLowerCase();
+      if (key === 'arrowleft') { setFocusIdx(i => Math.max(0, i - 1)); return; }
+      if (key === 'arrowright') { setFocusIdx(i => Math.min(assets.length - 1, i + 1)); return; }
+      if (key === 's') { onSelect(asset.id); return; }
+      if (key in KEY_MAP) {
+        const label = KEY_MAP[key];
+        onColorLabel(asset.id, label); // null = clear
+        return;
+      }
+      const starNum = parseInt(key);
+      if (starNum >= 1 && starNum <= 5) { onRate(asset.id, starNum); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [focusIdx, assets, onClose, onRate, onSelect, onColorLabel]);
 
   // Layout: 2 → side by side, 3 → three columns, 4 → 2×2
   const is2x2 = count === 4;
@@ -259,7 +264,7 @@ export default function ComparePanel({ assets, t, theme, onRate, onSelect, onCol
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '10px', color: t.textMuted }}>P=pick · M=maybe · G=alt</span>
+          <span style={{ fontSize: '10px', color: t.textMuted }}>←→ switch focus · P=pick · M=maybe · G=alt · 1–5=stars · S=select · Esc=close</span>
           <button
             onClick={onClose}
             style={{
@@ -291,24 +296,25 @@ export default function ComparePanel({ assets, t, theme, onRate, onSelect, onCol
         gap: '12px',
         overflow: 'hidden',
       }}>
-        {assets.map(asset => (
-          <CompareTile
-            key={asset.id}
-            asset={asset}
-            t={t}
-            theme={theme}
-            tileCount={count}
-            onRate={onRate}
-            onSelect={onSelect}
-            onColorLabel={onColorLabel}
-            onOpenLightbox={onOpenLightbox}
-          />
+        {assets.map((asset, idx) => (
+          <div key={asset.id} onClick={() => setFocusIdx(idx)} style={{ display: 'contents' }}>
+            <CompareTile
+              asset={asset}
+              t={t}
+              theme={theme}
+              tileCount={count}
+              isFocused={idx === focusIdx}
+              onRate={onRate}
+              onSelect={onSelect}
+              onColorLabel={onColorLabel}
+              onOpenLightbox={onOpenLightbox}
+            />
+          </div>
         ))}
       </div>
 
       <style>{`
-        .open-hint { pointer-events: none; }
-        div:hover > div > div > .open-hint { opacity: 1 !important; }
+        .compare-img-area:hover .open-hint { opacity: 1 !important; }
       `}</style>
     </div>
   );
