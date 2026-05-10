@@ -6003,6 +6003,18 @@ export default function MainApp() {
       setIsLoadingHighRes(false);
     }, [selectedAsset?.id]);
 
+    // Escape key to clear compare set when no asset lightbox is open
+    useEffect(() => {
+      if (selectedAsset) return; // ComparePanel & lightbox handle their own Escape
+      const handler = (e) => {
+        if (e.key === 'Escape' && compareAssetIds.length > 0) {
+          setCompareAssetIds([]);
+        }
+      };
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+    }, [selectedAsset, compareAssetIds.length]);
+
     // Keyboard shortcuts for navigation (must be before conditional return)
     useEffect(() => {
       if (!selectedAsset || !selectedProject) return;
@@ -7476,7 +7488,7 @@ export default function MainApp() {
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', color: t.textMuted }}>{selectedAssets.size} selected</span>
                 {selectedAssets.size >= 2 && selectedAssets.size <= 4 && (
-                  <Btn theme={theme} onClick={() => { setCompareAssetIds([...selectedAssets]); setShowComparePanel(true); }} small color="#6366f1" title="Compare selected images side by side">⊞ Compare</Btn>
+                  <Btn theme={theme} onClick={() => { setCompareAssetIds([...selectedAssets]); setSelectedAssets(new Set()); }} small color="#f97316" title="Compare selected images side by side (or ⌘+click images)">⊞ Compare</Btn>
                 )}
                 <Btn theme={theme} onClick={() => handleBulkSelect(true)} small color="#22c55e" title="Mark as Selected">✓</Btn>
                 <Btn theme={theme} onClick={() => handleBulkSelect(false)} small outline title="Deselect">✗</Btn>
@@ -7874,7 +7886,33 @@ export default function MainApp() {
                   <span style={{ fontSize: '10px', color: t.textMuted, marginLeft: 'auto' }}>{displayAssets.length} assets</span>
                 </div>
 
-                    <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: isMobile ? (appearance.cardSize === 'L' ? '1fr' : appearance.cardSize === 'S' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)') : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
+                    {/* ── Compare Panel (embedded, replaces grid) ── */}
+                    {compareAssetIds.length >= 2 && (
+                      <div style={{ height: 'calc(100vh - 310px)', minHeight: '420px', marginBottom: '12px' }}>
+                        <ComparePanel
+                          assets={(selectedProject?.assets || []).filter(a => compareAssetIds.includes(a.id))}
+                          t={t}
+                          theme={theme}
+                          onRate={(assetId, rating) => handleRate(assetId, rating)}
+                          onSelect={(assetId) => handleToggleSelect(assetId)}
+                          onColorLabel={(assetId, label) => handleColorLabel(assetId, label)}
+                          onRemove={(id) => setCompareAssetIds(prev => prev.filter(x => x !== id))}
+                          onClose={() => setCompareAssetIds([])}
+                          onAddMore={() => {}}
+                        />
+                      </div>
+                    )}
+
+                    {/* ── Single-image compare hint ── */}
+                    {compareAssetIds.length === 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', marginBottom: '12px', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
+                        <span style={{ fontSize: '16px' }}>⊞</span>
+                        <span>1 image in compare — <strong>⌘+click</strong> another image to start side-by-side view (up to 4 images)</span>
+                        <button onClick={() => setCompareAssetIds([])} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}>✕</button>
+                      </div>
+                    )}
+
+                    <div className="stagger-children" style={{ display: compareAssetIds.length >= 2 ? 'none' : 'grid', gridTemplateColumns: isMobile ? (appearance.cardSize === 'L' ? '1fr' : appearance.cardSize === 'S' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)') : `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`, gap: '12px' }}>
                     {displayAssets
                       .filter(a => {
                         if (selectedCat === '__selected__') return a.isSelected;
@@ -7892,8 +7930,8 @@ export default function MainApp() {
                           background: t.bgTertiary,
                           borderRadius: '12px',
                           overflow: 'hidden',
-                          border: a.isSelected ? '2px solid #22c55e' : selectedAssets.has(a.id) ? '2px solid #6366f1' : `1px solid ${t.border}`,
-                          boxShadow: selectedAssets.has(a.id) ? '0 0 0 3px rgba(99,102,241,0.3), 0 4px 16px rgba(99,102,241,0.15)' : hasNewVersion ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
+                          border: a.isSelected ? '2px solid #22c55e' : compareAssetIds.includes(a.id) ? '2px solid #f97316' : selectedAssets.has(a.id) ? '2px solid #6366f1' : `1px solid ${t.border}`,
+                          boxShadow: compareAssetIds.includes(a.id) ? '0 0 0 3px rgba(249,115,22,0.3)' : selectedAssets.has(a.id) ? '0 0 0 3px rgba(99,102,241,0.3), 0 4px 16px rgba(99,102,241,0.15)' : hasNewVersion ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
                           animation: hasNewVersion ? 'pulseGlow 2.5s ease-in-out infinite' : undefined,
                           position: 'relative',
                           opacity: isDimmed ? 0.5 : 1,
@@ -7931,17 +7969,31 @@ export default function MainApp() {
                               {a.tags.length > 2 && <span style={{ background: '#6366f1', padding: '2px 6px', borderRadius: '4px', fontSize: '8px' }}>+{a.tags.length - 2}</span>}
                             </div>
                           )}
-                          
-                          <div className="asset-thumb-area" onClick={() => { setSelectedAsset(a); setAssetTab('preview'); }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: t.bgInput, position: 'relative', overflow: 'hidden' }}>
+                          {/* Compare badge — shown when image is in compare set */}
+                          {compareAssetIds.includes(a.id) && (
+                            <div style={{ position: 'absolute', top: '10px', left: '40px', background: '#f97316', borderRadius: '6px', padding: '3px 7px', fontSize: '9px', zIndex: 15, fontWeight: '700', color: '#fff', letterSpacing: '0.05em' }}>
+                              ⊞ {compareAssetIds.indexOf(a.id) + 1}/{compareAssetIds.length}
+                            </div>
+                          )}
+
+                          <div className="asset-thumb-area" onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey) {
+                                e.stopPropagation();
+                                setCompareAssetIds(prev => prev.includes(a.id) ? prev.filter(id => id !== a.id) : prev.length < 4 ? [...prev, a.id] : prev);
+                              } else {
+                                setSelectedAsset(a); setAssetTab('preview');
+                              }
+                            }} style={{ cursor: 'pointer', height: isMobile ? (appearance.cardSize === 'L' ? '200px' : appearance.cardSize === 'S' ? '80px' : '120px') : `${cardWidth / aspectRatio}px`, background: t.bgInput, position: 'relative', overflow: 'hidden' }}>
                             {a.type === 'video' ? <VideoThumbnail src={a.url} thumbnail={a.thumbnail} muxPlaybackId={a.muxPlaybackId} duration={a.duration} style={{ width: '100%', height: '100%' }} /> : a.type === 'audio' ? <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}></span></div> : (a.thumbnail || a.url) ? <LazyImage src={a.url} thumbnail={a.thumbnail} style={{ width: '100%', height: '100%', objectFit: appearance.thumbScale === 'fill' ? 'cover' : 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '36px' }}>DOC</span></div>}
                             {/* Version badge - top left */}
                             {a.currentVersion > 1 && <div style={{ position: 'absolute', top: '8px', left: '40px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderRadius: '10px', padding: '2px 8px', fontSize: '9px', color: '#fff', fontWeight: '600', zIndex: 4 }}>v{a.currentVersion}</div>}
                             {/* Status dot - top right */}
                             {a.status && (() => { const statusColors = { pending: '#fbbf24', selected: '#3b82f6', assigned: '#6366f1', 'in-progress': '#a855f7', 'review-ready': '#f59e0b', 'changes-requested': '#ef4444', approved: '#22c55e', delivered: '#06b6d4', 'agency-review': '#0ea5e9' }; return <div style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '8px', height: '8px', borderRadius: '50%', background: statusColors[a.status] || '#6b7280', border: '2px solid rgba(0,0,0,0.4)', zIndex: 4 }} title={STATUS[a.status]?.label || a.status} />; })()}
-                            {/* Frosted glass overlay on hover - asset name + type */}
+                            {/* Frosted glass overlay on hover - asset name + type + compare hint */}
                             <div className="asset-hover-overlay" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 10px', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0, transition: 'opacity 0.2s ease', zIndex: 3 }}>
                               <span style={{ fontSize: '12px' }}>{a.type === 'video' ? 'VID' : a.type === 'audio' ? '' : a.type === 'image' ? 'IMG' : 'DOC'}</span>
                               <span style={{ fontSize: '10px', color: '#fff', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{a.name}</span>
+                              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', flexShrink: 0 }}>⌘+click to compare</span>
                             </div>
                             {a.feedback?.length > 0 && <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: '#ef4444', borderRadius: '10px', padding: '3px 8px', fontSize: '10px', zIndex: 4 }}>{a.feedback.length}</div>}
                             {a.dueDate && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: new Date(a.dueDate) < new Date() ? '#ef4444' : '#22c55e', borderRadius: '10px', padding: '3px 6px', fontSize: '9px', zIndex: 4 }}>{new Date(a.dueDate) < new Date() ? 'Overdue ' : ''}{Math.abs(Math.ceil((new Date(a.dueDate) - new Date()) / (1000 * 60 * 60 * 24)))}d</div>}
@@ -10120,19 +10172,7 @@ export default function MainApp() {
           </div>
         )}
 
-        {/* COMPARE PANEL */}
-        {showComparePanel && compareAssetIds.length >= 2 && (
-          <ComparePanel
-            assets={(selectedProject.assets || []).filter(a => compareAssetIds.includes(a.id))}
-            t={t}
-            theme={theme}
-            onRate={(assetId, rating) => { handleRate(assetId, rating); }}
-            onSelect={(assetId) => handleToggleSelect(assetId)}
-            onColorLabel={(assetId, label) => handleColorLabel(assetId, label)}
-            onOpenLightbox={(asset) => { setShowComparePanel(false); setSelectedAsset(asset); setAssetTab('preview'); }}
-            onClose={() => setShowComparePanel(false)}
-          />
-        )}
+        {/* ComparePanel is now embedded inside the assets tab — see above */}
 
         <ActivityFeedDrawer
           projectId={selectedProject.id}
