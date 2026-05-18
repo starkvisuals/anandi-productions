@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@markerjs/markerjs3": "^3.10.0",
     "@mux/mux-node": "^8.0.0",
     "@mux/mux-player-react": "^2.3.0",
     "file-saver": "^2.0.5",
