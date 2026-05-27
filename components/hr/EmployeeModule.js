@@ -15,6 +15,7 @@ import AddEmployeeModal from './AddEmployeeModal';
 import EmployeeDetailModal from './EmployeeDetailModal';
 import PendingApprovalsPanel from './PendingApprovalsPanel';
 import HrSettingsView from './HrSettingsView';
+import ImportExistingUserModal from './ImportExistingUserModal';
 
 /**
  * HR admin top-level view. Rendered when view === 'employees' AND canManageEmployees(user).
@@ -31,6 +32,7 @@ export default function EmployeeModule({ t }) {
   const [filterDept, setFilterDept] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [detailUid, setDetailUid] = useState(null);
   const [tab, setTab] = useState('list'); // list | approvals | settings
   const [pendingCount, setPendingCount] = useState(0);
@@ -180,22 +182,40 @@ export default function EmployeeModule({ t }) {
           </div>
         </div>
         {tab === 'list' && (
-          <button
-            onClick={() => setShowAdd(true)}
-            style={{
-              padding: '11px 20px',
-              background: t.gradientPrimary,
-              color: '#fff',
-              border: 'none',
-              borderRadius: '10px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
-            }}
-          >
-            + Add Employee
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setShowImport(true)}
+              title="Convert an existing user (core team, freelancer) into an employee"
+              style={{
+                padding: '11px 16px',
+                background: 'transparent',
+                color: t.text,
+                border: `1px solid ${t.border}`,
+                borderRadius: '10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              ↻ Import Existing User
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              style={{
+                padding: '11px 20px',
+                background: t.gradientPrimary,
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
+              }}
+            >
+              + Add Employee
+            </button>
+          </div>
         )}
       </div>
 
@@ -357,6 +377,13 @@ export default function EmployeeModule({ t }) {
           t={t}
           onClose={() => setShowAdd(false)}
           onCreated={() => { setShowAdd(false); loadEmployees(); }}
+        />
+      )}
+
+      {showImport && (
+        <ImportExistingUserModal
+          onClose={() => setShowImport(false)}
+          onCreated={() => { setShowImport(false); loadEmployees(); }}
         />
       )}
 
