@@ -16,7 +16,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   getLeaveRequests, getLeaveBalance, approveLeaveRequest, rejectLeaveRequest,
-  cancelLeaveRequest, canManageEmployees, LEAVE_QUOTAS,
+  cancelLeaveRequest, canManageEmployees, creditCompOffHours, LEAVE_QUOTAS,
+  COMPOFF_HOURS_PER_DAY, COMPOFF_MIN_BANK,
 } from '@/lib/hr';
 import LeaveRequestModal from './LeaveRequestModal';
 
@@ -50,6 +51,8 @@ export default function LeaveManagementPanel({ actor, employeeId, t }) {
   const [showRequest, setShowRequest] = useState(false);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [creditHours, setCreditHours] = useState('');
+  const [crediting, setCrediting] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -93,6 +96,14 @@ export default function LeaveManagementPanel({ actor, employeeId, t }) {
     try { await cancelLeaveRequest(actor, id); await refresh(); }
     catch (e) { setError(e.message); }
     finally { setBusyId(null); }
+  };
+  const doCredit = async () => {
+    const h = Number(creditHours);
+    if (!h) { setError('Enter hours to credit (negative to debit)'); return; }
+    setCrediting(true); setError(null);
+    try { await creditCompOffHours(actor, viewUid, h, 'Manual adjustment'); setCreditHours(''); await refresh(); }
+    catch (e) { setError(e.message); }
+    finally { setCrediting(false); }
   };
 
   const RequestRow = ({ r, showEmployee, showActions, allowCancel }) => {
@@ -152,6 +163,36 @@ export default function LeaveManagementPanel({ actor, employeeId, t }) {
         {balance && (balance.thisMonth.sick > 0 || balance.thisMonth.casual > 0) && (
           <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '8px' }}>
             This month: {balance.thisMonth.sick} sick, {balance.thisMonth.casual} casual used (cap 1 each/month).
+          </div>
+        )}
+
+        {/* Comp-off banked hours */}
+        {balance && (
+          <div style={{ marginTop: '12px', padding: '12px 14px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.45)' }}>Comp-off banked</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: TYPE_COLOR['comp-off'] }}>
+                {balance.compOffHours || 0}h
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}> = {Math.floor((balance.compOffHours || 0) / COMPOFF_HOURS_PER_DAY)} day(s) redeemable</span>
+              </div>
+              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', marginTop: '2px' }}>
+                {COMPOFF_HOURS_PER_DAY}h = 1 day · need ≥{COMPOFF_MIN_BANK}h to redeem
+              </div>
+            </div>
+            {isAdmin && (
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input
+                  type="number"
+                  value={creditHours}
+                  onChange={e => setCreditHours(e.target.value)}
+                  placeholder="hrs (+/-)"
+                  style={{ width: '90px', padding: '6px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' }}
+                />
+                <button onClick={doCredit} disabled={crediting} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
+                  {crediting ? '…' : 'Credit hours'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
