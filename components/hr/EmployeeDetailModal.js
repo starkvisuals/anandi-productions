@@ -249,6 +249,7 @@ export default function EmployeeDetailModal({ t, uid, onClose, onChange }) {
           border: `1px solid ${t.border}`,
           width: '100%',
           maxWidth: '960px',
+          height: '85vh',          // fixed height so the box doesn't jump between tabs
           maxHeight: '92vh',
           overflow: 'hidden',
           display: 'flex',
