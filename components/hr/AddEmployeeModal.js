@@ -166,7 +166,15 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
       });
     } catch (err) {
       console.error('Create employee error:', err);
-      setError(err.message || 'Failed to create employee');
+      if (err?.code === 'auth/email-already-in-use') {
+        setError('This email already has a login account. If you deleted this employee earlier, the Firebase Auth account still exists (deletion only removes the HR record). Either delete it in Firebase Console → Authentication → Users, or use a different email (Gmail "you+test@gmail.com" works). A server-side cleanup is on the way.');
+      } else if (err?.code === 'auth/invalid-email') {
+        setError('That email address is not valid.');
+      } else if (err?.code === 'auth/weak-password') {
+        setError('Generated password was rejected — please try again.');
+      } else {
+        setError(err.message || 'Failed to create employee');
+      }
     } finally {
       setSubmitting(false);
     }
