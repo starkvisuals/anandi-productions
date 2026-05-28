@@ -259,14 +259,18 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
 
             {/* Login credentials to hand to the employee */}
             {(() => {
-              const { name, email, tempPassword, inviteLink, phone } = createdEmployee;
+              const { name, email, tempPassword, inviteLink, phone, designation } = createdEmployee;
               const message =
                 `Welcome to Anandi Productions, ${name}! 🎬\n\n` +
-                `Here are your login details:\n` +
-                `🔗 Portal: ${inviteLink}\n` +
-                `📧 Email: ${email}\n` +
+                `You've been added${designation ? ` as ${designation}` : ''}. Here are your login details for the employee portal:\n\n` +
+                `🔗 Login link: ${inviteLink}\n` +
+                `👤 Username (email): ${email}\n` +
                 `🔑 Temporary password: ${tempPassword}\n\n` +
-                `Please log in, complete your onboarding, and change your password from Settings. See you soon!`;
+                `Steps:\n` +
+                `1. Open the link and log in with the email + temporary password above.\n` +
+                `2. Complete your onboarding (details, documents, photo, sign your offer letter & agreement).\n` +
+                `3. To set your own password, use "Forgot password?" on the login screen anytime.\n\n` +
+                `Welcome aboard! 🎉`;
               const digits = (phone || '').replace(/[^0-9]/g, '');
               const waHref = digits
                 ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
@@ -287,9 +291,9 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
                   <div style={{ fontSize: '11px', fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: '12px' }}>
                     Login details — send these to {name}
                   </div>
-                  <CredRow label="Portal" value={inviteLink} copyKey="link" />
-                  <CredRow label="Email" value={email} copyKey="email" />
-                  <CredRow label="Password" value={tempPassword} copyKey="pw" />
+                  <CredRow label="Login link" value={inviteLink} copyKey="link" />
+                  <CredRow label="Username" value={email} copyKey="email" />
+                  <CredRow label="Temp password" value={tempPassword} copyKey="pw" />
 
                   <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                     <a

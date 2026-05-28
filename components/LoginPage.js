@@ -65,8 +65,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  const handleForgotPassword = async () => {
+    setError(''); setInfo('');
+    if (!email.trim()) { setError('Enter your email above first, then tap “Forgot password?”'); return; }
+    try {
+      const { getAuth, sendPasswordResetEmail } = await import('firebase/auth');
+      await sendPasswordResetEmail(getAuth(), email.trim());
+      setInfo('Password reset link sent to your email. Check inbox & spam. If it doesn’t arrive, ask HR to re-share your temporary password.');
+    } catch (err) {
+      if (err?.code === 'auth/user-not-found') setError('No account found for that email.');
+      else setError(err?.message || 'Could not send reset email.');
+    }
+  };
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -343,10 +357,11 @@ export default function LoginPage() {
                   cursor: 'pointer',
                   padding: 0,
                 }}
-                onClick={() => {}}
+                onClick={handleForgotPassword}
               >
                 Forgot password?
               </button>
+              {info && <div style={{ marginTop: '10px', fontSize: '12px', color: '#22c55e', lineHeight: 1.5 }}>{info}</div>}
             </div>
           </form>
 
