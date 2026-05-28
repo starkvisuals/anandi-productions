@@ -185,6 +185,7 @@ export async function POST(request) {
         review_ready: { gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', icon: '👀', title: 'Ready for Review', buttonColor: '#06b6d4', buttonText: 'Review Now' },
         project_complete: { gradient: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', icon: '🎉', title: 'Project Completed', buttonColor: '#22c55e', buttonText: 'View Project' },
         employee_onboarding_invite: { gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', icon: '🎬', title: 'Welcome to Anandi Productions', buttonColor: '#6366f1', buttonText: 'Start Onboarding' },
+        payslip: { gradient: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)', icon: '🧾', title: 'Your Payslip', buttonColor: '#16a34a', buttonText: 'View in Portal' },
         employee_onboarding_complete_admin: { gradient: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', icon: '✅', title: 'Employee Onboarding Complete', buttonColor: '#22c55e', buttonText: 'View Employee' },
         employee_document_uploaded: { gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', icon: '📄', title: 'Document Uploaded', buttonColor: '#06b6d4', buttonText: 'View Document' },
         hr_approval_requested: { gradient: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)', icon: '⚠️', title: 'HR Approval Requested', buttonColor: '#f59e0b', buttonText: 'Review Request' },

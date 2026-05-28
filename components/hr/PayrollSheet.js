@@ -9,6 +9,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { buildPayrollSheet, savePayroll, workingDaysInMonth } from '@/lib/payroll';
+import { getEmployees, getHrSettings } from '@/lib/hr';
+import { buildPayslip } from '@/lib/payslip';
+import PayslipView from './PayslipView';
 
 const thisMonthStr = () => new Date().toISOString().slice(0, 7);
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
@@ -22,6 +25,28 @@ export default function PayrollSheet({ actor, t }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [savedMsg, setSavedMsg] = useState(null);
+  const [empById, setEmpById] = useState({});
+  const [company, setCompany] = useState(null);
+  const [payslip, setPayslip] = useState(null);
+
+  // Load full employee objects + company details (for payslips)
+  useEffect(() => {
+    (async () => {
+      try {
+        const [emps, settings] = await Promise.all([
+          getEmployees(actor),
+          getHrSettings().catch(() => null),
+        ]);
+        setEmpById(Object.fromEntries(emps.map(e => [e.id, e])));
+        setCompany(settings?.companyDetails || null);
+      } catch { /* non-fatal */ }
+    })();
+  }, [actor]);
+
+  const openPayslip = (row) => {
+    const employee = empById[row.employeeId] || { name: row.employeeName, id: row.employeeId };
+    setPayslip(buildPayslip({ row, employee, company, month }));
+  };
 
   // Recompute default working days when month / Sunday toggle changes
   useEffect(() => {
@@ -96,8 +121,8 @@ export default function PayrollSheet({ actor, t }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
-                  {['Employee', 'Salary', 'Payable / WD', 'LOP days', 'LOP ₹', 'TDS', 'Net Pay'].map(h => (
-                    <th key={h} style={{ textAlign: h === 'Employee' ? 'left' : 'center', padding: '8px 10px', fontSize: '10px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{h}</th>
+                  {['Employee', 'Salary', 'Payable / WD', 'LOP days', 'LOP ₹', 'TDS', 'Net Pay', ''].map((h, i) => (
+                    <th key={h || `c${i}`} style={{ textAlign: h === 'Employee' ? 'left' : 'center', padding: '8px 10px', fontSize: '10px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -114,10 +139,13 @@ export default function PayrollSheet({ actor, t }) {
                     <td style={{ textAlign: 'center', color: r.lopAmount > 0 ? '#ef4444' : 'inherit' }}>{r.lopAmount ? `−${inr(r.lopAmount)}` : '—'}</td>
                     <td style={{ textAlign: 'center' }}>{r.tds ? `−${inr(r.tds)}` : '—'}</td>
                     <td style={{ textAlign: 'center', fontWeight: 700, color: '#22c55e' }}>{inr(r.net)}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button onClick={() => openPayslip(r)} style={{ padding: '4px 10px', borderRadius: '5px', border: '1px solid rgba(99,102,241,0.4)', background: 'transparent', color: '#6366f1', fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Payslip</button>
+                    </td>
                   </tr>
                 ))}
                 {sheet.rows.length === 0 && (
-                  <tr><td colSpan={7} style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>No payroll employees (contractors are excluded).</td></tr>
+                  <tr><td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>No payroll employees (contractors are excluded).</td></tr>
                 )}
               </tbody>
               {sheet.rows.length > 0 && (
@@ -129,6 +157,7 @@ export default function PayrollSheet({ actor, t }) {
                     <td style={{ textAlign: 'center', color: '#ef4444' }}>{sheet.totals.lop ? `−${inr(sheet.totals.lop)}` : '—'}</td>
                     <td style={{ textAlign: 'center' }}>{sheet.totals.tds ? `−${inr(sheet.totals.tds)}` : '—'}</td>
                     <td style={{ textAlign: 'center', fontWeight: 700, color: '#22c55e' }}>{inr(sheet.totals.net)}</td>
+                    <td></td>
                   </tr>
                 </tfoot>
               )}
@@ -144,6 +173,8 @@ export default function PayrollSheet({ actor, t }) {
           )}
         </div>
       )}
+
+      {payslip && <PayslipView payslip={payslip} onClose={() => setPayslip(null)} />}
     </div>
   );
 }
