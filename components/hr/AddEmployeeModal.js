@@ -175,16 +175,18 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
         console.warn('Onboarding invite email failed:', inviteError);
       }
 
-      // Show post-create success screen with copyable invite link
-      const inviteLink = typeof window !== 'undefined'
-        ? `${window.location.origin}/?onboarding=${uid}`
-        : `/?onboarding=${uid}`;
+      // Show post-create success screen with login link + credentials to share
+      const loginLink = typeof window !== 'undefined'
+        ? `${window.location.origin}/`
+        : '/';
       setCreatedEmployee({
         uid,
         email: form.email.trim(),
         name: form.name.trim(),
         designation: form.designation.trim(),
-        inviteLink,
+        phone: form.phone.trim(),
+        tempPassword,
+        inviteLink: loginLink,
         emailStatus: { resetSent, resetError, inviteSent, inviteSkipped, inviteError },
       });
     } catch (err) {
@@ -255,96 +257,74 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
               </div>
             </div>
 
-            <div style={{ padding: '14px 16px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '12px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: '8px' }}>
-                Onboarding Invite Link
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input
-                  readOnly
-                  value={createdEmployee.inviteLink}
-                  onClick={(e) => e.target.select()}
-                  style={{
-                    flex: 1,
-                    padding: '10px 12px',
-                    background: t.modalBg || '#0b0b12',
-                    border: `1px solid ${t.border}`,
-                    borderRadius: '8px',
-                    color: t.text,
-                    fontSize: '12px',
-                    fontFamily: 'ui-monospace, monospace',
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(createdEmployee.inviteLink, 'link')}
-                  style={{
-                    padding: '10px 14px',
-                    background: copied === 'link' ? '#22c55e' : (t.gradientPrimary || t.primary),
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {copied === 'link' ? 'Copied ✓' : 'Copy link'}
-                </button>
-              </div>
-              <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '8px', lineHeight: 1.6 }}>
-                Send this link via WhatsApp, Slack, or any channel. The employee logs in with their email + the password they set, and is guided through onboarding. <strong>This link always works — even if email delivery is not configured.</strong>
-              </div>
-            </div>
-
-            {/* Truthful email-delivery status — no more false "sent" claims */}
+            {/* Login credentials to hand to the employee */}
             {(() => {
-              const s = createdEmployee.emailStatus || {};
-              const emailWorking = s.resetSent && s.inviteSent;
-              const nothingSent = !s.resetSent && !s.inviteSent;
-              const bg = emailWorking ? 'rgba(34,197,94,0.08)' : nothingSent ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)';
-              const bd = emailWorking ? 'rgba(34,197,94,0.3)' : nothingSent ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)';
+              const { name, email, tempPassword, inviteLink, phone } = createdEmployee;
+              const message =
+                `Welcome to Anandi Productions, ${name}! 🎬\n\n` +
+                `Here are your login details:\n` +
+                `🔗 Portal: ${inviteLink}\n` +
+                `📧 Email: ${email}\n` +
+                `🔑 Temporary password: ${tempPassword}\n\n` +
+                `Please log in, complete your onboarding, and change your password from Settings. See you soon!`;
+              const digits = (phone || '').replace(/[^0-9]/g, '');
+              const waHref = digits
+                ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
+                : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+              const CredRow = ({ label, value, copyKey }) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '10px', color: t.textMuted, width: '70px', flexShrink: 0 }}>{label}</span>
+                  <code style={{ flex: 1, fontSize: '12px', color: t.text, background: t.modalBg || '#0b0b12', border: `1px solid ${t.border}`, borderRadius: '6px', padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</code>
+                  <button type="button" onClick={() => copyToClipboard(value, copyKey)} style={{ padding: '7px 10px', background: copied === copyKey ? '#22c55e' : 'transparent', color: copied === copyKey ? '#fff' : t.text, border: `1px solid ${t.border}`, borderRadius: '6px', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {copied === copyKey ? '✓' : 'Copy'}
+                  </button>
+                </div>
+              );
+
               return (
-                <div style={{ padding: '14px 16px', background: bg, border: `1px solid ${bd}`, borderRadius: '12px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: t.text, marginBottom: '8px' }}>
-                    Email delivery status
+                <div style={{ padding: '16px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: '12px' }}>
+                    Login details — send these to {name}
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '11px', color: t.textMuted, lineHeight: 1.7 }}>
-                    <li>Password-reset email: {s.resetSent ? 'sent ✓' : `NOT sent ✗${s.resetError ? ` (${s.resetError})` : ''}`}</li>
-                    <li>
-                      Welcome / onboarding invite: {s.inviteSent ? 'sent ✓'
-                        : s.inviteSkipped ? 'NOT sent — email service (Resend) is not configured'
-                        : `NOT sent ✗${s.inviteError ? ` (${s.inviteError})` : ''}`}
-                    </li>
-                  </ul>
-                  {nothingSent && (
-                    <div style={{ fontSize: '10px', color: t.text, marginTop: '8px', lineHeight: 1.6 }}>
-                      No emails went out. <strong>Copy the invite link above and send it manually</strong> (WhatsApp works great). To enable automatic emails, set <code>RESEND_API_KEY</code> and a verified <code>RESEND_FROM_EMAIL</code> in your environment.
-                    </div>
-                  )}
+                  <CredRow label="Portal" value={inviteLink} copyKey="link" />
+                  <CredRow label="Email" value={email} copyKey="email" />
+                  <CredRow label="Password" value={tempPassword} copyKey="pw" />
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <a
+                      href={waHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        flex: 1, textAlign: 'center', textDecoration: 'none',
+                        padding: '12px', borderRadius: '10px',
+                        background: '#25D366', color: '#fff', fontSize: '13px', fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      }}
+                    >
+                      <span style={{ fontSize: '16px' }}>📲</span> Send on WhatsApp
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(message, 'all')}
+                      style={{ padding: '12px 16px', borderRadius: '10px', background: 'transparent', color: t.text, border: `1px solid ${t.border}`, fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      {copied === 'all' ? 'Copied ✓' : 'Copy message'}
+                    </button>
+                  </div>
+
+                  <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '10px', lineHeight: 1.6 }}>
+                    {digits
+                      ? `Opens WhatsApp to ${phone} with the message pre-filled — just hit send.`
+                      : 'Opens WhatsApp with the message pre-filled — pick the contact and send. (Add a phone number next time to pre-select them.)'}
+                    {' '}The employee logs in with these, completes onboarding, then changes their password.
+                  </div>
                 </div>
               );
             })()}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(createdEmployee.email, 'email')}
-                style={{
-                  padding: '11px 18px',
-                  background: 'transparent',
-                  color: t.text,
-                  border: `1px solid ${t.border}`,
-                  borderRadius: '10px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {copied === 'email' ? 'Email copied ✓' : 'Copy email'}
-              </button>
               <button
                 type="button"
                 onClick={finishAndClose}
