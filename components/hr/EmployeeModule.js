@@ -16,6 +16,9 @@ import EmployeeDetailModal from './EmployeeDetailModal';
 import PendingApprovalsPanel from './PendingApprovalsPanel';
 import HrSettingsView from './HrSettingsView';
 import ImportExistingUserModal from './ImportExistingUserModal';
+import LeaveManagementPanel from './LeaveManagementPanel';
+import AttendanceImport from './AttendanceImport';
+import PayrollSheet from './PayrollSheet';
 
 /**
  * HR admin top-level view. Rendered when view === 'employees' AND canManageEmployees(user).
@@ -222,6 +225,9 @@ export default function EmployeeModule({ t }) {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <TabButton id="list" label="Employees" />
+        <TabButton id="leave" label="Leave" />
+        <TabButton id="attendance" label="Attendance" />
+        <TabButton id="payroll" label="Payroll" />
         {isFullAdmin && <TabButton id="approvals" label="Pending Approvals" badge={pendingCount} />}
         {isFullAdmin && <TabButton id="settings" label="HR Settings" />}
       </div>
@@ -362,6 +368,18 @@ export default function EmployeeModule({ t }) {
             )}
           </div>
         </>
+      )}
+
+      {tab === 'leave' && (
+        <LeaveManagementPanel actor={userProfile} t={t} />
+      )}
+
+      {tab === 'attendance' && (
+        <AttendanceImport actor={userProfile} t={t} />
+      )}
+
+      {tab === 'payroll' && (
+        <PayrollSheet actor={userProfile} t={t} />
       )}
 
       {tab === 'approvals' && isFullAdmin && (
