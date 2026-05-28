@@ -142,16 +142,6 @@ function getWorkflowCopy(type, data) {
 
 export async function POST(request) {
   try {
-    // Check for API key first
-    if (!process.env.RESEND_API_KEY) {
-      console.log('Email skipped: No API key configured');
-      return NextResponse.json({ success: true, skipped: true, reason: 'No API key configured' });
-    }
-
-    // Dynamic import Resend
-    const { Resend } = await import('resend');
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
     const { to, subject: bodySubject, body: bodyText, type, data } = await request.json();
 
     const isWorkflow = type && WORKFLOW_TYPES.has(type);
@@ -254,17 +244,40 @@ export async function POST(request) {
     };
 
     const html = getTemplate(type, subject, body, data || {});
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Anandi Productions <onboarding@resend.dev>';
+    const recipients = Array.isArray(to) ? to : [to];
 
-    const result = await resend.emails.send({
-      from: fromEmail,
-      to: Array.isArray(to) ? to : [to],
-      subject: subject,
-      html: html,
-    });
+    // Provider selection: SMTP (e.g. Gmail/Brevo) first, then Resend, else skip.
+    const hasSmtp = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS;
+    const hasResend = !!process.env.RESEND_API_KEY;
+    const fromEmail =
+      process.env.EMAIL_FROM ||
+      process.env.RESEND_FROM_EMAIL ||
+      (hasSmtp ? `Anandi Productions <${process.env.SMTP_USER}>` : 'Anandi Productions <onboarding@resend.dev>');
 
-    console.log('Email sent:', result);
-    return NextResponse.json({ success: true, data: result });
+    if (hasSmtp) {
+      const nodemailer = (await import('nodemailer')).default;
+      const port = Number(process.env.SMTP_PORT) || 587;
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port,
+        secure: port === 465, // 465 = implicit TLS; 587 = STARTTLS
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      });
+      const info = await transporter.sendMail({ from: fromEmail, to: recipients, subject, html });
+      console.log('Email sent via SMTP:', info.messageId);
+      return NextResponse.json({ success: true, provider: 'smtp', id: info.messageId });
+    }
+
+    if (hasResend) {
+      const { Resend } = await import('resend');
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const result = await resend.emails.send({ from: fromEmail, to: recipients, subject, html });
+      console.log('Email sent via Resend:', result);
+      return NextResponse.json({ success: true, provider: 'resend', data: result });
+    }
+
+    console.log('Email skipped: no provider configured (set SMTP_* or RESEND_API_KEY)');
+    return NextResponse.json({ success: true, skipped: true, reason: 'No email provider configured' });
 
   } catch (error) {
     console.error('Email error:', error);
