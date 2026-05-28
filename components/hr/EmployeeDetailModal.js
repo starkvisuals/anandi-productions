@@ -483,6 +483,80 @@ const ProfileTab = ({ t, form, set, saving, employee, actor, onSave }) => {
           {saving ? 'Saving...' : 'Save changes'}
         </Button>
       </div>
+
+      {/* Read-only summary of everything collected during onboarding */}
+      <OnboardingSummary t={t} employee={employee} />
+    </div>
+  );
+};
+
+// ─── Read-only onboarding data summary ───────────────────────────────────
+// Surfaces the personal, address, banking, and medical data the employee
+// submitted during onboarding so the admin can see EVERYTHING in one place.
+const OnboardingSummary = ({ t, employee }) => {
+  const ec = employee.emergencyContact || {};
+  const ac = employee.addressCurrent || {};
+  const ap = employee.addressPermanent || {};
+  const bank = employee.bankAccount || {};
+  const fmtAddr = (a) => [a.line1, a.line2, a.city, a.state, a.pincode, a.country].filter(Boolean).join(', ') || '—';
+  const maskAadhaar = (n) => n ? `•••• •••• ${String(n).replace(/\s/g, '').slice(-4)}` : '—';
+
+  const Section = ({ title, rows }) => (
+    <div style={{ marginTop: '14px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{title}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 18px' }}>
+        {rows.map(([label, value]) => (
+          <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ fontSize: '10px', color: t.textMuted }}>{label}</span>
+            <span style={{ fontSize: '12px', color: t.text, wordBreak: 'break-word' }}>{value || '—'}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ marginTop: '10px', paddingTop: '16px', borderTop: `1px solid ${t.border}` }}>
+      <div style={{ fontSize: '12px', fontWeight: 700, color: t.text, marginBottom: '4px' }}>Onboarding Submission (read-only)</div>
+      <div style={{ fontSize: '10px', color: t.textMuted, marginBottom: '6px' }}>Data the team member submitted during onboarding.</div>
+
+      <Section title="Personal" rows={[
+        ['Date of birth', employee.dateOfBirth],
+        ['Gender', employee.gender],
+        ['Marital status', employee.maritalStatus],
+        ['Blood group', employee.bloodGroup],
+      ]} />
+
+      <Section title="Emergency Contact" rows={[
+        ['Name', ec.name],
+        ['Relation', ec.relation],
+        ['Phone', ec.phone],
+      ]} />
+
+      <Section title="Identity" rows={[
+        ['PAN', employee.panNumber],
+        ['Aadhaar (masked)', maskAadhaar(employee.aadharNumber)],
+      ]} />
+
+      <Section title="Address" rows={[
+        ['Current', fmtAddr(ac)],
+        ['Permanent', fmtAddr(ap)],
+      ]} />
+
+      <Section title="Banking" rows={[
+        ['Account holder', bank.accountHolderName],
+        ['Account number', bank.accountNumber],
+        ['IFSC', bank.ifsc],
+        ['Bank name', bank.bankName],
+        ['Branch', bank.branch],
+        ['Bank address', bank.bankAddress],
+      ]} />
+
+      <Section title="Preferences & Medical" rows={[
+        ['Medical conditions', employee.medicalConditions],
+        ['Has allergies', employee.hasAllergies],
+        ['Allergy details', employee.allergyDetails],
+      ]} />
     </div>
   );
 };
@@ -492,10 +566,11 @@ const ProfileTab = ({ t, form, set, saving, employee, actor, onSave }) => {
 const DocumentsTab = ({ t, employee }) => {
   const docs = employee.documents || {};
   const entries = [
-    ['Profile photo',      docs.profilePhoto],
-    ['PAN card',           docs.panCard],
-    ['Aadhaar card',       docs.aadharCard],
-    ['Cancelled cheque',   docs.cancelledCheque],
+    ['Profile photo',       docs.profilePhoto],
+    ['PAN card',            docs.panCard],
+    ['Aadhaar card',        docs.aadharCard],
+    ['Bank passbook',       docs.bankPassbook],
+    ['Cancelled cheque',    docs.cancelledCheque],
     ['Signed offer letter', docs.signedOfferLetter],
   ];
   return (
