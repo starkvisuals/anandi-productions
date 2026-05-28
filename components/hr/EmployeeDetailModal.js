@@ -5,6 +5,8 @@ import {
   getEmployee,
   updateEmployee,
   deleteEmployee,
+  terminateEmployee,
+  reactivateEmployee,
   addCtcIncrement,
   canEditEmployee,
   canDeleteEmployee,
@@ -182,8 +184,42 @@ export default function EmployeeDetailModal({ t, uid, onClose, onChange }) {
     }
   };
 
+  const handleTerminate = async ({ type, lastWorkingDay, reason }) => {
+    if (!employee) return;
+    const verb = type === 'resigned' ? 'mark as resigned' : 'terminate';
+    if (!window.confirm(`Confirm: ${verb} ${employee.name}? Their record is kept; they're removed from active lists and future payroll.`)) return;
+    setSaving(true); setError(''); setNotice('');
+    try {
+      const result = await terminateEmployee(userProfile, uid, { type, lastWorkingDay, reason });
+      setNotice(result?.pendingApprovalId ? 'Termination sent to producer for approval.' : `Employee ${result.status}.`);
+      await load();
+      onChange?.();
+    } catch (err) {
+      setError(err.message || 'Termination failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!employee) return;
+    if (!window.confirm(`Reactivate ${employee.name} as an active employee?`)) return;
+    setSaving(true); setError(''); setNotice('');
+    try {
+      await reactivateEmployee(userProfile, uid);
+      setNotice('Employee reactivated.');
+      await load();
+      onChange?.();
+    } catch (err) {
+      setError(err.message || 'Reactivate failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const deleteCheck = employee ? canDeleteEmployee(userProfile, employee) : { allowed: false };
   const isPrimary = employee?.isPrimaryProducer === true;
+  const isFullAdmin = isHrFullAdmin(userProfile);
 
   const TabBtn = ({ id, label }) => (
     <button
@@ -236,6 +272,11 @@ export default function EmployeeDetailModal({ t, uid, onClose, onChange }) {
               <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: t.text, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {employee?.name || '—'}
                 {isPrimary && <span title="Primary Admin — permanent" style={{ fontSize: '14px' }}>👑</span>}
+                {(employee?.employmentStatus === 'terminated' || employee?.employmentStatus === 'resigned') && (
+                  <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {employee.employmentStatus === 'resigned' ? 'Resigned' : 'Terminated'}
+                  </span>
+                )}
               </h2>
               <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>
                 {employee?.employeeId || '—'} · {employee?.designation || '—'} · {employee?.email || '—'}
@@ -316,6 +357,9 @@ export default function EmployeeDetailModal({ t, uid, onClose, onChange }) {
                   deleteCheck={deleteCheck}
                   saving={saving}
                   onDelete={handleDelete}
+                  onTerminate={handleTerminate}
+                  onReactivate={handleReactivate}
+                  isFullAdmin={isFullAdmin}
                 />
               )}
             </>
@@ -891,9 +935,62 @@ const OnboardingTab = ({ t, employee }) => {
 
 // ─── Danger zone tab ─────────────────────────────────────────────────────
 
-const DangerTab = ({ t, employee, deleteCheck, saving, onDelete }) => {
+const DangerTab = ({ t, employee, deleteCheck, saving, onDelete, onTerminate, onReactivate, isFullAdmin }) => {
+  const isFormer = employee?.employmentStatus === 'terminated' || employee?.employmentStatus === 'resigned';
+  const [type, setType] = useState('terminated');
+  const [lastWorkingDay, setLastWorkingDay] = useState(new Date().toISOString().slice(0, 10));
+  const [reason, setReason] = useState('');
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Termination / exit — keeps the record */}
+      {isFormer ? (
+        <div style={{ padding: '20px 22px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '12px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: t.danger, marginBottom: '8px' }}>
+            {employee.employmentStatus === 'resigned' ? 'Resigned' : 'Terminated'}
+          </div>
+          <div style={{ fontSize: '12px', color: t.textMuted, lineHeight: 1.7, marginBottom: '14px' }}>
+            Last working day: <b style={{ color: t.text }}>{employee.lastWorkingDay || '—'}</b><br />
+            {employee.terminationReason ? <>Reason: {employee.terminationReason}<br /></> : null}
+            This person is excluded from active lists and future payroll. Their records are retained.
+          </div>
+          {isFullAdmin && (
+            <Button t={t} onClick={onReactivate} disabled={saving}>
+              {saving ? 'Processing...' : 'Reactivate (rehire / undo)'}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div style={{ padding: '20px 22px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '12px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: t.warning || '#f59e0b', marginBottom: '8px' }}>
+            End Employment (Terminate / Resignation)
+          </div>
+          <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '14px', lineHeight: 1.6 }}>
+            Marks {employee.name} as a former employee. Keeps all records (docs, payslips, F&amp;F), removes them from active lists and future payroll. Reversible.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <Field t={t} label="Type">
+              <Select t={t} value={type} onChange={setType}>
+                <option value="terminated">Termination (by company)</option>
+                <option value="resigned">Resignation (by employee)</option>
+              </Select>
+            </Field>
+            <Field t={t} label="Last working day">
+              <Input t={t} type="date" value={lastWorkingDay} onChange={setLastWorkingDay} />
+            </Field>
+          </div>
+          <div style={{ marginBottom: '14px' }}>
+            <Field t={t} label="Reason / notes">
+              <Input t={t} value={reason} onChange={setReason} placeholder="e.g. performance, role redundancy, personal reasons" />
+            </Field>
+          </div>
+          <Button t={t} variant="danger" onClick={() => onTerminate({ type, lastWorkingDay, reason })} disabled={saving}>
+            {saving ? 'Processing...' : (type === 'resigned' ? 'Mark as Resigned' : 'Terminate Employee')}
+          </Button>
+        </div>
+      )}
+
+      {/* Permanent delete — rare, wipes the record entirely */}
       <div style={{
         padding: '20px 22px',
         background: 'rgba(239,68,68,0.08)',
@@ -901,12 +998,12 @@ const DangerTab = ({ t, employee, deleteCheck, saving, onDelete }) => {
         borderRadius: '12px',
       }}>
         <div style={{ fontSize: '14px', fontWeight: 700, color: t.danger, marginBottom: '8px' }}>
-          {deleteCheck.requiresApproval ? 'Request Employee Deletion' : 'Delete Employee'}
+          {deleteCheck.requiresApproval ? 'Request Employee Deletion' : 'Delete Employee (permanent)'}
         </div>
         <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '16px', lineHeight: 1.6 }}>
           {deleteCheck.requiresApproval
             ? `You are an HR sub-admin. Deletion requests are sent to the primary producer for approval. All records including signatures and documents will be removed if approved.`
-            : `This will permanently remove ${employee.name} from the HR system. All their documents, signatures, and HR data will be deleted. This cannot be undone.`}
+            : `This permanently erases ${employee.name} and all their documents, signatures, and HR data. This cannot be undone. For someone who has left, use "End Employment" above instead — it keeps the records.`}
         </div>
         <Button t={t} variant="danger" onClick={onDelete} disabled={saving || (!deleteCheck.allowed && !deleteCheck.requiresApproval)}>
           {saving ? 'Processing...' : (deleteCheck.requiresApproval ? 'Request Deletion' : 'Delete Permanently')}

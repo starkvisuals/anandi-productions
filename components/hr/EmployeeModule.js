@@ -34,6 +34,7 @@ export default function EmployeeModule({ t }) {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterEmployment, setFilterEmployment] = useState('active'); // active | former | all
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [detailUid, setDetailUid] = useState(null);
@@ -85,6 +86,10 @@ export default function EmployeeModule({ t }) {
     const q = search.trim().toLowerCase();
     return employees
       .filter(e => {
+        const left = e.employmentStatus === 'terminated' || e.employmentStatus === 'resigned';
+        // Active by default; 'former' shows only those who left; 'all' shows both
+        if (filterEmployment === 'active' && left) return false;
+        if (filterEmployment === 'former' && !left) return false;
         if (filterDept !== 'all' && e.department !== filterDept) return false;
         if (filterStatus !== 'all' && (e.onboardingStatus || 'pending') !== filterStatus) return false;
         if (q) {
@@ -99,7 +104,7 @@ export default function EmployeeModule({ t }) {
         if (!a.isPrimaryProducer && b.isPrimaryProducer) return 1;
         return (a.employeeId || '').localeCompare(b.employeeId || '');
       });
-  }, [employees, search, filterDept, filterStatus]);
+  }, [employees, search, filterDept, filterStatus, filterEmployment]);
 
   // Defense in depth: even though MainApp guards the view, check here too.
   // Placed after all hooks to keep hook order stable.
@@ -294,6 +299,24 @@ export default function EmployeeModule({ t }) {
               <option value="in-progress">In progress</option>
               <option value="completed">Completed</option>
             </select>
+            <select
+              value={filterEmployment}
+              onChange={(e) => setFilterEmployment(e.target.value)}
+              style={{
+                padding: '10px 14px',
+                background: t.bgInput,
+                border: `1px solid ${t.border}`,
+                borderRadius: '10px',
+                color: t.text,
+                fontSize: '13px',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="active">Active only</option>
+              <option value="former">Former (left)</option>
+              <option value="all">All (incl. former)</option>
+            </select>
           </div>
 
           {/* Employee table */}
@@ -349,6 +372,11 @@ export default function EmployeeModule({ t }) {
                               <div style={{ color: t.text, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 {e.name || '—'}
                                 {e.isPrimaryProducer && <span title="Primary Admin — permanent" style={{ fontSize: '11px' }}>👑</span>}
+                                {(e.employmentStatus === 'terminated' || e.employmentStatus === 'resigned') && (
+                                  <span title={e.lastWorkingDay ? `Last day: ${e.lastWorkingDay}` : ''} style={{ fontSize: '9px', fontWeight: 700, padding: '2px 7px', borderRadius: '999px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    {e.employmentStatus === 'resigned' ? 'Resigned' : 'Terminated'}
+                                  </span>
+                                )}
                               </div>
                               <div style={{ color: t.textMuted, fontSize: '11px' }}>{e.email}</div>
                             </div>
