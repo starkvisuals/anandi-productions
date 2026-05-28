@@ -8,7 +8,9 @@ import {
   addCtcIncrement,
   canEditEmployee,
   canDeleteEmployee,
+  canManageEmployees,
   isHrFullAdmin,
+  uploadEmployeeDocument,
   EMPLOYMENT_TYPES,
   DEPARTMENTS,
 } from '@/lib/hr';
@@ -276,7 +278,7 @@ export default function EmployeeDetailModal({ t, uid, onClose, onChange }) {
                 />
               )}
 
-              {tab === 'documents' && <DocumentsTab t={t} employee={employee} />}
+              {tab === 'documents' && <DocumentsTab t={t} employee={employee} actor={userProfile} onChanged={load} />}
 
               {tab === 'ctc' && (
                 <CtcTab
@@ -587,9 +589,29 @@ const OnboardingSummary = ({ t, employee }) => {
 
 // ─── Documents tab ───────────────────────────────────────────────────────
 
-const DocumentsTab = ({ t, employee }) => {
+const DocumentsTab = ({ t, employee, actor, onChanged }) => {
   const docs = employee.documents || {};
+  const isAdmin = canManageEmployees(actor);
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState('');
+
+  const uploadOfferLetter = async (file) => {
+    if (!file) return;
+    setUploading(true); setUploadErr('');
+    try {
+      const res = await uploadEmployeeDocument(employee.id, 'offerLetter', file);
+      const nextDocs = { ...(employee.documents || {}), offerLetter: { url: res.url, path: res.path, uploadedAt: new Date().toISOString() } };
+      await updateEmployee(actor, employee.id, { documents: nextDocs });
+      onChanged?.();
+    } catch (e) {
+      setUploadErr(e.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const entries = [
+    ['Offer letter (issued)', docs.offerLetter],
     ['Profile photo',       docs.profilePhoto],
     ['PAN card',            docs.panCard],
     ['Aadhaar card',        docs.aadharCard],
@@ -599,6 +621,20 @@ const DocumentsTab = ({ t, employee }) => {
   ];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* Admin: upload the issued offer letter PDF (employee reviews + signs it in onboarding) */}
+      {isAdmin && (
+        <div style={{ padding: '14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: t.text, marginBottom: '4px' }}>Upload Offer Letter (PDF)</div>
+          <div style={{ fontSize: '10px', color: t.textMuted, marginBottom: '10px' }}>
+            The employee reviews this exact PDF during onboarding and signs it. They can download it anytime.
+            {docs.offerLetter?.url ? ' ✓ Currently uploaded.' : ' Not uploaded yet.'}
+          </div>
+          <input type="file" accept="application/pdf" disabled={uploading} onChange={e => uploadOfferLetter(e.target.files?.[0])}
+            style={{ fontSize: '12px', color: t.text }} />
+          {uploading && <span style={{ fontSize: '11px', color: t.textMuted, marginLeft: '8px' }}>Uploading…</span>}
+          {uploadErr && <div style={{ fontSize: '11px', color: t.danger, marginTop: '6px' }}>⚠ {uploadErr}</div>}
+        </div>
+      )}
       {entries.map(([label, doc]) => (
         <div key={label} style={{
           display: 'flex',

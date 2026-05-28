@@ -601,14 +601,27 @@ export default function OnboardingFlow({ t }) {
               {/* 6. Offer Letter — pick template by workerClass */}
               {step.id === 'offerLetter' && (() => {
                 const wc = userProfile?.workerClass || 'employee';
-                const tpl = wc === 'contractor'
-                  ? hrSettings?.templates?.offerLetterContractor?.body
-                  : hrSettings?.templates?.offerLetterEmployee?.body;
+                const title = wc === 'contractor' ? 'Engagement Letter' : 'Offer Letter';
+                // Admin uploads the real PDF (documents.offerLetter). If it's not
+                // there yet, the letter isn't ready — block with a clear message.
+                const offerPdf = userProfile?.documents?.offerLetter?.url;
+                if (!offerPdf) {
+                  return (
+                    <div>
+                      <h1 style={sectionHeading}>{title}</h1>
+                      <p style={sectionDesc}>Your {title.toLowerCase()} is being prepared.</p>
+                      <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '12px', padding: '18px', fontSize: '13px', color: t.textSecondary, marginBottom: '18px' }}>
+                        Your {title.toLowerCase()} hasn&apos;t been uploaded by HR yet. Please check back shortly, or contact your manager. You can continue once it&apos;s available.
+                      </div>
+                      <button onClick={goBack} style={{ padding: '9px 16px', background: 'transparent', color: t.textMuted, border: `1px solid ${t.border}`, borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>← Back</button>
+                    </div>
+                  );
+                }
                 return (
                   <SignedDocumentStep
                     docKey="offerLetter"
-                    title={wc === 'contractor' ? 'Engagement Letter' : 'Offer Letter'}
-                    template={fillTemplate(tpl, userProfile)}
+                    title={title}
+                    pdfUrl={offerPdf}
                     userProfile={userProfile}
                     t={t}
                     saveAndNext={saveAndNext}
@@ -979,7 +992,7 @@ function PhotoStep({ userProfile, t, saveAndNext, goBack, sectionHeading, sectio
   );
 }
 
-function SignedDocumentStep({ docKey, title, template, handbookUrl, userProfile, t, saveAndNext, goBack, sectionHeading, sectionDesc }) {
+function SignedDocumentStep({ docKey, title, template, pdfUrl, handbookUrl, userProfile, t, saveAndNext, goBack, sectionHeading, sectionDesc }) {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState('');
 
@@ -1010,21 +1023,32 @@ function SignedDocumentStep({ docKey, title, template, handbookUrl, userProfile,
       <h1 style={sectionHeading}>{title}</h1>
       <p style={sectionDesc}>Please read carefully and sign below to continue.</p>
 
-      <div style={{
-        background: t.bgCard,
-        border: `1px solid ${t.border}`,
-        borderRadius: '12px',
-        padding: '18px',
-        marginBottom: '18px',
-        maxHeight: '280px',
-        overflow: 'auto',
-        whiteSpace: 'pre-wrap',
-        fontSize: '12.5px',
-        lineHeight: 1.65,
-        color: t.textSecondary,
-      }}>
-        {template || '(document text pending)'}
-      </div>
+      {pdfUrl ? (
+        <div style={{ marginBottom: '18px' }}>
+          <iframe title={title} src={pdfUrl} style={{ width: '100%', height: '420px', border: `1px solid ${t.border}`, borderRadius: '12px', background: '#fff' }} />
+          <div style={{ marginTop: '8px' }}>
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: t.primary, fontSize: '12px', textDecoration: 'underline' }}>
+              Download {title} (PDF) →
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          background: t.bgCard,
+          border: `1px solid ${t.border}`,
+          borderRadius: '12px',
+          padding: '18px',
+          marginBottom: '18px',
+          maxHeight: '280px',
+          overflow: 'auto',
+          whiteSpace: 'pre-wrap',
+          fontSize: '12.5px',
+          lineHeight: 1.65,
+          color: t.textSecondary,
+        }}>
+          {template || '(document text pending)'}
+        </div>
+      )}
 
       {handbookUrl && (
         <div style={{ marginBottom: '14px' }}>
