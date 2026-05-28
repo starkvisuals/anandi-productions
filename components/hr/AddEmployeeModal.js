@@ -30,6 +30,8 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
     reportingManager: '',
     jibbleName: '',
     workerClass: 'employee', // 'employee' | 'contractor'
+    probationMonths: '',      // e.g. 2 (blank = no probation)
+    probationMonthlySalary: '', // e.g. 20000 (reduced salary during probation)
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -94,6 +96,8 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
 
       // 3. Mark as employee and seed HR fields
       const annual = parseFloat(form.annualCtc) || 0;
+      const probMonths = parseInt(form.probationMonths, 10) || 0;
+      const probSalary = parseFloat(form.probationMonthlySalary) || 0;
       await createEmployee(userProfile, uid, {
         designation: form.designation.trim(),
         department: form.department.trim(),
@@ -103,6 +107,7 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
         reportingManager: form.reportingManager,
         jibbleName: form.jibbleName.trim() || form.name.trim(),
         ctc: annual ? { annual, effectiveFrom: form.dateOfJoining, structure: null, history: [] } : null,
+        probation: (probMonths > 0 && probSalary > 0) ? { months: probMonths, monthlySalary: probSalary } : null,
       });
 
       // 4. Send password reset email (doubles as onboarding invite — user sets own password, then lands in onboarding flow)
@@ -411,6 +416,15 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
             </Field>
             <Field label="Annual CTC (₹)" t={t}>
               <Input t={t} type="number" value={form.annualCtc} onChange={(v) => set('annualCtc', v)} placeholder="e.g. 600000" />
+            </Field>
+          </Row>
+
+          <Row>
+            <Field label="Probation period (months)" t={t} hint="Leave blank if no probation.">
+              <Input t={t} type="number" value={form.probationMonths} onChange={(v) => set('probationMonths', v)} placeholder="e.g. 2" />
+            </Field>
+            <Field label="Probation salary (₹/month)" t={t} hint="Reduced monthly pay during probation. Full salary = Annual CTC ÷ 12 after.">
+              <Input t={t} type="number" value={form.probationMonthlySalary} onChange={(v) => set('probationMonthlySalary', v)} placeholder="e.g. 20000" />
             </Field>
           </Row>
 

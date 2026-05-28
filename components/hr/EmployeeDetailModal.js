@@ -57,6 +57,8 @@ export default function EmployeeDetailModal({ t, uid, onClose, onChange }) {
         uanNumber: e?.uanNumber || '',
         ptApplicable: e?.ptApplicable ?? true,
         tdsMonthly: e?.tdsMonthly || 0,
+        probationMonths: e?.probation?.months || '',
+        probationMonthlySalary: e?.probation?.monthlySalary || '',
       });
     } catch (err) {
       setError(err.message || 'Failed to load employee');
@@ -90,6 +92,25 @@ export default function EmployeeDetailModal({ t, uid, onClose, onChange }) {
       onChange?.();
     } catch (err) {
       setError(err.message || 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveProbation = async () => {
+    setError('');
+    setNotice('');
+    setSaving(true);
+    try {
+      const months = parseInt(form.probationMonths, 10) || 0;
+      const monthlySalary = parseFloat(form.probationMonthlySalary) || 0;
+      const probation = (months > 0 && monthlySalary > 0) ? { months, monthlySalary } : null;
+      const result = await updateEmployee(userProfile, uid, { probation });
+      setNotice(result?.pendingApprovalId ? 'Change submitted for producer approval.' : 'Probation saved.');
+      await load();
+      onChange?.();
+    } catch (err) {
+      setError(err.message || 'Failed to save probation');
     } finally {
       setSaving(false);
     }
@@ -266,6 +287,9 @@ export default function EmployeeDetailModal({ t, uid, onClose, onChange }) {
                   saving={saving}
                   onSubmit={submitCtc}
                   actor={userProfile}
+                  profileForm={form}
+                  setProfileField={set}
+                  onSaveProbation={saveProbation}
                 />
               )}
 
@@ -612,10 +636,12 @@ const DocumentsTab = ({ t, employee }) => {
 
 // ─── CTC tab ─────────────────────────────────────────────────────────────
 
-const CtcTab = ({ t, employee, form, setForm, saving, onSubmit, actor }) => {
+const CtcTab = ({ t, employee, form, setForm, saving, onSubmit, actor, profileForm, setProfileField, onSaveProbation }) => {
   const ctc = employee.ctc || null;
   const history = (ctc && ctc.history) || [];
   const check = canEditEmployee(actor, employee, ['ctc']);
+  const prob = employee.probation || null;
+  const monthlyPost = ctc?.annual ? ctc.annual / 12 : 0;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <div style={{
@@ -628,10 +654,42 @@ const CtcTab = ({ t, employee, form, setForm, saving, onSubmit, actor }) => {
         <div style={{ fontSize: '28px', fontWeight: 700, color: t.text }}>
           {ctc?.annual ? `₹${Number(ctc.annual).toLocaleString('en-IN')}` : '—'}
         </div>
+        {monthlyPost > 0 && (
+          <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '4px' }}>
+            ₹{Math.round(monthlyPost).toLocaleString('en-IN')} / month (post-probation)
+          </div>
+        )}
         {ctc?.effectiveFrom && (
           <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '4px' }}>
             Effective from {ctc.effectiveFrom}
           </div>
+        )}
+      </div>
+
+      {/* Probation salary */}
+      <div style={{ padding: '18px 20px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '12px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: t.text, marginBottom: '4px' }}>Probation Salary</div>
+        <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '12px' }}>
+          {prob
+            ? `Currently: ₹${Number(prob.monthlySalary).toLocaleString('en-IN')}/month for the first ${prob.months} month(s), then full salary.`
+            : 'No probation set — full salary from day one.'}
+        </div>
+        {check.allowed && (
+          <>
+            <Row>
+              <Field t={t} label="Probation period (months)">
+                <Input t={t} type="number" value={profileForm?.probationMonths ?? ''} onChange={(v) => setProfileField('probationMonths', v)} placeholder="e.g. 2 (blank = none)" />
+              </Field>
+              <Field t={t} label="Probation salary (₹/month)">
+                <Input t={t} type="number" value={profileForm?.probationMonthlySalary ?? ''} onChange={(v) => setProfileField('probationMonthlySalary', v)} placeholder="e.g. 20000" />
+              </Field>
+            </Row>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+              <Button t={t} onClick={onSaveProbation} disabled={saving}>
+                {saving ? 'Saving...' : 'Save probation'}
+              </Button>
+            </div>
+          </>
         )}
       </div>
 

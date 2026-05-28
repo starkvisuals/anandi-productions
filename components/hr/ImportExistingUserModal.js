@@ -66,6 +66,8 @@ export default function ImportExistingUserModal({ onClose, onCreated }) {
     reportingManager: '',
     jibbleName: '',
     annualCtc: '',
+    probationMonths: '',
+    probationMonthlySalary: '',
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -113,11 +115,16 @@ export default function ImportExistingUserModal({ onClose, onCreated }) {
     setSubmitting(true);
     setError(null);
     try {
+      const probMonths = parseInt(form.probationMonths, 10) || 0;
+      const probSalary = parseFloat(form.probationMonthlySalary) || 0;
       const payload = {
         ...form,
         ctc: form.annualCtc ? { annual: Number(form.annualCtc), effectiveFrom: form.dateOfJoining, structure: {}, history: [] } : null,
+        probation: (probMonths > 0 && probSalary > 0) ? { months: probMonths, monthlySalary: probSalary } : null,
       };
       delete payload.annualCtc;
+      delete payload.probationMonths;
+      delete payload.probationMonthlySalary;
       await createEmployee(userProfile, selectedUid, payload);
       if (onCreated) onCreated({ uid: selectedUid });
       onClose?.();
@@ -239,11 +246,17 @@ export default function ImportExistingUserModal({ onClose, onCreated }) {
                 <Field label="Date of Joining" required>
                   <input type="date" value={form.dateOfJoining} onChange={e => set('dateOfJoining', e.target.value)} style={inputStyle} />
                 </Field>
-                <Field label="Annual CTC (₹)" hint="optional">
+                <Field label="Annual CTC (₹)" hint="full salary × 12 (post-probation)">
                   <input type="number" value={form.annualCtc} onChange={e => set('annualCtc', e.target.value)} style={inputStyle} placeholder="e.g. 600000" />
                 </Field>
                 <Field label="Work Location">
                   <input value={form.workLocation} onChange={e => set('workLocation', e.target.value)} style={inputStyle} placeholder="Mumbai / Remote" />
+                </Field>
+                <Field label="Probation period (months)" hint="blank = none">
+                  <input type="number" value={form.probationMonths} onChange={e => set('probationMonths', e.target.value)} style={inputStyle} placeholder="e.g. 2" />
+                </Field>
+                <Field label="Probation salary (₹/month)" hint="reduced pay during probation">
+                  <input type="number" value={form.probationMonthlySalary} onChange={e => set('probationMonthlySalary', e.target.value)} style={inputStyle} placeholder="e.g. 20000" />
                 </Field>
                 <Field label="Reporting Manager">
                   <input value={form.reportingManager} onChange={e => set('reportingManager', e.target.value)} style={inputStyle} placeholder="Name or UID" />
