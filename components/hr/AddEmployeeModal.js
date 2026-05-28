@@ -1,10 +1,33 @@
 'use client';
 import { useState } from 'react';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { initializeApp, getApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
+import { auth, firebaseConfig } from '@/lib/firebase';
 import { createUser } from '@/lib/firestore';
 import { useAuth } from '@/lib/auth-context';
 import { createEmployee, EMPLOYMENT_TYPES, DEPARTMENTS } from '@/lib/hr';
+
+/**
+ * Create a Firebase Auth account WITHOUT touching the current (producer)
+ * session. The primary SDK's createUserWithEmailAndPassword auto-signs-in as
+ * the new user — which would log the admin out. We do it on a throwaway
+ * secondary app instead, then tear it down. Returns the new user's uid.
+ */
+async function createAuthUserIsolated(email, password) {
+  const SECONDARY = 'employee-creator';
+  let secondaryApp;
+  try {
+    try { secondaryApp = getApp(SECONDARY); }
+    catch { secondaryApp = initializeApp(firebaseConfig, SECONDARY); }
+    const secondaryAuth = getAuth(secondaryApp);
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    const uid = cred.user.uid;
+    await signOut(secondaryAuth).catch(() => {});
+    return uid;
+  } finally {
+    if (secondaryApp) await deleteApp(secondaryApp).catch(() => {});
+  }
+}
 
 /**
  * Admin modal to add a new employee. Creates a Firebase Auth account with a
@@ -75,10 +98,10 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
     }
     setSubmitting(true);
     try {
-      // 1. Create Firebase Auth account with a temporary password
+      // 1. Create Firebase Auth account with a temporary password — on a
+      // SECONDARY app so the producer's own session is never replaced.
       const tempPassword = generateTempPassword();
-      const cred = await createUserWithEmailAndPassword(auth, form.email.trim(), tempPassword);
-      const uid = cred.user.uid;
+      const uid = await createAuthUserIsolated(form.email.trim(), tempPassword);
 
       // 2. Create the user doc (non-HR base fields, following existing app patterns)
       await createUser(uid, {
