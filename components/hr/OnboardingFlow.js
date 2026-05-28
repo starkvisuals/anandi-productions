@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
 import {
-  ONBOARDING_STEPS, GENDERS, BLOOD_GROUPS,
+  ONBOARDING_STEPS, GENDERS, BLOOD_GROUPS, HR_DEPARTMENTS,
   updateEmployeeOnboarding, completeOnboarding,
   uploadEmployeeDocument, uploadEmployeeBlob, saveSignatureImage,
   getHrSettings,
@@ -52,7 +52,17 @@ export default function OnboardingFlow({ t }) {
     panNumber: userProfile?.panNumber || '',
     aadharNumber: userProfile?.aadharNumber || '',
     passportNumber: userProfile?.passportNumber || '',
-    bankAccount: userProfile?.bankAccount || { accountNumber: '', ifsc: '', bankName: '', accountHolderName: userProfile?.name || '', branch: '' },
+    bankAccount: userProfile?.bankAccount || { accountNumber: '', ifsc: '', bankName: '', accountHolderName: userProfile?.name || '', branch: '', bankAddress: '' },
+    // Employment details (self-confirmed during onboarding)
+    startDate: userProfile?.dateOfJoining || userProfile?.startDate || '',
+    department: userProfile?.department || '',
+    jobTitle: userProfile?.designation || userProfile?.jobTitle || '',
+    reportingManager: userProfile?.reportingManager || '',
+    employmentType: userProfile?.employmentType || '',
+    // Preferences & medical
+    medicalConditions: userProfile?.medicalConditions || '',
+    hasAllergies: userProfile?.hasAllergies || '',
+    allergyDetails: userProfile?.allergyDetails || '',
   }));
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -120,7 +130,16 @@ export default function OnboardingFlow({ t }) {
         bankName: d.bankAccount?.bankName || userProfile.bankAccount?.bankName || '',
         accountHolderName: d.bankAccount?.accountHolderName || userProfile.bankAccount?.accountHolderName || userProfile.name || '',
         branch: d.bankAccount?.branch || userProfile.bankAccount?.branch || '',
+        bankAddress: d.bankAccount?.bankAddress || userProfile.bankAccount?.bankAddress || '',
       },
+      startDate: d.startDate || userProfile.dateOfJoining || userProfile.startDate || '',
+      department: d.department || userProfile.department || '',
+      jobTitle: d.jobTitle || userProfile.designation || userProfile.jobTitle || '',
+      reportingManager: d.reportingManager || userProfile.reportingManager || '',
+      employmentType: d.employmentType || userProfile.employmentType || '',
+      medicalConditions: d.medicalConditions || userProfile.medicalConditions || '',
+      hasAllergies: d.hasAllergies || userProfile.hasAllergies || '',
+      allergyDetails: d.allergyDetails || userProfile.allergyDetails || '',
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile?.id]);
@@ -413,6 +432,64 @@ export default function OnboardingFlow({ t }) {
                 </div>
               )}
 
+              {/* Employment Details */}
+              {step.id === 'employment' && (
+                <div>
+                  <h1 style={sectionHeading}>Employment Details</h1>
+                  <p style={sectionDesc}>Confirm your role and reporting details.</p>
+
+                  <div style={fieldRow}>
+                    <label style={labelStyle}>Start Date <span style={{ color: t.danger }}>*</span></label>
+                    <input type="date" value={formData.startDate} onChange={e => update({ startDate: e.target.value })} style={inputStyle} />
+                  </div>
+
+                  <div style={fieldRow}>
+                    <label style={labelStyle}>Department <span style={{ color: t.danger }}>*</span></label>
+                    <select value={formData.department} onChange={e => update({ department: e.target.value })} style={inputStyle}>
+                      <option value="">Select</option>
+                      {HR_DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={fieldRow}>
+                    <label style={labelStyle}>Job Title (as provided on your offer letter) <span style={{ color: t.danger }}>*</span></label>
+                    <input value={formData.jobTitle} onChange={e => update({ jobTitle: e.target.value })} style={inputStyle} placeholder="e.g. Social Media Executive" />
+                  </div>
+
+                  <div style={fieldRow}>
+                    <label style={labelStyle}>Reporting Manager <span style={{ color: t.danger }}>*</span></label>
+                    <input value={formData.reportingManager} onChange={e => update({ reportingManager: e.target.value })} style={inputStyle} placeholder="Manager's name" />
+                  </div>
+
+                  <div style={fieldRow}>
+                    <label style={labelStyle}>Employment Type <span style={{ color: t.danger }}>*</span></label>
+                    <select value={formData.employmentType} onChange={e => update({ employmentType: e.target.value })} style={inputStyle}>
+                      <option value="">Select</option>
+                      <option value="full-time">Full-Time</option>
+                      <option value="part-time">Part-Time</option>
+                      <option value="contract">Contract</option>
+                    </select>
+                  </div>
+
+                  {errorMsg && <div style={{ color: t.danger, fontSize: '12px', marginTop: '8px' }}>{errorMsg}</div>}
+                  <NavButtons
+                    t={t}
+                    onBack={goBack}
+                    onNext={() => saveAndNext({
+                      startDate: formData.startDate,
+                      dateOfJoining: formData.startDate,
+                      department: formData.department,
+                      jobTitle: formData.jobTitle,
+                      designation: formData.jobTitle,
+                      reportingManager: formData.reportingManager,
+                      employmentType: formData.employmentType,
+                    })}
+                    nextDisabled={saving || !formData.startDate || !formData.department || !formData.jobTitle || !formData.reportingManager || !formData.employmentType}
+                    nextLabel={saving ? 'Saving...' : 'Continue'}
+                  />
+                </div>
+              )}
+
               {/* 3. Identity Documents */}
               {step.id === 'identity' && (
                 <IdentityStep
@@ -444,6 +521,69 @@ export default function OnboardingFlow({ t }) {
                   sectionHeading={sectionHeading}
                   sectionDesc={sectionDesc}
                 />
+              )}
+
+              {/* Preferences & Medical */}
+              {step.id === 'preferences' && (
+                <div>
+                  <h1 style={sectionHeading}>Preferences & Medical</h1>
+                  <p style={sectionDesc}>This helps us keep you safe on shoots and in the office.</p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                    <div>
+                      <label style={labelStyle}>Blood Group <span style={{ color: t.danger }}>*</span></label>
+                      <select value={formData.bloodGroup} onChange={e => update({ bloodGroup: e.target.value })} style={inputStyle}>
+                        <option value="">Select</option>
+                        {BLOOD_GROUPS.map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Do you have any allergies? <span style={{ color: t.danger }}>*</span></label>
+                      <select value={formData.hasAllergies} onChange={e => update({ hasAllergies: e.target.value })} style={inputStyle}>
+                        <option value="">Select</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                        <option value="maybe">Maybe</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={fieldRow}>
+                    <label style={labelStyle}>Any known medical conditions? <span style={{ color: t.danger }}>*</span></label>
+                    <textarea
+                      value={formData.medicalConditions}
+                      onChange={e => update({ medicalConditions: e.target.value })}
+                      style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }}
+                      placeholder="Write 'None' if not applicable"
+                    />
+                  </div>
+
+                  {(formData.hasAllergies === 'yes' || formData.hasAllergies === 'maybe') && (
+                    <div style={fieldRow}>
+                      <label style={labelStyle}>Please provide details about your allergies / medical conditions <span style={{ color: t.danger }}>*</span></label>
+                      <textarea
+                        value={formData.allergyDetails}
+                        onChange={e => update({ allergyDetails: e.target.value })}
+                        style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }}
+                        placeholder="e.g. peanut allergy, dust allergy, asthma…"
+                      />
+                    </div>
+                  )}
+
+                  {errorMsg && <div style={{ color: t.danger, fontSize: '12px', marginTop: '8px' }}>{errorMsg}</div>}
+                  <NavButtons
+                    t={t}
+                    onBack={goBack}
+                    onNext={() => saveAndNext({
+                      bloodGroup: formData.bloodGroup,
+                      hasAllergies: formData.hasAllergies,
+                      medicalConditions: formData.medicalConditions,
+                      allergyDetails: (formData.hasAllergies === 'yes' || formData.hasAllergies === 'maybe') ? formData.allergyDetails : '',
+                    })}
+                    nextDisabled={saving || !formData.bloodGroup || !formData.hasAllergies || !formData.medicalConditions || ((formData.hasAllergies === 'yes' || formData.hasAllergies === 'maybe') && !formData.allergyDetails)}
+                    nextLabel={saving ? 'Saving...' : 'Continue'}
+                  />
+                </div>
               )}
 
               {/* 5. Photo */}
@@ -708,6 +848,7 @@ function IdentityStep({ userProfile, t, inputStyle, labelStyle, formData, update
 
 function BankingStep({ userProfile, t, inputStyle, labelStyle, formData, update, setFormData, saveAndNext, goBack, sectionHeading, sectionDesc }) {
   const [chequeFile, setChequeFile] = useState(null);
+  const [passbookFile, setPassbookFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState('');
 
@@ -721,14 +862,20 @@ function BankingStep({ userProfile, t, inputStyle, labelStyle, formData, update,
 
   const handleNext = async () => {
     setErr('');
-    if (!b.accountNumber || !b.ifsc || !b.bankName || !b.accountHolderName) return setErr('All bank fields are required');
+    if (!b.accountNumber || !b.ifsc || !b.bankName || !b.accountHolderName || !b.bankAddress) return setErr('All bank fields are required');
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(b.ifsc.toUpperCase())) return setErr('Invalid IFSC format');
+    const existingPassbook = userProfile.documents?.bankPassbook?.url;
+    if (!passbookFile && !existingPassbook) return setErr('Please upload your bank passbook');
     setUploading(true);
     try {
       const docs = { ...(userProfile.documents || {}) };
       if (chequeFile) {
         const res = await uploadEmployeeDocument(userProfile.id, 'cancelledCheque', chequeFile);
         docs.cancelledCheque = { url: res.url, path: res.path, uploadedAt: new Date().toISOString() };
+      }
+      if (passbookFile) {
+        const res = await uploadEmployeeDocument(userProfile.id, 'bankPassbook', passbookFile);
+        docs.bankPassbook = { url: res.url, path: res.path, uploadedAt: new Date().toISOString() };
       }
       await saveAndNext({
         bankAccount: { ...b, ifsc: b.ifsc.toUpperCase() },
@@ -764,12 +911,20 @@ function BankingStep({ userProfile, t, inputStyle, labelStyle, formData, update,
           <input value={b.bankName} onChange={e => set({ bankName: e.target.value })} style={inputStyle} />
         </div>
       </div>
-      <div style={{ marginBottom: '14px' }}>
-        <label style={labelStyle}>Branch</label>
-        <input value={b.branch} onChange={e => set({ branch: e.target.value })} style={inputStyle} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+        <div>
+          <label style={labelStyle}>Branch</label>
+          <input value={b.branch} onChange={e => set({ branch: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Bank Address <span style={{ color: t.danger }}>*</span></label>
+          <input value={b.bankAddress || ''} onChange={e => set({ bankAddress: e.target.value })} style={inputStyle} placeholder="Branch address" />
+        </div>
       </div>
 
-      <FileInput t={t} label="Upload Cancelled Cheque" file={chequeFile} existingUrl={userProfile.documents?.cancelledCheque?.url} onChange={setChequeFile} accept="image/*,application/pdf" />
+      <FileInput t={t} label="Upload Bank Passbook" file={passbookFile} existingUrl={userProfile.documents?.bankPassbook?.url} onChange={setPassbookFile} accept="image/*,application/pdf" />
+      <div style={{ height: '10px' }} />
+      <FileInput t={t} label="Upload Cancelled Cheque (optional)" file={chequeFile} existingUrl={userProfile.documents?.cancelledCheque?.url} onChange={setChequeFile} accept="image/*,application/pdf" />
 
       {err && <div style={{ color: t.danger, fontSize: '12px', marginTop: '8px' }}>{err}</div>}
       <NavButtons t={t} onBack={goBack} onNext={handleNext} nextDisabled={uploading} nextLabel={uploading ? 'Saving...' : 'Continue'} />
