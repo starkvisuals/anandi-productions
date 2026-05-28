@@ -106,15 +106,24 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
       });
 
       // 4. Send password reset email (doubles as onboarding invite — user sets own password, then lands in onboarding flow)
+      let resetSent = false;
+      let resetError = '';
       try {
         await sendPasswordResetEmail(auth, form.email.trim());
+        resetSent = true;
       } catch (resetErr) {
-        console.warn('Password reset email failed:', resetErr?.message);
+        resetError = resetErr?.message || 'unknown error';
+        console.warn('Password reset email failed:', resetError);
       }
 
-      // 5. Fire custom onboarding invite email via /api/send-email
+      // 5. Fire custom onboarding invite email via /api/send-email.
+      // The route returns { skipped: true } when RESEND_API_KEY is not
+      // configured — treat that as "not sent" so we never lie to the admin.
+      let inviteSent = false;
+      let inviteSkipped = false;
+      let inviteError = '';
       try {
-        await fetch('/api/send-email', {
+        const resp = await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -129,8 +138,13 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
             },
           }),
         });
+        const result = await resp.json().catch(() => ({}));
+        if (resp.ok && result?.skipped) inviteSkipped = true;
+        else if (resp.ok && result?.success) inviteSent = true;
+        else inviteError = result?.error || `HTTP ${resp.status}`;
       } catch (emailErr) {
-        console.warn('Onboarding invite email failed:', emailErr?.message);
+        inviteError = emailErr?.message || 'network error';
+        console.warn('Onboarding invite email failed:', inviteError);
       }
 
       // Show post-create success screen with copyable invite link
@@ -143,6 +157,7 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
         name: form.name.trim(),
         designation: form.designation.trim(),
         inviteLink,
+        emailStatus: { resetSent, resetError, inviteSent, inviteSkipped, inviteError },
       });
     } catch (err) {
       console.error('Create employee error:', err);
@@ -244,20 +259,38 @@ export default function AddEmployeeModal({ t, onClose, onCreated }) {
                 </button>
               </div>
               <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '8px', lineHeight: 1.6 }}>
-                Send this link via WhatsApp, Slack, or any channel. The employee will log in with their email + the password they set (via the password-reset email we just sent) and be guided through onboarding.
+                Send this link via WhatsApp, Slack, or any channel. The employee logs in with their email + the password they set, and is guided through onboarding. <strong>This link always works — even if email delivery is not configured.</strong>
               </div>
             </div>
 
-            <div style={{ padding: '14px 16px', background: 'rgba(99,102,241,0.08)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: '12px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: t.text, marginBottom: '6px' }}>
-                What happens next
-              </div>
-              <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '11px', color: t.textMuted, lineHeight: 1.7 }}>
-                <li>Two emails were sent: a password-reset link + a welcome / onboarding invite.</li>
-                <li>Once they log in, they'll be guided through personal details, documents, photo capture, and signing the offer letter + agreement.</li>
-                <li>You'll get a notification when they finish, and can review their profile in the Employees tab.</li>
-              </ul>
-            </div>
+            {/* Truthful email-delivery status — no more false "sent" claims */}
+            {(() => {
+              const s = createdEmployee.emailStatus || {};
+              const emailWorking = s.resetSent && s.inviteSent;
+              const nothingSent = !s.resetSent && !s.inviteSent;
+              const bg = emailWorking ? 'rgba(34,197,94,0.08)' : nothingSent ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)';
+              const bd = emailWorking ? 'rgba(34,197,94,0.3)' : nothingSent ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)';
+              return (
+                <div style={{ padding: '14px 16px', background: bg, border: `1px solid ${bd}`, borderRadius: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: t.text, marginBottom: '8px' }}>
+                    Email delivery status
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '11px', color: t.textMuted, lineHeight: 1.7 }}>
+                    <li>Password-reset email: {s.resetSent ? 'sent ✓' : `NOT sent ✗${s.resetError ? ` (${s.resetError})` : ''}`}</li>
+                    <li>
+                      Welcome / onboarding invite: {s.inviteSent ? 'sent ✓'
+                        : s.inviteSkipped ? 'NOT sent — email service (Resend) is not configured'
+                        : `NOT sent ✗${s.inviteError ? ` (${s.inviteError})` : ''}`}
+                    </li>
+                  </ul>
+                  {nothingSent && (
+                    <div style={{ fontSize: '10px', color: t.text, marginTop: '8px', lineHeight: 1.6 }}>
+                      No emails went out. <strong>Copy the invite link above and send it manually</strong> (WhatsApp works great). To enable automatic emails, set <code>RESEND_API_KEY</code> and a verified <code>RESEND_FROM_EMAIL</code> in your environment.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button
