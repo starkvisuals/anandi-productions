@@ -123,6 +123,12 @@ const THEMES = {
     warning: '#f59e0b',
     danger: '#ef4444',
     accent: '#a855f7',
+    // Brand tokens (Anandi Productions — black + yellow). Use these for new UI;
+    // existing primary/accent stays to avoid breaking older components.
+    brandInk: '#FAFAFA',
+    brandYellow: '#FACC15',
+    brandYellowText: '#0A0A0A',
+    brandRing: '#FACC15',
     modalBg: '#14141c',
     shadow: '0 8px 32px rgba(0,0,0,0.5)',
     // Glassmorphic tokens
@@ -153,6 +159,12 @@ const THEMES = {
     warning: '#d97706',
     danger: '#dc2626',
     accent: '#9333ea',
+    // Brand tokens (Anandi Productions — black + yellow). Use these for new UI;
+    // existing primary/accent stays to avoid breaking older components.
+    brandInk: '#0A0A0A',
+    brandYellow: '#FACC15',
+    brandYellowText: '#0A0A0A',
+    brandRing: '#FACC15',
     modalBg: '#ffffff',
     shadow: '0 8px 32px rgba(0,0,0,0.1)',
     // Glassmorphic tokens
