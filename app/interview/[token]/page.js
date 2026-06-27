@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import CandidateIntakeForm from '@/components/hiring/CandidateIntakeForm';
 import InterviewChat from '@/components/hiring/InterviewChat';
+import DocumentUpload from '@/components/hiring/DocumentUpload';
 import { HIRING_ROLES } from '@/lib/interview-questions';
 
 export default function InterviewPage({ params }) {
   const { token } = params;
-  const [step, setStep] = useState('loading'); // loading | invalid | form | interview | done
+  const [step, setStep] = useState('loading'); // loading | invalid | form | interview | docs | done
   const [jobLink, setJobLink] = useState(null);
   const [interviewId, setInterviewId] = useState(null);
   const [candidateName, setCandidateName] = useState('');
@@ -46,6 +47,10 @@ export default function InterviewPage({ params }) {
   };
 
   const handleComplete = () => {
+    setStep('docs');
+  };
+
+  const handleDocsComplete = () => {
     setStep('done');
   };
 
@@ -116,6 +121,17 @@ export default function InterviewPage({ params }) {
           />
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (step === 'docs') {
+    return (
+      <div style={pageStyle}>
+        <div style={{ ...containerStyle, maxWidth: '600px' }}>
+          <LogoHeader />
+          <DocumentUpload interviewId={interviewId} onComplete={handleDocsComplete} />
+        </div>
       </div>
     );
   }

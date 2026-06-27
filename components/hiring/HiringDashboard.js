@@ -350,6 +350,23 @@ function CandidateDetailPanel({ interview, onClose, onAction, actionLoading, sco
           ))}
         </div>
 
+        {/* Documents */}
+        {interview.documents && Object.keys(interview.documents).length > 0 && (
+          <div style={{ background: '#16161f', border: '1px solid #1e1e2e', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+            <h3 style={{ color: '#a78bfa', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 12px' }}>Documents</h3>
+            {[
+              ['ctcProof', 'Current CTC Proof'],
+              ['relievingLetter', 'Relieving Letter'],
+              ['recommendationLetter', 'Recommendation Letter'],
+            ].filter(([key]) => interview.documents[key]).map(([key, label]) => (
+              <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #1e1e2e' }}>
+                <span style={{ color: '#9ca3af', fontSize: '12px' }}>{label}</span>
+                <a href={interview.documents[key]} target="_blank" rel="noopener noreferrer" style={{ color: '#6366f1', fontSize: '12px', fontWeight: '600' }}>View →</a>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Score breakdown */}
         {sc && scoreRows.length > 0 && (
           <div style={{ background: '#16161f', border: '1px solid #1e1e2e', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
