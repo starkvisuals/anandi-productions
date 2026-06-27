@@ -16,6 +16,17 @@ export async function POST(request) {
 
     await setAdminAction(interviewId, action);
 
+    // Log decision to Google Sheet + create Drive folder (non-blocking)
+    try {
+      const { logHireDecisionToSheet, createCandidateDriveFolder } = await import('@/lib/google');
+      await logHireDecisionToSheet({ ...interview, adminAction: action });
+      if (action === 'approved') {
+        await createCandidateDriveFolder(interview);
+      }
+    } catch (err) {
+      console.error('Google logging error:', err);
+    }
+
     // If approved, notify recruiter
     if (action === 'approved') {
       await notifyRecruiter(interview);

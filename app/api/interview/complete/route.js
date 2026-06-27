@@ -113,6 +113,14 @@ export async function POST(request) {
     // Save to Firestore
     await completeInterview(interviewId, score);
 
+    // Log to Google Sheet (non-blocking)
+    try {
+      const { logInterviewToSheet } = await import('@/lib/google');
+      await logInterviewToSheet({ ...interview, score });
+    } catch (err) {
+      console.error('Sheet logging error:', err);
+    }
+
     // Send emails
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://anandi-productions.vercel.app';
     const appUrl = `${baseUrl}/hiring`;
