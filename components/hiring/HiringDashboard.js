@@ -292,7 +292,35 @@ export default function HiringDashboard() {
 
 function CandidateDetailPanel({ interview, onClose, onAction, actionLoading, scoreColor, recBadge }) {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [offerCTC, setOfferCTC] = useState(interview.expectedCTC || '');
+  const [offerStartDate, setOfferStartDate] = useState('');
+  const [sendingOffer, setSendingOffer] = useState(false);
+  const [offerSent, setOfferSent] = useState(interview.offerSent || false);
+  const [offerError, setOfferError] = useState('');
   const sc = interview.score;
+
+  const handleSendOffer = async () => {
+    if (!offerCTC || !offerStartDate) {
+      setOfferError('Please fill in CTC and start date.');
+      return;
+    }
+    setSendingOffer(true);
+    setOfferError('');
+    try {
+      const res = await fetch('/api/interview/offer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interviewId: interview.id, ctc: offerCTC, startDate: offerStartDate }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to send offer');
+      setOfferSent(true);
+    } catch (err) {
+      setOfferError(err.message);
+    } finally {
+      setSendingOffer(false);
+    }
+  };
 
   const scoreRows = sc ? [
     ['Role Skills', sc.scores?.skills, 25],
@@ -460,10 +488,46 @@ function CandidateDetailPanel({ interview, onClose, onAction, actionLoading, sco
       )}
 
       {interview.adminAction && (
-        <div style={{ padding: '16px 20px', borderTop: '1px solid #1e1e2e', textAlign: 'center', background: '#12121a' }}>
-          <span style={{ color: interview.adminAction === 'approved' ? '#22c55e' : '#ef4444', fontSize: '14px', fontWeight: '700' }}>
-            {interview.adminAction === 'approved' ? '✅ Approved — Recruiter Notified' : '❌ Rejected — Candidate Notified'}
-          </span>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid #1e1e2e', background: '#12121a' }}>
+          <div style={{ textAlign: 'center', marginBottom: interview.adminAction === 'approved' ? '16px' : 0 }}>
+            <span style={{ color: interview.adminAction === 'approved' ? '#22c55e' : '#ef4444', fontSize: '14px', fontWeight: '700' }}>
+              {interview.adminAction === 'approved' ? '✅ Approved — Recruiter Notified' : '❌ Rejected — Candidate Notified'}
+            </span>
+          </div>
+
+          {interview.adminAction === 'approved' && (
+            offerSent ? (
+              <div style={{ textAlign: 'center', color: '#a78bfa', fontSize: '13px', fontWeight: '600' }}>
+                📄 Offer letter sent
+              </div>
+            ) : (
+              <div style={{ background: '#16161f', border: '1px solid #1e1e2e', borderRadius: '10px', padding: '14px' }}>
+                <h4 style={{ color: '#a78bfa', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 10px' }}>Send Offer Letter</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                  <input
+                    placeholder="Final CTC (e.g. 6 LPA)"
+                    value={offerCTC}
+                    onChange={e => setOfferCTC(e.target.value)}
+                    style={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: '6px', padding: '8px 10px', color: '#e4e4e7', fontSize: '12px' }}
+                  />
+                  <input
+                    placeholder="Start date"
+                    value={offerStartDate}
+                    onChange={e => setOfferStartDate(e.target.value)}
+                    style={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: '6px', padding: '8px 10px', color: '#e4e4e7', fontSize: '12px' }}
+                  />
+                </div>
+                {offerError && <div style={{ color: '#fca5a5', fontSize: '12px', marginBottom: '8px' }}>{offerError}</div>}
+                <button
+                  onClick={handleSendOffer}
+                  disabled={sendingOffer}
+                  style={{ width: '100%', padding: '10px', background: sendingOffer ? '#374151' : '#6366f1', border: 'none', borderRadius: '8px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: sendingOffer ? 'not-allowed' : 'pointer' }}
+                >
+                  {sendingOffer ? 'Sending...' : '📄 Send Offer Letter'}
+                </button>
+              </div>
+            )
+          )}
         </div>
       )}
     </div>
