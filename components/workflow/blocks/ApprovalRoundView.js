@@ -161,8 +161,7 @@ function CorrectionList({ items, onChange, t }) {
               borderRadius: 7,
               color: t.text,
               fontSize: 13,
-              outline: 'none',
-            }}
+                          }}
           />
           <button
             onClick={() => removeItem(idx)}

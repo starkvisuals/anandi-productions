@@ -88,8 +88,7 @@ export default function TestAnnotatePage() {
             flex: 1, padding: '8px 12px', borderRadius: '6px',
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid rgba(255,255,255,0.1)',
-            color: '#fff', fontSize: '12px', outline: 'none',
-          }}
+            color: '#fff', fontSize: '12px',           }}
         />
         <button
           onClick={() => { setImageUrl(draftUrl); setSavedState(null); setMode('edit'); }}

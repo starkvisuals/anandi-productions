@@ -430,7 +430,7 @@ export default function AnnotationCanvas({ imageUrl, thumbnailUrl = null, annota
                     onChange={(e) => setInlineText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') confirmInlineAnnotation(); if (e.key === 'Escape') cancelInlineAnnotation(); }}
                     placeholder="Add label (optional)..."
-                    style={{ width: '180px', padding: '6px 8px', border: 'none', outline: 'none', fontSize: '12px', background: 'transparent', color: t.text }}
+                    style={{ width: '180px', padding: '6px 8px', border: 'none', fontSize: '12px', background: 'transparent', color: t.text }}
                   />
                   <button onClick={confirmInlineAnnotation} style={{ padding: '0 10px', height: '28px', background: newAnnotPos.color, border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', flexShrink: 0, whiteSpace: 'nowrap' }}>Save</button>
                   <button onClick={cancelInlineAnnotation} style={{ width: '28px', height: '28px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>×</button>

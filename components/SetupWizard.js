@@ -163,8 +163,7 @@ export default function SetupWizard() {
     borderRadius: '10px',
     color: '#fff',
     fontSize: '14px',
-    outline: 'none',
-    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+        transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
     boxSizing: 'border-box',
   };
 

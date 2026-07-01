@@ -823,11 +823,11 @@ const Btn = ({ children, onClick, color = '#6366f1', disabled, small, outline, t
 };
 const Input = ({ value, onChange, placeholder, type = 'text', style, theme = 'dark', ...props }) => {
   const t = THEMES[theme];
-  return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type} style={{ width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.15s', ...style }} {...props} />;
+  return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type} style={{ width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', boxSizing: 'border-box', transition: 'border-color 0.15s', ...style }} {...props} />;
 };
 const Select = ({ value, onChange, children, style, theme = 'dark' }) => {
   const t = THEMES[theme];
-  return <select value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', outline: 'none', ...style }}>{children}</select>;
+  return <select value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text, fontSize: '13px', ...style }}>{children}</select>;
 };
 
 const StarRating = ({ rating = 0, onChange, size = 18, readonly = false }) => {
@@ -1826,8 +1826,7 @@ export default function MainApp() {
                 flex: 1, 
                 background: 'transparent', 
                 border: 'none', 
-                outline: 'none', 
-                fontSize: '16px', 
+                                fontSize: '16px', 
                 color: t.text 
               }}
             />
@@ -3391,8 +3390,7 @@ export default function MainApp() {
                     padding: '4px 8px',
                     color: t.text,
                     fontSize: '13px',
-                    outline: 'none'
-                  }}
+                                      }}
                 />
               ) : (
                 <div
@@ -3608,8 +3606,7 @@ export default function MainApp() {
                         borderRadius: '6px',
                         color: t.text,
                         fontSize: '12px',
-                        outline: 'none'
-                      }}
+                                              }}
                     />
                     <button
                       onClick={() => {
@@ -3886,8 +3883,7 @@ export default function MainApp() {
                   borderRadius: '8px',
                   color: t.text,
                   fontSize: '13px',
-                  outline: 'none'
-                }}
+                                  }}
               />
               <input
                 type="date"
@@ -3900,8 +3896,7 @@ export default function MainApp() {
                   borderRadius: '8px',
                   color: t.text,
                   fontSize: '12px',
-                  outline: 'none',
-                  width: '130px'
+                                    width: '130px'
                 }}
               />
               <Btn theme={theme} onClick={handleQuickAdd} disabled={!quickAdd.text.trim()}>Add</Btn>
@@ -3932,8 +3927,7 @@ export default function MainApp() {
                       borderRadius: '6px',
                       color: t.text,
                       fontSize: '12px',
-                      outline: 'none'
-                    }}
+                                          }}
                   >
                     <option value="">No project</option>
                     {projects.filter(p => p.status === 'active').map(p => (
@@ -4113,8 +4107,7 @@ export default function MainApp() {
                   borderRadius: '10px',
                   color: t.text,
                   fontSize: '12px',
-                  outline: 'none',
-                  cursor: 'pointer',
+                                    cursor: 'pointer',
                   appearance: 'none',
                   paddingRight: '28px',
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E")`,
@@ -4229,8 +4222,7 @@ export default function MainApp() {
                     fontSize: '13px',
                     resize: 'vertical',
                     minHeight: '80px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
+                                        boxSizing: 'border-box'
                   }}
                 />
               </div>
@@ -4925,7 +4917,7 @@ export default function MainApp() {
             value={teamSearch}
             onChange={e => setTeamSearch(e.target.value)}
             placeholder="Search team members..."
-            style={{ width: '100%', padding: '10px 14px 10px 36px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '10px', color: t.text, fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '10px 14px 10px 36px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '10px', color: t.text, fontSize: '13px', boxSizing: 'border-box' }}
           />
         </div>
 
@@ -5174,7 +5166,7 @@ export default function MainApp() {
                               }
                             }}
                             placeholder="Add subtask..."
-                            style={{ flex: 1, padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px', outline: 'none' }}
+                            style={{ flex: 1, padding: '8px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.text, fontSize: '11px', }}
                           />
                           <button onClick={() => deleteTask(task.id)} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>{Icons.trash('#ef4444')}</button>
                         </div>
@@ -7630,7 +7622,7 @@ export default function MainApp() {
                               autoFocus value={renameValue}
                               onChange={e => setRenameValue(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') handleRenameCategory(cat.id, renameValue); if (e.key === 'Escape') { setRenamingCat(null); setRenameValue(''); } }}
-                              style={{ width: '100%', padding: '6px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '8px', color: t.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+                              style={{ width: '100%', padding: '6px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '8px', color: t.text, fontSize: '12px', boxSizing: 'border-box' }}
                             />
                             <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
                               <button onClick={() => handleRenameCategory(cat.id, renameValue)} style={{ flex: 1, padding: '5px', background: t.primary, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>✓ Save</button>
@@ -7664,7 +7656,7 @@ export default function MainApp() {
                           </button>
                         ) : (
                           <div>
-                            <input autoFocus value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); if (e.key === 'Escape') { setShowAddCat(false); setNewCatName(''); } }} placeholder="Folder name…" style={{ width: '100%', padding: '6px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '8px', color: t.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box', marginBottom: '6px' }} />
+                            <input autoFocus value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); if (e.key === 'Escape') { setShowAddCat(false); setNewCatName(''); } }} placeholder="Folder name…" style={{ width: '100%', padding: '6px 10px', background: t.bgCard, border: `1px solid ${t.primary}`, borderRadius: '8px', color: t.text, fontSize: '12px', boxSizing: 'border-box', marginBottom: '6px' }} />
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <button onClick={handleAddCategory} style={{ flex: 1, padding: '6px', background: t.primary, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>✓ Create</button>
                               <button onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '6px 8px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textMuted, fontSize: '11px', cursor: 'pointer' }}>✕</button>
@@ -8927,7 +8919,7 @@ export default function MainApp() {
                           onFocus={() => setVideoFocused(true)}
                           onBlur={() => setVideoFocused(false)}
                           onClick={() => videoContainerRef.current?.focus()}
-                          style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', outline: 'none', cursor: 'pointer' }}
+                          style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         >
                           {/* Video Element (no native controls) */}
                           <video
@@ -9587,7 +9579,7 @@ export default function MainApp() {
                                       )}
                                       {replyingTo === fb.id && (
                                         <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
-                                          <input value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddReply(fb.id); if (e.key === 'Escape') { setReplyingTo(null); setReplyText(''); } }} placeholder="Reply..." autoFocus style={{ flex: 1, padding: '5px 8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '10px', outline: 'none' }} />
+                                          <input value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddReply(fb.id); if (e.key === 'Escape') { setReplyingTo(null); setReplyText(''); } }} placeholder="Reply..." autoFocus style={{ flex: 1, padding: '5px 8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '10px', }} />
                                           <button onClick={() => handleAddReply(fb.id)} disabled={!replyText.trim()} style={{ padding: '5px 8px', background: replyText.trim() ? '#6366f1' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px', color: replyText.trim() ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: '9px', cursor: replyText.trim() ? 'pointer' : 'default' }}>Send</button>
                                         </div>
                                       )}
@@ -9611,7 +9603,7 @@ export default function MainApp() {
                                     onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }}
                                     placeholder="Add feedback... (@mention)"
-                                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '11px', outline: 'none', boxSizing: 'border-box' }}
+                                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '11px', boxSizing: 'border-box' }}
                                     onFocus={e => e.target.style.borderColor = '#6366f1'}
                                     onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                                   />

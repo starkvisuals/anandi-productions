@@ -191,8 +191,7 @@ export default function FilterPanel({
             placeholder="Search"
             style={{
               flex: 1, minWidth: 0,
-              background: 'transparent', border: 'none', outline: 'none',
-              color: '#fff', fontSize: '12px',
+              background: 'transparent', border: 'none',               color: '#fff', fontSize: '12px',
             }}
           />
           {search && (

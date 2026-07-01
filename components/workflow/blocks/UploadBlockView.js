@@ -395,7 +395,7 @@ export default function UploadBlockView({ project, block, actorId, isProducer, t
               <input
                 readOnly
                 value={inviteUrl}
-                style={{ flex: 1, padding: '8px 12px', background: '#0d0d12', border: `1px solid ${border}`, borderRadius: 6, color: text, fontSize: 12, outline: 'none' }}
+                style={{ flex: 1, padding: '8px 12px', background: '#0d0d12', border: `1px solid ${border}`, borderRadius: 6, color: text, fontSize: 12, }}
               />
               <button
                 onClick={handleCopy}
@@ -413,7 +413,7 @@ export default function UploadBlockView({ project, block, actorId, isProducer, t
                 placeholder="photographer@example.com"
                 value={inviteEmail}
                 onChange={e => setInviteEmail(e.target.value)}
-                style={{ flex: 1, padding: '8px 12px', background: '#0d0d12', border: `1px solid ${border}`, borderRadius: 6, color: text, fontSize: 12, outline: 'none' }}
+                style={{ flex: 1, padding: '8px 12px', background: '#0d0d12', border: `1px solid ${border}`, borderRadius: 6, color: text, fontSize: 12, }}
               />
               <button
                 onClick={handleSendInvite}

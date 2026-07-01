@@ -260,8 +260,7 @@ export default function EmployeeModule({ t }) {
                 borderRadius: '10px',
                 color: t.text,
                 fontSize: '13px',
-                outline: 'none',
-              }}
+                              }}
             />
             <select
               value={filterDept}
@@ -273,8 +272,7 @@ export default function EmployeeModule({ t }) {
                 borderRadius: '10px',
                 color: t.text,
                 fontSize: '13px',
-                outline: 'none',
-                cursor: 'pointer',
+                                cursor: 'pointer',
               }}
             >
               <option value="all">All departments</option>
@@ -290,8 +288,7 @@ export default function EmployeeModule({ t }) {
                 borderRadius: '10px',
                 color: t.text,
                 fontSize: '13px',
-                outline: 'none',
-                cursor: 'pointer',
+                                cursor: 'pointer',
               }}
             >
               <option value="all">All statuses</option>
@@ -309,8 +306,7 @@ export default function EmployeeModule({ t }) {
                 borderRadius: '10px',
                 color: t.text,
                 fontSize: '13px',
-                outline: 'none',
-                cursor: 'pointer',
+                                cursor: 'pointer',
               }}
             >
               <option value="active">Active only</option>

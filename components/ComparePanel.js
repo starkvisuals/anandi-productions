@@ -228,8 +228,7 @@ function CompareTile({ asset, t, onRate, onSelect, onColorLabel, onRemove, isFoc
                 transition: 'all 0.15s',
                 boxShadow: localLabel === key ? `0 0 5px ${hex}` : 'none',
                 flexShrink: 0,
-                outline: 'none',
-              }}
+                              }}
             />
           ))}
           {localLabel && (

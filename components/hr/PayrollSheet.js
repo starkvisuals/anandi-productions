@@ -78,7 +78,7 @@ export default function PayrollSheet({ actor, t }) {
     }
   };
 
-  const inputS = { padding: '6px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' };
+  const inputS = { padding: '6px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: '#fff', fontSize: '12px', };
 
   return (
     <div style={{ color: '#fff', display: 'flex', flexDirection: 'column', gap: '16px' }}>

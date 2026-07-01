@@ -59,8 +59,7 @@ function ColorSwatches({ currentLabel, onLabel, size = 14 }) {
             border: currentLabel === key ? '2px solid #fff' : '2px solid transparent',
             cursor: 'pointer',
             padding: 0,
-            outline: 'none',
-            boxShadow: currentLabel === key ? `0 0 6px ${hex}` : 'none',
+                        boxShadow: currentLabel === key ? `0 0 6px ${hex}` : 'none',
             opacity: currentLabel && currentLabel !== key ? 0.4 : 1,
             transition: 'all 0.15s',
             flexShrink: 0,
@@ -541,7 +540,7 @@ export default function SelectionRoundView({
     background: active ? t.primary : t.bgCard,
     color: active ? '#fff' : t.textMuted,
     border: `1px solid ${active ? t.primary : t.border}`,
-    cursor: 'pointer', outline: 'none', transition: 'all 0.13s',
+    cursor: 'pointer', transition: 'all 0.13s',
     whiteSpace: 'nowrap',
   });
 
@@ -640,7 +639,7 @@ export default function SelectionRoundView({
               padding: '5px 10px', fontSize: 13,
               background: t.bgCard, color: t.text,
               border: `1px solid ${t.border}`, borderRadius: 8,
-              outline: 'none', cursor: 'pointer',
+              cursor: 'pointer',
             }}
           >
             <option value="default">Default order</option>

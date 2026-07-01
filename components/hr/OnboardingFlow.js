@@ -198,8 +198,7 @@ export default function OnboardingFlow({ t }) {
     borderRadius: '8px',
     color: t.text,
     fontSize: '13px',
-    outline: 'none',
-    boxSizing: 'border-box',
+        boxSizing: 'border-box',
   };
 
   const labelStyle = {

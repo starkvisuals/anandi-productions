@@ -17,7 +17,7 @@ import { requestLeave, uploadLeaveCertificate, LEAVE_TYPES, LEAVE_QUOTAS, MONTHL
 const inputStyle = {
   padding: '8px 10px', background: 'rgba(255,255,255,0.04)',
   border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px',
-  color: '#fff', fontSize: '12px', outline: 'none', width: '100%', boxSizing: 'border-box',
+  color: '#fff', fontSize: '12px', width: '100%', boxSizing: 'border-box',
 };
 
 function Field({ label, hint, required, children }) {

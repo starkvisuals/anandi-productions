@@ -91,8 +91,7 @@ export default function CreateCampaignModal({ t, onClose, onCreated, userProfile
                     style={{
                       flex: 1, padding: '10px 12px', background: t.modalBg || '#0b0b12',
                       border: `1px solid ${t.border}`, borderRadius: '8px', color: t.text,
-                      fontSize: '12px', fontFamily: 'ui-monospace, monospace', outline: 'none',
-                    }}
+                      fontSize: '12px', fontFamily: 'ui-monospace, monospace',                     }}
                   />
                   <button
                     onClick={copyLink}
@@ -136,7 +135,7 @@ export default function CreateCampaignModal({ t, onClose, onCreated, userProfile
                   style={{
                     width: '100%', padding: '12px 14px', background: t.bgInput,
                     border: `1px solid ${t.border}`, borderRadius: '10px', color: t.text,
-                    fontSize: '14px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                    fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box',
                   }}
                 />
               </div>

@@ -30,8 +30,7 @@ const inputStyle = {
   borderRadius: '6px',
   color: '#fff',
   fontSize: '12px',
-  outline: 'none',
-  width: '100%',
+    width: '100%',
   boxSizing: 'border-box',
 };
 

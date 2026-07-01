@@ -20,8 +20,7 @@ const thisMonthStr = () => new Date().toISOString().slice(0, 7);
 
 const sel = {
   padding: '6px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
-  borderRadius: '6px', color: '#fff', fontSize: '11px', outline: 'none',
-};
+  borderRadius: '6px', color: '#fff', fontSize: '11px', };
 
 export default function AttendanceImport({ actor, t }) {
   const [employees, setEmployees] = useState([]);

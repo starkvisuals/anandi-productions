@@ -103,8 +103,7 @@ export default function AssetRequestsPanel({ project, userProfile, isProducer, t
     color: t.text,
     fontSize: '13px',
     boxSizing: 'border-box',
-    outline: 'none',
-  };
+      };
 
   const btnBase = {
     padding: '6px 14px',

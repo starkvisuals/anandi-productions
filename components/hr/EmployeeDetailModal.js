@@ -432,8 +432,7 @@ const Input = ({ t, type = 'text', value, onChange, placeholder, disabled }) => 
       borderRadius: '10px',
       color: t.text,
       fontSize: '13px',
-      outline: 'none',
-      opacity: disabled ? 0.5 : 1,
+            opacity: disabled ? 0.5 : 1,
       cursor: disabled ? 'not-allowed' : 'text',
     }}
   />
@@ -451,8 +450,7 @@ const Select = ({ t, value, onChange, children, disabled }) => (
       borderRadius: '10px',
       color: t.text,
       fontSize: '13px',
-      outline: 'none',
-      cursor: disabled ? 'not-allowed' : 'pointer',
+            cursor: disabled ? 'not-allowed' : 'pointer',
       opacity: disabled ? 0.5 : 1,
     }}
   >

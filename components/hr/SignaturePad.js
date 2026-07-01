@@ -140,8 +140,7 @@ export default function SignaturePad({ expectedName, onSign, t, width = 420, hei
             borderRadius: '8px',
             color: t?.text || '#fff',
             fontSize: '13px',
-            outline: 'none',
-          }}
+                      }}
         />
       </div>
 

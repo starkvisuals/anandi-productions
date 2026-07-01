@@ -155,8 +155,7 @@ function SubmissionRow({ snap, index, total, projectAssets, projectName, t }) {
           padding: '10px 0',
           cursor: 'pointer',
           listStyle: 'none',
-          outline: 'none',
-        }}
+                  }}
       >
         {/* chevron */}
         <span

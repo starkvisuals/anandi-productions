@@ -235,8 +235,7 @@ export default function WorkflowTemplateEditor({ mode, templateId, t, onClose, o
     borderRadius: 8,
     color: t.text,
     fontSize: 13,
-    outline: 'none',
-    width: '100%',
+        width: '100%',
     boxSizing: 'border-box',
   };
   const labelStyle = {

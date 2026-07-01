@@ -1145,8 +1145,7 @@ export default function SharePage({ params }) {
                       fontSize: '13px',
                       marginBottom: '10px',
                       boxSizing: 'border-box',
-                      outline: 'none',
-                      transition: 'border-color 0.15s ease',
+                                            transition: 'border-color 0.15s ease',
                     }}
                   />
                   <div style={{ position: 'relative' }}>
@@ -1169,8 +1168,7 @@ export default function SharePage({ params }) {
                         color: '#fff',
                         fontSize: '13px',
                         boxSizing: 'border-box',
-                        outline: 'none',
-                        resize: 'vertical',
+                                                resize: 'vertical',
                         fontFamily: 'inherit',
                         lineHeight: '1.5',
                         transition: 'border-color 0.15s ease',

@@ -186,7 +186,7 @@ export default function LeaveManagementPanel({ actor, employeeId, t }) {
                   value={creditHours}
                   onChange={e => setCreditHours(e.target.value)}
                   placeholder="hrs (+/-)"
-                  style={{ width: '90px', padding: '6px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' }}
+                  style={{ width: '90px', padding: '6px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontSize: '12px', }}
                 />
                 <button onClick={doCredit} disabled={crediting} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
                   {crediting ? '…' : 'Credit hours'}

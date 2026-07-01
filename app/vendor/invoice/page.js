@@ -13,8 +13,7 @@ const INPUT_STYLE = {
   borderRadius: '10px',
   color: '#fff',
   fontSize: '14px',
-  outline: 'none',
-  boxSizing: 'border-box',
+    boxSizing: 'border-box',
   transition: 'border-color 0.2s',
 };
 

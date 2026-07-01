@@ -163,8 +163,7 @@ export default function DeliveryBlockView({
                 borderRadius: 8,
                 fontSize: 13,
                 color: text,
-                outline: 'none',
-                fontFamily: 'inherit',
+                                fontFamily: 'inherit',
               }}
               onFocus={e => e.target.select()}
             />

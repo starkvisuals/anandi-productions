@@ -151,8 +151,7 @@ export default function PendingApprovalsPanel({ t, onChange }) {
                     borderRadius: '10px',
                     color: t.text,
                     fontSize: '13px',
-                    outline: 'none',
-                  }}
+                                      }}
                 />
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   <button onClick={() => { setRejectingId(null); setRejectReason(''); }} style={ghostBtn(t)}>Cancel</button>

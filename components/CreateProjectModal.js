@@ -227,7 +227,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
   const toggleCat = (id) => setSelectedCats(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
 
   // Shared input style
-  const inputStyle = { width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '10px', color: t.text, fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' };
+  const inputStyle = { width: '100%', padding: '10px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '10px', color: t.text, fontSize: '13px', boxSizing: 'border-box', transition: 'border-color 0.2s' };
   const labelStyle = { display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px', fontWeight: '500', letterSpacing: '0.3px', textTransform: 'uppercase' };
   const cardStyle = { background: `${t.bgCard}CC`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${t.border}`, borderRadius: '12px', padding: '16px' };
   const chipStyle = (active, color) => ({ padding: '7px 14px', background: active ? `${color}25` : t.bgInput, border: `1px solid ${active ? color : t.border}`, borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: active ? color : t.textSecondary, transition: 'all 0.15s', fontWeight: active ? '600' : '400' });

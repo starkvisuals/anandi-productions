@@ -554,8 +554,7 @@ const Input = ({ t, type = 'text', value, onChange, placeholder }) => (
       borderRadius: '10px',
       color: t.text,
       fontSize: '13px',
-      outline: 'none',
-      fontFamily: 'inherit',
+            fontFamily: 'inherit',
     }}
   />
 );
@@ -571,8 +570,7 @@ const Select = ({ t, value, onChange, children }) => (
       borderRadius: '10px',
       color: t.text,
       fontSize: '13px',
-      outline: 'none',
-      cursor: 'pointer',
+            cursor: 'pointer',
       fontFamily: 'inherit',
     }}
   >

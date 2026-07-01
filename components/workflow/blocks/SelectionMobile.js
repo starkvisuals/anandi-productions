@@ -410,8 +410,7 @@ export default function SelectionMobile({
                     background: isActive ? hex : 'rgba(255,255,255,0.07)',
                     color: isActive ? '#fff' : 'rgba(255,255,255,0.7)',
                     border: `1.5px solid ${isActive ? hex : 'rgba(255,255,255,0.12)'}`,
-                    cursor: 'pointer', outline: 'none',
-                    transition: 'all 0.15s',
+                    cursor: 'pointer',                     transition: 'all 0.15s',
                     touchAction: 'manipulation',
                   }}
                 >
