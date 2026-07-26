@@ -12,6 +12,10 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import Card from '@/components/ui/Card';
+import Modal from '@/components/ui/Modal';
+import Menu, { useContextMenu } from '@/components/ui/Menu';
+import { Skeleton, SkeletonRows, Spinner, LoadingPanel, EmptyState, EmptyValue } from '@/components/ui/Feedback';
+import { useToast } from '@/components/ui/Toast';
 
 // A tiny SVG icon for the Button icon slot demo — no dependency on Lucide yet.
 const IconStar = ({ size = 16 }) => (
@@ -128,6 +132,48 @@ function Panel({ label }) {
         </div>
       </Section>
 
+      {/* Toasts */}
+      <Section title="Toasts (global — every action fires one)">
+        <ToastDemo />
+      </Section>
+
+      {/* Modal */}
+      <Section title="Modal">
+        <ModalDemo />
+      </Section>
+
+      {/* Menu / right-click */}
+      <Section title="Menu & right-click context menu">
+        <MenuDemo />
+      </Section>
+
+      {/* Feedback: skeleton / spinner / empty */}
+      <Section title="Loading & empty states">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACE['4'] }}>
+          <Card padding="md">
+            <div style={{ fontSize: 11, color: t.textMuted, marginBottom: SPACE['2'] }}>SkeletonRows</div>
+            <SkeletonRows rows={3} />
+          </Card>
+          <Card padding="md">
+            <div style={{ fontSize: 11, color: t.textMuted, marginBottom: SPACE['2'] }}>Spinner + LoadingPanel</div>
+            <LoadingPanel label="Loading employees…" minHeight={100} />
+          </Card>
+          <Card padding="none">
+            <EmptyState
+              icon={<IconStar />}
+              title="No employees yet"
+              description="Add your first employee or import an existing team member."
+              action={<Button size="sm">Add employee</Button>}
+            />
+          </Card>
+          <Card padding="md">
+            <div style={{ fontSize: 11, color: t.textMuted, marginBottom: SPACE['2'] }}>EmptyValue (inline, replaces bare —)</div>
+            <div style={{ fontSize: 13 }}>Work location: <EmptyValue>Not set</EmptyValue></div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>Reporting manager: <EmptyValue /></div>
+          </Card>
+        </div>
+      </Section>
+
       {/* Focus / keyboard nav test */}
       <Section title="Focus test — press TAB">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE['3'] }}>
@@ -141,6 +187,70 @@ function Panel({ label }) {
           Every focusable element should show a 2px yellow ring on keyboard focus (mouse clicks won't paint it).
         </p>
       </Section>
+    </div>
+  );
+}
+
+function ToastDemo() {
+  const toast = useToast();
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE['3'] }}>
+      <Button size="sm" variant="secondary" onClick={() => toast.success('Employee added')}>Success</Button>
+      <Button size="sm" variant="secondary" onClick={() => toast.error('Could not save', { title: 'Save failed' })}>Error</Button>
+      <Button size="sm" variant="secondary" onClick={() => toast.info('Draft saved automatically')}>Info</Button>
+      <Button size="sm" variant="secondary" onClick={() => toast.warning('Approaching your leave limit')}>Warning</Button>
+      <Button size="sm" variant="secondary" onClick={() => toast.promise(new Promise((r) => setTimeout(r, 1400)), { loading: 'Uploading…', success: 'Uploaded', error: 'Failed' })}>Promise</Button>
+    </div>
+  );
+}
+
+function ModalDemo() {
+  const [open, setOpen] = useState(false);
+  const toast = useToast();
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>Open modal</Button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Add Employee" description="Fill in the details and send an invite." size="md">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE['4'] }}>
+          <Input label="Full name" placeholder="Riya Sharma" />
+          <Input label="Email" type="email" placeholder="riya@anandi.com" />
+        </div>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setOpen(false); toast.success('Employee added'); }}>Save</Button>
+        </Modal.Footer>
+      </Modal>
+    </>
+  );
+}
+
+function MenuDemo() {
+  const { t } = useTheme();
+  const toast = useToast();
+  const items = [
+    { label: 'Create Share Link', onClick: () => toast.success('Share link created') },
+    { label: 'Add to Share Links', submenu: true, onClick: () => {} },
+    { divider: true },
+    { label: 'Download', onClick: () => toast.info('Downloading…') },
+    { label: 'Copy Asset URL', hint: '⌘C', onClick: () => toast.success('URL copied') },
+    { label: 'Rename', onClick: () => {} },
+    { divider: true },
+    { label: 'Delete', danger: true, onClick: () => toast.error('Deleted') },
+  ];
+  const { onContextMenu, menu } = useContextMenu(items);
+  return (
+    <div style={{ display: 'flex', gap: SPACE['4'], alignItems: 'center', flexWrap: 'wrap' }}>
+      <Menu trigger={<Button size="sm" variant="secondary">Actions ▾</Button>} items={items} />
+      <div
+        onContextMenu={onContextMenu}
+        style={{
+          padding: `${SPACE['4']} ${SPACE['6']}`, border: `1px dashed ${t.borderStrong}`,
+          borderRadius: RADIUS.md, color: t.textMuted, fontSize: 13, userSelect: 'none',
+        }}
+      >
+        Right-click me
+      </div>
+      {menu}
     </div>
   );
 }

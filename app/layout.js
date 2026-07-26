@@ -1,6 +1,7 @@
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { ThemeProvider } from '@/lib/theme';
+import { ToastProvider } from '@/components/ui/Toast';
 import FocusRing from '@/components/ui/FocusRing';
 
 export const metadata = {
@@ -20,9 +21,11 @@ export default function RootLayout({ children }) {
             from its own THEMES map — safe to co-exist during Phase 2 migration. */}
         <ThemeProvider>
           <FocusRing />
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <ToastProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>
