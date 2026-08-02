@@ -27,7 +27,8 @@ Rules: one file / tight feature per chunk (>3 files → split). Reuse `generateI
 - Brand: black+yellow Logo, tokens in THEMES · Email: SMTP via system@anandiproductions.com
 - HR module: employees, onboarding, leave, comp-off, Jibble attendance, payroll, payslips, termination, probation, offer-letter upload
 - Removed 42 broken `outline:'none'`; global focus rings
-- M0: ROADMAP + ARCHITECTURE + memory note
+- M0: ROADMAP + ARCHITECTURE + PLAYBOOK + BUILDING-BLOCKS + memory note
+- `PRODUCT.md` (impeccable init): durable product truth — 3 co-equal jobs (client review / team workflow / HR), clients use share links (no login), Anandi-only now + SaaS-aware later. Design work reads this.
 
 ---
 
