@@ -9,8 +9,8 @@
 
 ## ▶ LAST DONE / NEXT UP
 
-- **LAST DONE:** M0 — memory protocol (this ROADMAP + ARCHITECTURE.md + Claude memory note).
-- **NEXT UP:** **A1.1** — `components/review/ReviewCanvas.js` (port drawing engine from `components/AnnotationCanvas.js`, add pin tool + video-overlay sync, verify on new `app/dev/review/page.js`).
+- **LAST DONE:** A1.1 — `components/review/ReviewCanvas.js` + `/dev/review` harness. Unified image+video annotation engine (pin/rect/circle/arrow/freehand/text, %-coords, video-overlay sync, controlled). Verified: pin drops at click, selection syncs. Fixed cached-image onLoad trap (PLAYBOOK T18).
+- **NEXT UP:** **A1.2** — `components/review/CommentSidebar.js`. Comments as the primary object; each row shows timecode (video) / pin badge (image); click row → seek + highlight the item on canvas; composer at bottom with @mention; Toast on post. Uses primitives + `useToast`. Wire against ReviewCanvas's items on `/dev/review`.
 - **Build order:** A1 → A3.3/A3 → A2 → B → C1–C5 → A4/A5 → D → E → C6/C7.
 
 ---
@@ -36,7 +36,7 @@ Rules: one file / tight feature per chunk (>3 files → split). Reuse `generateI
 
 ### A1 — Frame.io review: annotation + timestamp comments  *(#1 daily pain)*
 Unify `feedback[]` (comments) + `annotations[]` (drawings) into ONE loop. Custom canvas synced to `video.currentTime`. Extend feedback item with `pin:{x,y}` + `drawing[]` (keep `videoTimestamp`). Legacy `annotations[]` stays readable — no migration.
-- [ ] **A1.1** `components/review/ReviewCanvas.js` — port from `AnnotationCanvas.js`; pin tool + video-overlay sync; verify `app/dev/review/page.js` (image + video)
+- [x] **A1.1** `components/review/ReviewCanvas.js` — port from `AnnotationCanvas.js`; pin tool + video-overlay sync; verified on `app/dev/review/page.js`
 - [ ] **A1.2** `components/review/CommentSidebar.js` — comments primary; timecode/pin chips; click → seek + highlight; composer + @mention; Toast
 - [ ] **A1.3** `components/review/VideoTimeline.js` — comment markers (reuse math ~MainApp:9017); click → seek + open
 - [ ] **A1.4** `components/review/ReviewViewer.js` — compose all; `<ReviewViewer asset onUpdateAsset currentUser videoRef />`; full loop on `/dev/review`

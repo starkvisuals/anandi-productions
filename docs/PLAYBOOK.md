@@ -27,6 +27,7 @@
 | T15 | Built HR for ~15 sessions while the **core product** (asset review) rotted. | Prioritize by **daily-user pain**, not by what's easy to build next. |
 | T16 | Built on unverified foundations, then had to redo. | **Verify what's live before layering on it** (Phase F1). |
 | T17 | Skills CLI (`PromptScript`) refuses global install for some packs. | Per-project install is expected for emil/taste skills; re-add per new project. |
+| T18 | A cached / data-URI `<img>` can finish loading BEFORE React attaches `onLoad` → the event never fires → `imageLoaded` stays false forever (stuck "Loading…", canvas unusable). | In an effect, check `imgRef.current.complete && naturalWidth > 0` on mount + on src change; also add `onError → setLoaded(true)` so a slow/broken image never blocks annotation. See `ReviewCanvas`. |
 
 ---
 
