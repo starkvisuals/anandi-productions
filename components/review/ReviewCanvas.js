@@ -229,6 +229,8 @@ export default function ReviewCanvas({
 
   // ── Renderers ──────────────────────────────────────────────────────────────
   const renderItem = (a) => {
+    // General comments (from the sidebar composer) carry no drawing — skip them.
+    if (!['pin', 'rect', 'circle', 'arrow', 'freehand', 'text'].includes(a.type)) return null;
     const sel = a.id === selectedId;
     const stop = (e) => e.stopPropagation();
     const selectMe = (e) => { stop(e); onSelect?.(a.id); };

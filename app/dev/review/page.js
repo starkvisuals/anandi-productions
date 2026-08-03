@@ -9,9 +9,10 @@
 //           → it reappears; selecting an item always shows it.
 // Both in dark + light (toggle top-right).
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ThemeProvider, useTheme, SPACE, RADIUS, WEIGHT } from '@/lib/theme';
 import ReviewCanvas from '@/components/review/ReviewCanvas';
+import CommentSidebar from '@/components/review/CommentSidebar';
 
 // Inline SVG data-URI so the harness never depends on external image hosts
 // (the preview sandbox blocks them). Real app uses Firebase Storage URLs.
@@ -46,17 +47,36 @@ function Shell({ mode, setMode }) {
   const [imageItems, setImageItems] = useState([]);
   const [videoItems, setVideoItems] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const videoRef = useRef(null);
 
-  const items = tab === 'image' ? imageItems : videoItems;
-  const setItems = tab === 'image' ? setImageItems : setVideoItems;
+  const isVideo = tab === 'video';
+  const items = isVideo ? videoItems : imageItems;
+  const setItems = isVideo ? setVideoItems : setImageItems;
 
-  const addItem = (it) => setItems(prev => [...prev, it]);
+  // New items carry comment fields (author) so the sidebar can own them.
+  const addItem = (it) => setItems(prev => [...prev, { author: 'You', ...it }]);
   const updateItem = (id, patch) => setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
   const deleteItem = (id) => { setItems(prev => prev.filter(i => i.id !== id)); if (selectedId === id) setSelectedId(null); };
 
-  const media = tab === 'image'
-    ? { type: 'image', src: SAMPLE_IMAGE }
-    : { type: 'video', src: SAMPLE_VIDEO };
+  // General comment (no drawing) from the sidebar composer.
+  const postComment = ({ text, videoTimestamp }) => {
+    const id = Math.random().toString(36).slice(2, 10);
+    setItems(prev => [...prev, { id, type: 'general', text, videoTimestamp, color: '#FACC15', author: 'You', createdAt: new Date().toISOString() }]);
+    setSelectedId(id);
+  };
+
+  // Seek the shared video element (used by the sidebar's timecode chips).
+  const seekTo = (seconds) => {
+    const v = videoRef.current;
+    if (v) { v.currentTime = seconds; v.pause(); }
+  };
+
+  const media = isVideo
+    ? { type: 'video', src: SAMPLE_VIDEO }
+    : { type: 'image', src: SAMPLE_IMAGE };
+
+  const MENTIONABLES = [{ id: 'u1', name: 'Harnesh' }, { id: 'u2', name: 'Riya' }, { id: 'u3', name: 'Kimiko' }];
 
   const tabBtn = (id, label) => (
     <button onClick={() => { setTab(id); setSelectedId(null); }}
@@ -76,7 +96,7 @@ function Shell({ mode, setMode }) {
         </button>
       </header>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 300px' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 320px' }}>
         <div style={{ minHeight: 0, height: 'calc(100vh - 66px)' }}>
           {/* key forces a fresh canvas when switching image/video */}
           <ReviewCanvas
@@ -88,21 +108,25 @@ function Shell({ mode, setMode }) {
             onDeleteItem={deleteItem}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            videoRef={videoRef}
+            onTimeUpdate={setCurrentTime}
           />
         </div>
 
-        {/* Live items log (stands in for the comment sidebar coming in A1.2) */}
-        <aside style={{ borderLeft: `1px solid ${t.border}`, background: t.surface, padding: SPACE['3'], overflowY: 'auto', height: 'calc(100vh - 66px)' }}>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: t.textMuted, marginBottom: SPACE['2'] }}>{items.length} items</div>
-          {items.length === 0 && <div style={{ fontSize: 12, color: t.textMuted }}>Draw on the {tab} to create items. Video items get a timestamp; scrub to see them show/hide.</div>}
-          {items.map((it, i) => (
-            <button key={it.id} onClick={() => setSelectedId(it.id)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: 6, padding: SPACE['2'], borderRadius: RADIUS.sm, border: `1px solid ${it.id === selectedId ? t.accent : t.border}`, background: it.id === selectedId ? `${t.accent}14` : t.surfaceElev, color: t.text, cursor: 'pointer', fontSize: 11, fontFamily: 'ui-monospace, monospace' }}>
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: it.color, marginRight: 6, verticalAlign: 'middle' }} />
-              {i + 1}. {it.type}{it.videoTimestamp != null ? ` @ ${it.videoTimestamp.toFixed(1)}s` : ''}
-            </button>
-          ))}
-        </aside>
+        <CommentSidebar
+          key={tab}
+          comments={items}
+          currentUser={{ id: 'me', name: 'You' }}
+          mediaType={media.type}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onSeek={seekTo}
+          onUpdate={updateItem}
+          onDelete={deleteItem}
+          onPost={postComment}
+          currentTime={currentTime}
+          mentionables={MENTIONABLES}
+        />
       </div>
     </div>
   );
