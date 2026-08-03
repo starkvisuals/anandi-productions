@@ -1,22 +1,23 @@
 'use client';
-// app/dev/review/page.js — A1.1 test harness for ReviewCanvas.
+// app/dev/review/page.js — test harness for the review loop (A1.4).
 //
-// Visit /dev/review. Verify:
-//   IMAGE — pick pin/rect/circle/arrow/freehand/text, draw, drop pins; select a
-//           pin (it highlights); delete via the × ; zoom.
-//   VIDEO — play, PAUSE, draw → item gets tagged with the timestamp (see the
-//           JSON log); scrub away → the item hides; scrub back within the window
-//           → it reappears; selecting an item always shows it.
+// Visit /dev/review. It mounts <ReviewViewer> (canvas + timeline + comment rail)
+// around a single asset per tab and just persists asset patches back to state —
+// the same contract MainApp's lightbox will use (A1.5).
+//
+// Verify:
+//   IMAGE — draw pins/shapes → they become comments in the rail; the seeded
+//           legacy annotation (green circle) shows on the canvas but NOT in the
+//           rail (annotations[] stays readable); edit/resolve/delete; @mention.
+//   VIDEO — real local clip (24s): play, PAUSE, annotate → tagged with the
+//           timestamp; timeline markers seek + select; timecode chips seek.
 // Both in dark + light (toggle top-right).
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { ThemeProvider, useTheme, SPACE, RADIUS, WEIGHT } from '@/lib/theme';
-import ReviewCanvas from '@/components/review/ReviewCanvas';
-import CommentSidebar from '@/components/review/CommentSidebar';
-import VideoTimeline from '@/components/review/VideoTimeline';
+import ReviewViewer from '@/components/review/ReviewViewer';
 
-// Inline SVG data-URI so the harness never depends on external image hosts
-// (the preview sandbox blocks them). Real app uses Firebase Storage URLs.
+// Inline SVG data-URI so the harness never depends on external image hosts.
 const SAMPLE_IMAGE =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -30,19 +31,24 @@ const SAMPLE_IMAGE =
        <text x="600" y="720" font-family="sans-serif" font-size="34" fill="#94a3b8" text-anchor="middle">Sample frame — draw / drop a pin</text>
      </svg>`
   );
-// Small, CORS-friendly sample video. (The preview sandbox blocks external media,
-// so real playback / duration won't load here — the timeline below is exercised
-// with the seeded comments + DEMO_DURATION instead. Real app uses Mux/Storage.)
-const SAMPLE_VIDEO = 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-const DEMO_DURATION = 30; // seconds — stands in for real metadata in the sandbox
+// Real local clip (24s), served same-origin by Next so it actually plays here.
+const SAMPLE_VIDEO = '/dev-sample.mp4';
 
-// Seeded video comments so the timeline markers are demonstrable offline:
-// spread timecodes, one general note, one pin (numbered), one resolved (dimmed).
+// Seeded video comments: spread timecodes, one general note, one pin (numbered),
+// one resolved (dimmed). Their timestamps (3 / 12.5 / 24s) fit the 24s clip.
 const SEED_VIDEO_COMMENTS = [
   { id: 'seed-pin', type: 'pin', x: 32, y: 38, color: '#FACC15', videoTimestamp: 3, author: 'You', text: 'Logo lands a beat too early', createdAt: '2026-08-03T10:00:00.000Z' },
   { id: 'seed-note', type: 'general', color: '#3B82F6', videoTimestamp: 12.5, author: 'Riya', text: 'Music swell hits perfectly here', createdAt: '2026-08-03T10:01:00.000Z' },
-  { id: 'seed-rect', type: 'rect', x: 18, y: 20, width: 34, height: 24, color: '#EF4444', videoTimestamp: 24, author: 'You', text: 'Grade runs too warm on skin', createdAt: '2026-08-03T10:02:00.000Z', resolved: true },
+  { id: 'seed-rect', type: 'rect', x: 18, y: 20, width: 34, height: 24, color: '#EF4444', videoTimestamp: 23, author: 'You', text: 'Grade runs too warm on skin', createdAt: '2026-08-03T10:02:00.000Z', resolved: true },
 ];
+
+// A legacy annotations[] entry (pre-unification drawing) to prove it stays
+// readable on the canvas without appearing in the comment rail.
+const LEGACY_IMAGE_ANNOTATIONS = [
+  { id: 'legacy-1', type: 'circle', x: 52, y: 26, width: 22, height: 22, color: '#22C55E', createdAt: '2026-07-01T09:00:00.000Z' },
+];
+
+const MENTIONABLES = [{ id: 'u1', name: 'Harnesh' }, { id: 'u2', name: 'Riya' }, { id: 'u3', name: 'Kimiko' }];
 
 export default function DevReviewPage() {
   const [mode, setMode] = useState('dark');
@@ -56,53 +62,28 @@ export default function DevReviewPage() {
 function Shell({ mode, setMode }) {
   const { t } = useTheme();
   const [tab, setTab] = useState('image');
-  const [imageItems, setImageItems] = useState([]);
-  const [videoItems, setVideoItems] = useState(SEED_VIDEO_COMMENTS);
-  const [selectedId, setSelectedId] = useState(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [videoDuration, setVideoDuration] = useState(DEMO_DURATION);
-  const videoRef = useRef(null);
+
+  const [imageAsset, setImageAsset] = useState({
+    id: 'img', type: 'image', url: SAMPLE_IMAGE, feedback: [], annotations: LEGACY_IMAGE_ANNOTATIONS,
+  });
+  const [videoAsset, setVideoAsset] = useState({
+    id: 'vid', type: 'video', url: SAMPLE_VIDEO, feedback: SEED_VIDEO_COMMENTS, annotations: [],
+  });
 
   const isVideo = tab === 'video';
-  const items = isVideo ? videoItems : imageItems;
-  const setItems = isVideo ? setVideoItems : setImageItems;
-
-  // New items carry comment fields (author) so the sidebar can own them.
-  const addItem = (it) => setItems(prev => [...prev, { author: 'You', ...it }]);
-  const updateItem = (id, patch) => setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
-  const deleteItem = (id) => { setItems(prev => prev.filter(i => i.id !== id)); if (selectedId === id) setSelectedId(null); };
-
-  // General comment (no drawing) from the sidebar composer.
-  const postComment = ({ text, videoTimestamp }) => {
-    const id = Math.random().toString(36).slice(2, 10);
-    setItems(prev => [...prev, { id, type: 'general', text, videoTimestamp, color: '#FACC15', author: 'You', createdAt: new Date().toISOString() }]);
-    setSelectedId(id);
-  };
-
-  // Seek the shared video element (sidebar timecode chips + timeline markers).
-  // Optimistically move the playhead too so the UI responds even when the real
-  // <video> hasn't loaded (sandbox); real playback overwrites this via timeupdate.
-  const seekTo = (seconds) => {
-    setCurrentTime(seconds);
-    const v = videoRef.current;
-    if (v) { v.currentTime = seconds; v.pause(); }
-  };
-
-  const media = isVideo
-    ? { type: 'video', src: SAMPLE_VIDEO }
-    : { type: 'image', src: SAMPLE_IMAGE };
-
-  const MENTIONABLES = [{ id: 'u1', name: 'Harnesh' }, { id: 'u2', name: 'Riya' }, { id: 'u3', name: 'Kimiko' }];
+  const asset = isVideo ? videoAsset : imageAsset;
+  const setAsset = isVideo ? setVideoAsset : setImageAsset;
+  const updateAsset = (patch) => setAsset(prev => ({ ...prev, ...patch }));
 
   const tabBtn = (id, label) => (
-    <button onClick={() => { setTab(id); setSelectedId(null); }}
+    <button onClick={() => setTab(id)}
       style={{ padding: `${SPACE['2']} ${SPACE['3']}`, borderRadius: RADIUS.md, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: WEIGHT.semibold, background: tab === id ? t.accent : t.surfaceElev, color: tab === id ? t.onAccent : t.text }}>{label}</button>
   );
 
   return (
     <div style={{ minHeight: '100vh', background: t.bg, color: t.text, display: 'flex', flexDirection: 'column', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: SPACE['3'], padding: SPACE['4'], borderBottom: `1px solid ${t.border}` }}>
-        <strong style={{ fontSize: 15 }}>🧪 Review — A1.3</strong>
+        <strong style={{ fontSize: 15 }}>🧪 ReviewViewer — A1.4</strong>
         {tabBtn('image', 'Image')}
         {tabBtn('video', 'Video')}
         <div style={{ flex: 1 }} />
@@ -112,48 +93,13 @@ function Shell({ mode, setMode }) {
         </button>
       </header>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 320px' }}>
-        <div style={{ minHeight: 0, height: 'calc(100vh - 66px)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1, minHeight: 0 }}>
-            {/* key forces a fresh canvas when switching image/video */}
-            <ReviewCanvas
-              key={tab}
-              media={media}
-              items={items}
-              onAddItem={addItem}
-              onUpdateItem={updateItem}
-              onDeleteItem={deleteItem}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              videoRef={videoRef}
-              onTimeUpdate={setCurrentTime}
-              onDurationChange={setVideoDuration}
-            />
-          </div>
-          {isVideo && (
-            <VideoTimeline
-              duration={videoDuration}
-              currentTime={currentTime}
-              comments={items}
-              selectedId={selectedId}
-              onSeek={seekTo}
-              onSelect={setSelectedId}
-            />
-          )}
-        </div>
-
-        <CommentSidebar
+      <div style={{ flex: 1, minHeight: 0, height: 'calc(100vh - 66px)' }}>
+        {/* key remounts the viewer per asset so view state resets on tab switch */}
+        <ReviewViewer
           key={tab}
-          comments={items}
+          asset={asset}
+          onUpdateAsset={updateAsset}
           currentUser={{ id: 'me', name: 'You' }}
-          mediaType={media.type}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onSeek={seekTo}
-          onUpdate={updateItem}
-          onDelete={deleteItem}
-          onPost={postComment}
-          currentTime={currentTime}
           mentionables={MENTIONABLES}
         />
       </div>

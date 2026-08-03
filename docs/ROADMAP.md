@@ -9,8 +9,8 @@
 
 ## ▶ LAST DONE / NEXT UP
 
-- **LAST DONE:** A1.3 — `components/review/VideoTimeline.js` + wired below the video on `/dev/review`. Controlled scrubber (`duration, currentTime, comments, selectedId, onSeek, onSelect`): comment markers at `ts/duration*100`% (pin-numbered to match sidebar, resolved dimmed), progress fill + draggable playhead + hover time bubble, click/drag track to scrub, ←/→/Home/End keys, `role="slider"` a11y. Added `onDurationChange` to ReviewCanvas + optimistic seek in the harness. Verified with seeded demo comments: marker click → seek + select → canvas reveals the annotation; track click seeks without changing selection; dark + light; no console errors. (Real playback still CDN-blocked in sandbox — timeline exercised via DEMO_DURATION + seed.)
-- **NEXT UP:** **A1.4** — `components/review/ReviewViewer.js`. Compose ReviewCanvas + CommentSidebar + VideoTimeline into one controlled unit: `<ReviewViewer asset onUpdateAsset currentUser videoRef />`. Owns the shared `items`/`comments` array + selectedId + currentTime/duration + videoRef wiring (lift the plumbing currently in `/dev/review`), maps asset.feedback[] ⇄ items, and exposes the full loop. Prove the whole loop on `/dev/review` (viewer replaces the hand-wired Shell body).
+- **LAST DONE:** A1.4 — `components/review/ReviewViewer.js` composes canvas + timeline + sidebar into one controlled unit `<ReviewViewer asset onUpdateAsset currentUser videoRef mentionables />`. Owns view state (selectedId, currentTime, duration, videoRef); all persistence via `onUpdateAsset` patches. `feedback[]` is canonical (comments + drawing); legacy `annotations[]` stays READABLE on canvas (write-back routed, not in the rail). `/dev/review` reduced to asset state + one viewer. Added a **real local `public/dev-sample.mp4`** (24s, ffmpeg) so video actually plays in-sandbox — real duration/seek verified end-to-end, dark + light, no console errors. Legacy green circle shows on canvas but not the rail. ✅
+- **NEXT UP:** **A1.5** — Wire `<ReviewViewer>` into MainApp's lightbox. Replace the `assetTab==='annotate'` branch + separate feedback panel + `handleSaveAnnotations`/`handleSaveVideoAnnotations` (ARCHITECTURE: handlers ~7017–7120, lightbox render ~9140–9600). Map the real asset → `{feedback, annotations, url, type}`; `onUpdateAsset` must call the existing `updateProject`/asset-write path and **preserve mention/email/task side-effects** on comment add. Delete the dead annotate/feedback code. Verify in the running app, not just `/dev/review`.
 - **Build order:** A1 → A3.3/A3 → A2 → B → C1–C5 → A4/A5 → D → E → C6/C7.
 
 ---
@@ -39,7 +39,7 @@ Unify `feedback[]` (comments) + `annotations[]` (drawings) into ONE loop. Custom
 - [x] **A1.1** `components/review/ReviewCanvas.js` — port from `AnnotationCanvas.js`; pin tool + video-overlay sync; verified on `app/dev/review/page.js`
 - [x] **A1.2** `components/review/CommentSidebar.js` — comments primary; timecode/pin chips; click → seek + highlight; composer + @mention; Toast; wired into `/dev/review`
 - [x] **A1.3** `components/review/VideoTimeline.js` — comment markers (ts/duration math); click → seek + select; track scrub + keyboard; wired below video on `/dev/review`
-- [ ] **A1.4** `components/review/ReviewViewer.js` — compose all; `<ReviewViewer asset onUpdateAsset currentUser videoRef />`; full loop on `/dev/review`
+- [x] **A1.4** `components/review/ReviewViewer.js` — composes canvas+timeline+sidebar; controlled via `onUpdateAsset`; feedback[] canonical + legacy annotations readable; real local sample video; verified on `/dev/review`
 - [ ] **A1.5** Wire into MainApp lightbox — replace annotate mode + feedback panel + both save paths with `<ReviewViewer>`; preserve mention/email/task side-effects; delete dead code
 
 ### A2 — Thumbnail + resolution loading
