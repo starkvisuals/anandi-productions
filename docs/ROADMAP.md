@@ -9,8 +9,8 @@
 
 ## ▶ LAST DONE / NEXT UP
 
-- **LAST DONE:** A1.2 — `components/review/CommentSidebar.js` + wired into `/dev/review`. Comments are the primary object (same items array as ReviewCanvas, extended with text/author/resolved/replies). Rows show pin badge (image) / clickable timecode chip (video), inline edit, resolve, delete, replies, @mention composer, Toast on every action. Shared `videoRef` + `currentTime` binding proven. Verified image + video, dark + light, no console errors. (External sample video is CDN-blocked in sandbox — seek handler verified by callback, not playback.)
-- **NEXT UP:** **A1.3** — `components/review/VideoTimeline.js`. Comment markers on the scrubber at `videoTimestamp / duration * 100`% (reuse marker math ~MainApp:9017); click marker → seek + pause + select/open the comment. Controlled: `duration, currentTime, comments, selectedId, onSeek, onSelect`. Wire below the video on `/dev/review`.
+- **LAST DONE:** A1.3 — `components/review/VideoTimeline.js` + wired below the video on `/dev/review`. Controlled scrubber (`duration, currentTime, comments, selectedId, onSeek, onSelect`): comment markers at `ts/duration*100`% (pin-numbered to match sidebar, resolved dimmed), progress fill + draggable playhead + hover time bubble, click/drag track to scrub, ←/→/Home/End keys, `role="slider"` a11y. Added `onDurationChange` to ReviewCanvas + optimistic seek in the harness. Verified with seeded demo comments: marker click → seek + select → canvas reveals the annotation; track click seeks without changing selection; dark + light; no console errors. (Real playback still CDN-blocked in sandbox — timeline exercised via DEMO_DURATION + seed.)
+- **NEXT UP:** **A1.4** — `components/review/ReviewViewer.js`. Compose ReviewCanvas + CommentSidebar + VideoTimeline into one controlled unit: `<ReviewViewer asset onUpdateAsset currentUser videoRef />`. Owns the shared `items`/`comments` array + selectedId + currentTime/duration + videoRef wiring (lift the plumbing currently in `/dev/review`), maps asset.feedback[] ⇄ items, and exposes the full loop. Prove the whole loop on `/dev/review` (viewer replaces the hand-wired Shell body).
 - **Build order:** A1 → A3.3/A3 → A2 → B → C1–C5 → A4/A5 → D → E → C6/C7.
 
 ---
@@ -38,7 +38,7 @@ Rules: one file / tight feature per chunk (>3 files → split). Reuse `generateI
 Unify `feedback[]` (comments) + `annotations[]` (drawings) into ONE loop. Custom canvas synced to `video.currentTime`. Extend feedback item with `pin:{x,y}` + `drawing[]` (keep `videoTimestamp`). Legacy `annotations[]` stays readable — no migration.
 - [x] **A1.1** `components/review/ReviewCanvas.js` — port from `AnnotationCanvas.js`; pin tool + video-overlay sync; verified on `app/dev/review/page.js`
 - [x] **A1.2** `components/review/CommentSidebar.js` — comments primary; timecode/pin chips; click → seek + highlight; composer + @mention; Toast; wired into `/dev/review`
-- [ ] **A1.3** `components/review/VideoTimeline.js` — comment markers (reuse math ~MainApp:9017); click → seek + open
+- [x] **A1.3** `components/review/VideoTimeline.js` — comment markers (ts/duration math); click → seek + select; track scrub + keyboard; wired below video on `/dev/review`
 - [ ] **A1.4** `components/review/ReviewViewer.js` — compose all; `<ReviewViewer asset onUpdateAsset currentUser videoRef />`; full loop on `/dev/review`
 - [ ] **A1.5** Wire into MainApp lightbox — replace annotate mode + feedback panel + both save paths with `<ReviewViewer>`; preserve mention/email/task side-effects; delete dead code
 

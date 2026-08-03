@@ -13,6 +13,7 @@ import { useState, useRef } from 'react';
 import { ThemeProvider, useTheme, SPACE, RADIUS, WEIGHT } from '@/lib/theme';
 import ReviewCanvas from '@/components/review/ReviewCanvas';
 import CommentSidebar from '@/components/review/CommentSidebar';
+import VideoTimeline from '@/components/review/VideoTimeline';
 
 // Inline SVG data-URI so the harness never depends on external image hosts
 // (the preview sandbox blocks them). Real app uses Firebase Storage URLs.
@@ -29,8 +30,19 @@ const SAMPLE_IMAGE =
        <text x="600" y="720" font-family="sans-serif" font-size="34" fill="#94a3b8" text-anchor="middle">Sample frame — draw / drop a pin</text>
      </svg>`
   );
-// Small, CORS-friendly sample video.
+// Small, CORS-friendly sample video. (The preview sandbox blocks external media,
+// so real playback / duration won't load here — the timeline below is exercised
+// with the seeded comments + DEMO_DURATION instead. Real app uses Mux/Storage.)
 const SAMPLE_VIDEO = 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+const DEMO_DURATION = 30; // seconds — stands in for real metadata in the sandbox
+
+// Seeded video comments so the timeline markers are demonstrable offline:
+// spread timecodes, one general note, one pin (numbered), one resolved (dimmed).
+const SEED_VIDEO_COMMENTS = [
+  { id: 'seed-pin', type: 'pin', x: 32, y: 38, color: '#FACC15', videoTimestamp: 3, author: 'You', text: 'Logo lands a beat too early', createdAt: '2026-08-03T10:00:00.000Z' },
+  { id: 'seed-note', type: 'general', color: '#3B82F6', videoTimestamp: 12.5, author: 'Riya', text: 'Music swell hits perfectly here', createdAt: '2026-08-03T10:01:00.000Z' },
+  { id: 'seed-rect', type: 'rect', x: 18, y: 20, width: 34, height: 24, color: '#EF4444', videoTimestamp: 24, author: 'You', text: 'Grade runs too warm on skin', createdAt: '2026-08-03T10:02:00.000Z', resolved: true },
+];
 
 export default function DevReviewPage() {
   const [mode, setMode] = useState('dark');
@@ -45,9 +57,10 @@ function Shell({ mode, setMode }) {
   const { t } = useTheme();
   const [tab, setTab] = useState('image');
   const [imageItems, setImageItems] = useState([]);
-  const [videoItems, setVideoItems] = useState([]);
+  const [videoItems, setVideoItems] = useState(SEED_VIDEO_COMMENTS);
   const [selectedId, setSelectedId] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(DEMO_DURATION);
   const videoRef = useRef(null);
 
   const isVideo = tab === 'video';
@@ -66,8 +79,11 @@ function Shell({ mode, setMode }) {
     setSelectedId(id);
   };
 
-  // Seek the shared video element (used by the sidebar's timecode chips).
+  // Seek the shared video element (sidebar timecode chips + timeline markers).
+  // Optimistically move the playhead too so the UI responds even when the real
+  // <video> hasn't loaded (sandbox); real playback overwrites this via timeupdate.
   const seekTo = (seconds) => {
+    setCurrentTime(seconds);
     const v = videoRef.current;
     if (v) { v.currentTime = seconds; v.pause(); }
   };
@@ -86,7 +102,7 @@ function Shell({ mode, setMode }) {
   return (
     <div style={{ minHeight: '100vh', background: t.bg, color: t.text, display: 'flex', flexDirection: 'column', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: SPACE['3'], padding: SPACE['4'], borderBottom: `1px solid ${t.border}` }}>
-        <strong style={{ fontSize: 15 }}>🧪 ReviewCanvas — A1.1</strong>
+        <strong style={{ fontSize: 15 }}>🧪 Review — A1.3</strong>
         {tabBtn('image', 'Image')}
         {tabBtn('video', 'Video')}
         <div style={{ flex: 1 }} />
@@ -97,20 +113,33 @@ function Shell({ mode, setMode }) {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 320px' }}>
-        <div style={{ minHeight: 0, height: 'calc(100vh - 66px)' }}>
-          {/* key forces a fresh canvas when switching image/video */}
-          <ReviewCanvas
-            key={tab}
-            media={media}
-            items={items}
-            onAddItem={addItem}
-            onUpdateItem={updateItem}
-            onDeleteItem={deleteItem}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            videoRef={videoRef}
-            onTimeUpdate={setCurrentTime}
-          />
+        <div style={{ minHeight: 0, height: 'calc(100vh - 66px)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {/* key forces a fresh canvas when switching image/video */}
+            <ReviewCanvas
+              key={tab}
+              media={media}
+              items={items}
+              onAddItem={addItem}
+              onUpdateItem={updateItem}
+              onDeleteItem={deleteItem}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              videoRef={videoRef}
+              onTimeUpdate={setCurrentTime}
+              onDurationChange={setVideoDuration}
+            />
+          </div>
+          {isVideo && (
+            <VideoTimeline
+              duration={videoDuration}
+              currentTime={currentTime}
+              comments={items}
+              selectedId={selectedId}
+              onSeek={seekTo}
+              onSelect={setSelectedId}
+            />
+          )}
         </div>
 
         <CommentSidebar

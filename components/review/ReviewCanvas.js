@@ -60,6 +60,7 @@ export default function ReviewCanvas({
   onSelect,
   videoRef: externalVideoRef,
   onTimeUpdate,
+  onDurationChange,
   activeTimeWindow = 0.75,
   showToolbar = true,
   pendingColor,
@@ -108,20 +109,22 @@ export default function ReviewCanvas({
     const v = videoRef.current;
     if (!v) return;
     const onTime = () => { setVideoTime(v.currentTime); onTimeUpdate?.(v.currentTime); };
-    const onMeta = () => setVideoDuration(v.duration || 0);
+    const onMeta = () => { const d = v.duration || 0; setVideoDuration(d); onDurationChange?.(d); };
     const onPlay = () => setVideoPaused(false);
     const onPause = () => setVideoPaused(true);
     v.addEventListener('timeupdate', onTime);
     v.addEventListener('loadedmetadata', onMeta);
+    v.addEventListener('durationchange', onMeta);
     v.addEventListener('play', onPlay);
     v.addEventListener('pause', onPause);
     return () => {
       v.removeEventListener('timeupdate', onTime);
       v.removeEventListener('loadedmetadata', onMeta);
+      v.removeEventListener('durationchange', onMeta);
       v.removeEventListener('play', onPlay);
       v.removeEventListener('pause', onPause);
     };
-  }, [isVideo, videoRef, onTimeUpdate]);
+  }, [isVideo, videoRef, onTimeUpdate, onDurationChange]);
 
   // Which items to render right now.
   // Image: all. Video: those with no timestamp, OR near currentTime, OR selected.
