@@ -1546,17 +1546,20 @@ export default function MainApp() {
   
   // Create task from feedback (auto-task generation)
   const createTaskFromFeedback = (feedback, asset, project) => {
-    // Calculate due date based on settings
+    // A revision is due SOON (turnaround from now), never in the past. Anchor on
+    // now + turnaround; only tighten to the project deadline if it's still in the
+    // future AND sooner than that. (Previously anchored on project.deadline, so a
+    // stale/past project deadline produced tasks due in the past — see REVIEW-BUGS B7.)
+    const now = new Date();
+    const turnaroundHrs = project.turnaroundHours || 24;
+    let dueDate = new Date(now);
+    dueDate.setHours(dueDate.getHours() + turnaroundHrs);
+
     const projectDeadline = project.deadline ? new Date(project.deadline) : null;
-    let dueDate = null;
-    
-    if (projectDeadline) {
+    if (projectDeadline && !isNaN(projectDeadline) && projectDeadline > now && projectDeadline < dueDate) {
       dueDate = new Date(projectDeadline);
-      dueDate.setHours(dueDate.getHours() - notificationSettings.autoTaskDueBefore);
-    } else {
-      // Default to 24 hours from now if no project deadline
-      dueDate = new Date();
-      dueDate.setHours(dueDate.getHours() + 24);
+      dueDate.setHours(dueDate.getHours() - (notificationSettings.autoTaskDueBefore || 0));
+      if (dueDate < now) dueDate = new Date(projectDeadline); // never before now
     }
     
     // Determine assignee based on asset type/category
