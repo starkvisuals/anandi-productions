@@ -24,6 +24,7 @@ import ProjectSnapshot from './workflow/ProjectSnapshot';
 import ActivityFeedDrawer from './workflow/ActivityFeedDrawer';
 import OnboardingFlow from './hr/OnboardingFlow';
 import AnnotationCanvas from './AnnotationCanvas';
+import CommentSidebar from './review/CommentSidebar';
 import ComparePanel from './ComparePanel';
 
 // Dynamic import MuxPlayer to avoid SSR issues
@@ -7014,22 +7015,22 @@ export default function MainApp() {
       if (editor?.email) sendEmailNotification(editor.email, `New assignment: ${asset?.name}`, `You have been assigned to work on ${asset?.name} in project ${selectedProject.name}`);
     };
     const handleSetGdriveLink = async (assetId, link) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, gdriveLink: link, status: link ? 'delivered' : a.status } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); if (selectedAsset) setSelectedAsset({ ...selectedAsset, gdriveLink: link, status: link ? 'delivered' : selectedAsset.status }); showToast('Link saved', 'success'); };
-    const handleAddFeedback = async () => { 
-      if (!newFeedback.trim() || !selectedAsset) return; 
+    const handleAddFeedback = async (textArg) => {
+      const text = (typeof textArg === 'string' ? textArg : newFeedback);
+      if (!text.trim() || !selectedAsset) return;
       const videoTime = selectedAsset.type === 'video' && videoRef.current ? videoRef.current.currentTime : null;
       
       // Extract mentions from feedback text - match against all available users
       const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
       const mentionRegex = /@([A-Za-z\s]+?)(?=\s|$|@|,|\.)/g;
       const mentions = [];
-      let match;
-      while ((match = mentionRegex.exec(newFeedback)) !== null) {
+      for (const match of text.matchAll(mentionRegex)) {
         const mentionedName = match[1].trim();
         const mentionedUser = allMentionable.find(m => m.name?.toLowerCase() === mentionedName.toLowerCase());
         if (mentionedUser && !mentions.find(m => m.id === mentionedUser.id)) mentions.push(mentionedUser);
       }
       
-      const fb = { id: generateId(), text: newFeedback, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false, mentions: mentions.map(m => m.id), round: selectedAsset.revisionRound || 1 };
+      const fb = { id: generateId(), text, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString(), videoTimestamp: videoTime, isDone: false, mentions: mentions.map(m => m.id), round: selectedAsset.revisionRound || 1 };
       const updatedFeedback = [...(selectedAsset.feedback || []), fb];
       // Set turnaround deadline if auto-turnaround enabled
       const turnaroundHrs = selectedProject.turnaroundHours || 24;
@@ -7051,13 +7052,13 @@ export default function MainApp() {
       // Email notification to assigned person
       if (selectedAsset.assignedTo) {
         const assignee = editors.find(e => e.id === selectedAsset.assignedTo);
-        if (assignee?.email) sendEmailNotification(assignee.email, `New feedback: ${selectedAsset.name}`, `${userProfile.name} commented: "${newFeedback}"`, 'feedback');
+        if (assignee?.email) sendEmailNotification(assignee.email, `New feedback: ${selectedAsset.name}`, `${userProfile.name} commented: "${text}"`, 'feedback');
       }
       
       // Email notifications to mentioned users
       for (const mentioned of mentions) {
         if (mentioned.email && mentioned.id !== selectedAsset.assignedTo) {
-          sendEmailNotification(mentioned.email, `You were mentioned: ${selectedAsset.name}`, `${userProfile.name} mentioned you: "${newFeedback}"`, 'mention');
+          sendEmailNotification(mentioned.email, `You were mentioned: ${selectedAsset.name}`, `${userProfile.name} mentioned you: "${text}"`, 'mention');
         }
       }
     };
@@ -7082,6 +7083,46 @@ export default function MainApp() {
       setReplyingTo(null);
       await updateProject(selectedProject.id, { assets: updated });
     };
+
+    // ── A1.5: adapter between the stored feedback[] shape and <CommentSidebar> ──
+    // feedback[] uses userName/isDone/timestamp; the sidebar uses author/resolved/
+    // createdAt. Map both ways; comment ADD stays on handleAddFeedback so all the
+    // mention/email/task/activity/status side-effects are preserved.
+    const reviewComments = (selectedAsset?.feedback || []).map(fb => ({
+      id: fb.id,
+      type: 'general',
+      text: fb.text,
+      author: fb.userName || 'Team',
+      userId: fb.userId,
+      resolved: !!fb.isDone,
+      createdAt: fb.timestamp,
+      videoTimestamp: fb.videoTimestamp,
+      color: '#6366f1',
+      replies: (fb.replies || []).map(r => ({ id: r.id, text: r.text, author: r.userName, userId: r.userId, createdAt: r.timestamp })),
+    }));
+    const reviewMentionables = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()].map(m => ({ id: m.id, name: m.name }));
+    // Persist a new feedback[] array to the selected asset (local + Firestore).
+    const persistFeedback = async (updatedFeedback) => {
+      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback } : a);
+      setSelectedAsset(prev => ({ ...prev, feedback: updatedFeedback }));
+      setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updated } : p));
+      try { await updateProject(selectedProject.id, { assets: updated }); } catch (e) { console.error('Save feedback error:', e); }
+    };
+    // Edit text / toggle resolved / add reply — maps the sidebar patch back to feedback shape.
+    const handleReviewUpdate = (id, patch) => {
+      const updatedFeedback = (selectedAsset.feedback || []).map(fb => {
+        if (fb.id !== id) return fb;
+        const next = { ...fb };
+        if (patch.text !== undefined) next.text = patch.text;
+        if (patch.resolved !== undefined) next.isDone = patch.resolved;
+        if (patch.replies !== undefined) next.replies = patch.replies.map(r => ({ id: r.id, text: r.text, userId: r.userId, userName: r.author || r.userName, timestamp: r.createdAt || r.timestamp }));
+        return next;
+      });
+      persistFeedback(updatedFeedback);
+    };
+    const handleReviewDelete = (id) => persistFeedback((selectedAsset.feedback || []).filter(fb => fb.id !== id));
+    const handleReviewSeek = (seconds) => { if (videoRef.current) { videoRef.current.currentTime = seconds; videoRef.current.pause(); setVideoPlaying(false); } };
+    const handleReviewSelect = (id) => { setHighlightedFeedbackId(id); };
 
     // Can mark feedback done: producers, editors, video editors, freelancers - NOT clients
     const canMarkFeedbackDone = ['producer', 'admin', 'team-lead', 'editor', 'video-editor', 'colorist', 'animator', 'vfx-artist', 'sound-designer'].includes(userProfile?.role);
@@ -9528,103 +9569,20 @@ export default function MainApp() {
 
                         {/* COMMENTS TAB */}
                         {rightPanelTab === 'comments' && (
-                          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                            <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
-                              {(selectedAsset.annotations || []).filter(a => a.text).length === 0 && (selectedAsset.feedback || []).length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '40px 16px', color: 'rgba(255,255,255,0.25)' }}>
-                                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>💬</div>
-                                  <div style={{ fontSize: '12px' }}>No comments yet</div>
-                                  <div style={{ fontSize: '10px', marginTop: '4px', color: 'rgba(255,255,255,0.15)' }}>Annotate the image or leave a note below</div>
-                                </div>
-                              ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                  {(selectedAsset.annotations || []).filter(a => a.text).map(annot => (
-                                    <div key={annot.id} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '10px 12px', border: `1px solid ${annot.color}30` }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: annot.color, flexShrink: 0 }} />
-                                        <span style={{ fontSize: '10px', fontWeight: '600', color: 'rgba(255,255,255,0.5)' }}>{annot.author || 'You'}</span>
-                                        {annot.videoTimestamp != null && (
-                                          <span style={{ fontSize: '9px', background: 'rgba(99,102,241,0.2)', padding: '1px 5px', borderRadius: '4px', color: '#818cf8', fontFamily: 'monospace' }}>@ {formatTimecode(annot.videoTimestamp)}</span>
-                                        )}
-                                      </div>
-                                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.4' }}>{annot.text}</div>
-                                    </div>
-                                  ))}
-                                  {(selectedAsset.feedback || []).map(fb => (
-                                    <div key={fb.id} id={`feedback-${fb.id}`} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)', opacity: fb.isDone ? 0.6 : 1, transition: 'all 0.3s', ...(highlightedFeedbackId === fb.id ? { background: 'rgba(99,102,241,0.12)', boxShadow: '0 0 0 2px rgba(99,102,241,0.4)' } : {}) }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                        <span style={{ fontSize: '10px', fontWeight: '600', color: 'rgba(255,255,255,0.5)' }}>{fb.userName || 'Team'}</span>
-                                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>{formatTimeAgo(fb.timestamp)}</span>
-                                        {fb.videoTimestamp != null && fb.videoTimestamp !== undefined && (
-                                          <span onClick={() => { if (videoRef.current) { videoRef.current.currentTime = fb.videoTimestamp; videoRef.current.pause(); setVideoPlaying(false); } setHighlightedFeedbackId(fb.id); setTimeout(() => setHighlightedFeedbackId(null), 3000); }} style={{ fontSize: '9px', background: 'rgba(99,102,241,0.2)', padding: '1px 5px', borderRadius: '4px', color: '#818cf8', fontFamily: 'monospace', cursor: 'pointer' }}>@ {formatTimecode(fb.videoTimestamp)}</span>
-                                        )}
-                                        {fb.isDone && <span style={{ fontSize: '9px', color: '#22c55e', marginLeft: 'auto' }}>✓ Done</span>}
-                                        {!fb.isDone && canMarkFeedbackDone && <button onClick={(e) => handleToggleFeedbackDone(fb.id, e)} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '1px 6px', fontSize: '9px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>Done?</button>}
-                                      </div>
-                                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.4' }}>{fb.text}</div>
-                                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px', alignItems: 'center' }}>
-                                        <button onClick={() => { setReplyingTo(replyingTo === fb.id ? null : fb.id); setReplyText(''); }} style={{ background: 'none', border: 'none', padding: 0, fontSize: '10px', color: '#6366f1', cursor: 'pointer', fontWeight: '500' }}>Reply</button>
-                                        {(fb.replies || []).length > 0 && <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{fb.replies.length} {fb.replies.length === 1 ? 'reply' : 'replies'}</span>}
-                                      </div>
-                                      {(fb.replies || []).length > 0 && (
-                                        <div style={{ marginTop: '6px', marginLeft: '8px', borderLeft: '2px solid rgba(255,255,255,0.08)', paddingLeft: '8px' }}>
-                                          {fb.replies.map(r => (
-                                            <div key={r.id} style={{ marginBottom: '4px', padding: '5px 8px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px 8px 8px 8px', fontSize: '10px' }}>
-                                              <span style={{ fontWeight: '600', color: 'rgba(255,255,255,0.7)' }}>{r.userName}</span>
-                                              <span style={{ color: 'rgba(255,255,255,0.3)', marginLeft: '6px' }}>{formatTimeAgo(r.timestamp)}</span>
-                                              <div style={{ color: 'rgba(255,255,255,0.6)', marginTop: '2px', lineHeight: '1.3' }}>{r.text}</div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                      {replyingTo === fb.id && (
-                                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
-                                          <input value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddReply(fb.id); if (e.key === 'Escape') { setReplyingTo(null); setReplyText(''); } }} placeholder="Reply..." autoFocus style={{ flex: 1, padding: '5px 8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '10px', }} />
-                                          <button onClick={() => handleAddReply(fb.id)} disabled={!replyText.trim()} style={{ padding: '5px 8px', background: replyText.trim() ? '#6366f1' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px', color: replyText.trim() ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: '9px', cursor: replyText.trim() ? 'pointer' : 'default' }}>Send</button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
-                                {['Approved', 'Needs revision', 'Love this', 'Change color', 'Crop differently'].map(tag => (
-                                  <button key={tag} onClick={() => setNewFeedback(prev => prev ? `${prev} ${tag}` : tag)} style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'rgba(255,255,255,0.5)', fontSize: '10px', cursor: 'pointer' }}>{tag}</button>
-                                ))}
-                              </div>
-                              {selectedAsset.type === 'video' && <span style={{ fontSize: '9px', color: '#6366f1', background: 'rgba(99,102,241,0.2)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', display: 'inline-block', marginBottom: '6px' }}>{Math.floor(videoTime / 60)}:{String(Math.floor(videoTime % 60)).padStart(2, '0')}</span>}
-                              <div style={{ display: 'flex', gap: '6px', position: 'relative' }}>
-                                <div style={{ flex: 1, position: 'relative' }}>
-                                  <input
-                                    ref={feedbackInputRef}
-                                    value={newFeedback}
-                                    onChange={(e) => { const val = e.target.value; setNewFeedback(val); const lastAt = val.lastIndexOf('@'); if (lastAt !== -1 && lastAt === val.length - 1) { setShowMentions(true); setMentionSearch(''); } else if (lastAt !== -1 && !val.substring(lastAt + 1).includes(' ')) { setShowMentions(true); setMentionSearch(val.substring(lastAt + 1).toLowerCase()); } else { setShowMentions(false); } }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !showMentions) handleAddFeedback(); if (e.key === 'Escape') setShowMentions(false); }}
-                                    placeholder="Add feedback... (@mention)"
-                                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '11px', boxSizing: 'border-box' }}
-                                    onFocus={e => e.target.style.borderColor = '#6366f1'}
-                                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                                  />
-                                  {showMentions && (() => {
-                                    const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
-                                    const filtered = allMentionable.filter(m => m.name?.toLowerCase().includes(mentionSearch)).slice(0, 5);
-                                    return (
-                                      <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: 'rgba(15,15,25,0.97)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', marginBottom: '4px', maxHeight: '150px', overflow: 'auto', zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-                                        {filtered.map(member => (
-                                          <div key={member.id} onClick={() => { const lastAt = newFeedback.lastIndexOf('@'); setNewFeedback(newFeedback.substring(0, lastAt) + `@${member.name} `); setShowMentions(false); feedbackInputRef.current?.focus(); }} style={{ padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '600', color: '#818cf8' }}>{member.name?.[0]}</div>
-                                            <span style={{ color: '#fff' }}>{member.name}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                                <button onClick={handleAddFeedback} disabled={!newFeedback.trim()} style={{ padding: '8px 12px', background: newFeedback.trim() ? '#6366f1' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px', color: newFeedback.trim() ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: '11px', fontWeight: '600', cursor: newFeedback.trim() ? 'pointer' : 'default', transition: 'all 0.15s' }}>Send</button>
-                              </div>
-                            </div>
+                          <div style={{ height: '100%', minHeight: 0 }}>
+                            <CommentSidebar
+                              comments={reviewComments}
+                              currentUser={{ id: userProfile?.id, name: userProfile?.name }}
+                              mediaType={selectedAsset.type === 'video' ? 'video' : 'image'}
+                              selectedId={highlightedFeedbackId}
+                              onSelect={handleReviewSelect}
+                              onSeek={handleReviewSeek}
+                              onUpdate={handleReviewUpdate}
+                              onDelete={handleReviewDelete}
+                              onPost={({ text }) => handleAddFeedback(text)}
+                              currentTime={videoTime}
+                              mentionables={reviewMentionables}
+                            />
                           </div>
                         )}
 
