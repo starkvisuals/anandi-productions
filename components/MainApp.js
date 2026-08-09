@@ -8973,7 +8973,6 @@ export default function MainApp() {
                             poster={selectedAsset.muxPlaybackId ? (selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`) : (selectedAsset.thumbnailUrl || undefined)}
                             onTimeUpdate={handleVideoTimeUpdate}
                             onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
-                            onCanPlay={() => setVideoLoading && setVideoLoading(false)}
                             onPlay={() => setVideoPlaying(true)}
                             onPause={() => setVideoPlaying(false)}
                             onEnded={() => { setVideoPlaying(false); setShuttleSpeed(0); }}

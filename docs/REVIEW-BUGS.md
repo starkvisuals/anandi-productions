@@ -31,10 +31,10 @@ fix for four bugs at once is **A1.5b — swap AnnotationCanvas → ReviewCanvas
 |---|-----|-----|-------------|--------|
 | B1 | P0 | Annotations don't stay aligned with the video on responsive/resize | Legacy AnnotationCanvas uses pixel coords → drifts. ReviewCanvas stores %-coords + measures the frame box. **Fix via A1.5b.** | open |
 | B2 | P1 | Video loads very slowly | Perf: lightbox `<video>` may pull the full file / no poster / not using the Mux HLS rendition. Investigate `selectedAsset.url` vs `muxPlaybackId` path (~MainApp 8925). Separate small part. | open |
-| B3 | P0 | Text annotation ("T") not working | Legacy tool broken. ReviewCanvas text tool works. **Fix via A1.5b.** | open |
+| B3 | P0 | Text annotation ("T") not working | **LIKELY FIXED by the B6 fix** — the `setVideoLoading` ReferenceError threw on every `canplay`, an unhandled runtime error that disrupts the component's event handling (so the text tool did nothing). Text-tool code path itself is correct. *Re-test after B6.* | needs re-test |
 | B4 | P1 | Hand-drawn (freehand) annotation can't be deleted | **FIXED** in AnnotationCanvas: freehand only had `onClick` select, so the draw surface's `onMouseDown` intercepted it → could never select → no delete ×. Added a wide transparent hit-path + `onMouseDown`/`onTouchStart` select. Now click the stroke → × appears → delete. *Re-test.* | ✅ fixed |
 | B5 | P2 | Boxes + colour dots render as ovals (squished on narrow width) | **FIXED** in AnnotationCanvas toolbar: added `flexShrink:0` to tool buttons + colour dots + their groups, and `overflowX:auto` on the toolbar so it scrolls instead of squishing. Any oval dots in the *lightbox top chrome* (MainApp) are separate → fold into the later UI-UX layout rework. *Re-test.* | ✅ fixed (annotate toolbar) |
-| B6 | P1 | "1 error" toast in the lightbox | Unknown — need the error text (expand the red toast / browser console). Could be pre-existing or video-related. | needs info |
+| B6 | P0 | "1 error" toast in the lightbox | **FIXED** — `ReferenceError: setVideoLoading is not defined`. The `<video onCanPlay>` handler called `setVideoLoading(false)` but that state was never declared, so it threw on every `canplay`. Removed the dead handler (no loading UI used it). *Re-test.* | ✅ fixed |
 
 ## A1.5b plan (the big win — fixes B1, B3, B4, B5)
 1. Add an **overlay mode** to `ReviewCanvas`: `overlay` prop → don't render its own
