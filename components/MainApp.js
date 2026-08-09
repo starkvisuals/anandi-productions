@@ -5767,6 +5767,7 @@ export default function MainApp() {
     const feedbackInputRef = useRef(null);
     const [videoTime, setVideoTime] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
+    const [videoAspect, setVideoAspect] = useState(null); // w/h — sizes the annotate overlay to the actual video box (B1)
     const [videoPlaying, setVideoPlaying] = useState(false);
     const [videoVolume, setVideoVolume] = useState(1);
     const [videoMuted, setVideoMuted] = useState(false);
@@ -8972,7 +8973,7 @@ export default function MainApp() {
                             src={selectedAsset.muxPlaybackId ? undefined : selectedAsset.url}
                             poster={selectedAsset.muxPlaybackId ? (selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`) : (selectedAsset.thumbnailUrl || undefined)}
                             onTimeUpdate={handleVideoTimeUpdate}
-                            onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
+                            onLoadedMetadata={(e) => { setVideoDuration(e.target.duration); setVideoAspect(e.target.videoWidth && e.target.videoHeight ? e.target.videoWidth / e.target.videoHeight : null); }}
                             onPlay={() => setVideoPlaying(true)}
                             onPause={() => setVideoPlaying(false)}
                             onEnded={() => { setVideoPlaying(false); setShuttleSpeed(0); }}
@@ -9169,7 +9170,15 @@ export default function MainApp() {
                             <div
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
-                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 'calc(100% - 80px)', zIndex: 15, cursor: 'crosshair' }}
+                              style={{
+                                position: 'absolute', zIndex: 15, cursor: 'crosshair',
+                                // Match the video's actual (letterbox-aware) box so annotations
+                                // stay locked to the frame on resize — B1. Centered box of the
+                                // video's aspect within the media area (mirrors the <video>).
+                                ...(videoAspect
+                                  ? { top: 0, left: 0, right: 0, bottom: '80px', margin: 'auto', aspectRatio: String(videoAspect), maxWidth: '100%', maxHeight: '100%' }
+                                  : { top: 0, left: 0, width: '100%', height: 'calc(100% - 80px)' }),
+                              }}
                             >
                               {/* Annotating frame badge */}
                               <div style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 25, padding: '6px 14px', background: 'rgba(99,102,241,0.9)', borderRadius: '20px', fontSize: '11px', color: '#fff', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(8px)', pointerEvents: 'none' }}>
@@ -9189,7 +9198,7 @@ export default function MainApp() {
 
                           {/* Readonly video annotation markers — show at matching timestamps during preview */}
                           {assetTab === 'preview' && visibleVideoAnnotations.length > 0 && (
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 'calc(100% - 80px)', pointerEvents: 'none', zIndex: 5 }}>
+                            <div style={{ position: 'absolute', pointerEvents: 'none', zIndex: 5, ...(videoAspect ? { top: 0, left: 0, right: 0, bottom: '80px', margin: 'auto', aspectRatio: String(videoAspect), maxWidth: '100%', maxHeight: '100%' } : { top: 0, left: 0, width: '100%', height: 'calc(100% - 80px)' }) }}>
                               {visibleVideoAnnotations.map(a => {
                                 if (a.type === 'freehand' && a.path) {
                                   const pathD = a.path.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
