@@ -9,10 +9,10 @@
 
 ## ▶ LAST DONE / NEXT UP
 
-- **LAST DONE:** A2.1 + A3.1 + A3.3 — reusable, token-driven asset components, verified on new `/dev/assets` (dark + light, no console errors). `components/media/LazyImage.js` = true blur-up (thumb → full fade, aspect-ratio reserves space = no CLS, T18 cached-image guard, onError fallback). `components/assets/AssetCard.js` = grid tile (blur-up thumb, video play glyph + duration, hover lift, selected ring, color-label dot, selection ✓, rating stars, feedback badge, status chip) with a **right-click `Menu`** (Share / Copy URL / Download / Rename / — / **Delete in red**; only actions whose callbacks are passed appear). Verified via DOM: menu opacity 1, 1 divider, Delete = rgb(239,68,68). ✅
+- **LAST DONE:** A2.2 — resolution ladder in `components/media/LazyImage.js`. New `highRes` prop: the base `src` paints first, the higher-res is preloaded in the background via `new Image()` and cross-fades in ON TOP only once fully decoded (never flashes; off-screen images never fetch it). Verified `/dev/assets` LOW→MED→HIGH (DOM: hi-res layer present, opacity 1, showing HIGH). ✅ *(prev: A2.1 blur-up LazyImage + A3.1 AssetCard + A3.3 right-click menu — all verified on `/dev/assets`, dark+light.)*
 - **⏸ A1.5 DEFERRED (needs live app test):** the lightbox (~MainApp 8850–9600) is a deeply-woven **custom Mux/HLS player** (own `<video>`, shuttle, fullscreen, keyboard handlers) — dropping `<ReviewViewer>` (own video+canvas) in wholesale collides with it and can only be validated with Firebase auth + a real project, not in-sandbox. Do A1.5 as a **focused, live-tested pass**: map real asset → `{feedback, annotations, url, type}`; wire a single smart `onUpdateAsset` that persists via `updateProject` AND, on a feedback item gaining non-empty text, fires the existing mention/email/task/activity/status side-effects (reuse `handleAddFeedback` logic ~7017); untangle the custom player vs ReviewCanvas's `<video>`; delete dead annotate/feedback code. **All the /dev components it needs (ReviewViewer, AssetCard, LazyImage) now exist and are verified.**
-- **NEXT UP:** **A2.2** — resolution ladder (bg-load higher-res over lower-res; extend LazyImage with a `srcSet`/`highRes` swap), OR **A5.1** project-creation streamline. Then **A1.5** live pass, **B** cleanup, **C** design migration.
-- **Build order:** A1(.1–.4 ✅, .5 live-pending) → A3.3/A3 ✅ → A2(.1 ✅, .2) → B → C1–C5 → A4/A5 → D → E → C6/C7.
+- **NEXT UP:** **A1.5** live pass (biggest value — makes the whole review loop live in the app; needs Firebase testing — see the ⏸ note above), OR keep to safe `/dev`/component work: **A5.1** project-creation streamline, **C1** Login migration, **B1/B2** clarify Inbox/Workflow. The A-phase component library (ReviewViewer, AssetCard, LazyImage) is done + verified.
+- **Build order:** A1(.1–.4 ✅, .5 live-pending) → A3.3/A3.1 ✅ → A2 ✅ → B → C1–C5 → A4/A5 → D → E → C6/C7.
 
 ---
 
@@ -45,7 +45,7 @@ Unify `feedback[]` (comments) + `annotations[]` (drawings) into ONE loop. Custom
 
 ### A2 — Thumbnail + resolution loading
 - [x] **A2.1** Progressive/blur-up thumbnails → `components/media/LazyImage.js` (thumb→full fade, aspect-ratio no-CLS, T18 guard, onError); verified `/dev/assets`
-- [ ] **A2.2** Resolution ladder — bg-load higher-res over lower-res (srcset / Mux renditions)
+- [x] **A2.2** Resolution ladder → `LazyImage` `highRes` prop: base paints, higher-res preloads in bg + cross-fades in once decoded (never flashes, off-screen never fetches); verified `/dev/assets` (LOW→MED→HIGH)
 
 ### A3 — Asset grid + lightbox UX (mobile + polish)
 - [x] **A3.1** Asset grid card → `components/assets/AssetCard.js` (primitives + tokens, blur-up thumb, hover, rating/select/label/status); verified `/dev/assets`

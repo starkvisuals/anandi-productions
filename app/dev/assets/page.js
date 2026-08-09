@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { ThemeProvider, useTheme, SPACE, RADIUS, WEIGHT } from '@/lib/theme';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import AssetCard from '@/components/assets/AssetCard';
+import LazyImage from '@/components/media/LazyImage';
 
 const swatch = (bg, label) =>
   'data:image/svg+xml;utf8,' + encodeURIComponent(
@@ -59,6 +60,26 @@ function Shell({ mode, setMode }) {
           {mode === 'dark' ? '☀ Light' : '☾ Dark'}
         </button>
       </header>
+
+      {/* A2.2 — resolution ladder demo: thumbnail → src → highRes */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: `${SPACE['5']} ${SPACE['5']} 0` }}>
+        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: t.textMuted, marginBottom: SPACE['3'] }}>Resolution ladder (A2.2) — upgrades LOW → MED → HIGH</div>
+        <div style={{ display: 'flex', gap: SPACE['4'] }}>
+          <LazyImage
+            eager
+            thumbnail={swatch('#334155', 'LOW')}
+            src={swatch('#1d4ed8', 'MED')}
+            highRes={swatch('#16a34a', 'HIGH')}
+            alt="ladder demo"
+            aspectRatio="16 / 9"
+            radius="lg"
+            style={{ width: 320 }}
+          />
+          <div style={{ fontSize: 12, color: t.textSecondary, alignSelf: 'center', maxWidth: 260 }}>
+            Base (MED) paints first; HIGH is preloaded in the background and cross-fades in only once fully decoded. Off-screen images never fetch HIGH.
+          </div>
+        </div>
+      </div>
 
       <div style={{ padding: SPACE['5'], display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: SPACE['4'], maxWidth: 1100, margin: '0 auto' }}>
         {assets.map(a => (

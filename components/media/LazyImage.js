@@ -1,13 +1,16 @@
 'use client';
-// components/media/LazyImage.js — progressive, blur-up image (A2.1).
+// components/media/LazyImage.js — progressive, blur-up image + resolution ladder (A2.1 / A2.2).
 //
-// The reusable, token-aware successor to MainApp's inline LazyImage. Three
-// improvements over the original:
+// The reusable, token-aware successor to MainApp's inline LazyImage:
 //   1. TRUE blur-up — the tiny `thumbnail` shows immediately (blurred to hide
-//      compression), the full-res `src` fades in ON TOP once decoded. No flash,
+//      compression), the base `src` fades in ON TOP once decoded. No flash,
 //      no pop from empty → full.
-//   2. No layout shift — the box reserves space via `aspectRatio` (CLS = 0).
-//   3. Cached-image safe — a cached/data-URI image can finish loading BEFORE
+//   2. Resolution ladder (A2.2) — an optional `highRes` is quietly preloaded
+//      AFTER the base is showing and swapped in only once it has fully decoded
+//      (never flashes, never wastes bandwidth off-screen). thumbnail → src →
+//      highRes, each tier a clean cross-fade.
+//   3. No layout shift — the box reserves space via `aspectRatio` (CLS = 0).
+//   4. Cached-image safe — a cached/data-URI image can finish loading BEFORE
 //      React attaches onLoad, so the event never fires (PLAYBOOK T18). We check
 //      `.complete && naturalWidth > 0` on mount + src change, and treat onError
 //      as "done" so a broken image never blurs forever.
@@ -33,6 +36,7 @@ import { useReducedMotion } from '@/lib/motion';
 export default function LazyImage({
   src,
   thumbnail,
+  highRes,
   alt = '',
   aspectRatio,
   objectFit = 'cover',
@@ -47,12 +51,14 @@ export default function LazyImage({
   const [inView, setInView] = useState(eager);
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
+  const [hiReady, setHiReady] = useState(false);
 
   const wrapRef = useRef(null);
   const imgRef = useRef(null);
 
   const full = src || thumbnail;
   const hasThumb = thumbnail && thumbnail !== src;
+  const hasHiRes = highRes && highRes !== full;
   const radiusVal = radius != null ? (RADIUS[radius] || radius) : undefined;
 
   // Defer the network fetch until near the viewport.
@@ -69,7 +75,7 @@ export default function LazyImage({
   }, [eager, inView]);
 
   // Reset load state whenever the source changes.
-  useEffect(() => { setLoaded(false); setErrored(false); }, [full]);
+  useEffect(() => { setLoaded(false); setErrored(false); setHiReady(false); }, [full, highRes]);
 
   // Cached / data-URI images can be `.complete` before onLoad attaches (T18).
   useEffect(() => {
@@ -77,6 +83,19 @@ export default function LazyImage({
     const img = imgRef.current;
     if (img && img.complete && img.naturalWidth > 0) setLoaded(true);
   }, [inView, full]);
+
+  // Resolution ladder — once the base image is showing, quietly preload the
+  // higher-res version and swap it in only after it has fully decoded (no flash,
+  // no wasted bandwidth if it never scrolls into view).
+  useEffect(() => {
+    if (!inView || !loaded || errored || !hasHiRes) return;
+    let cancelled = false;
+    const hi = new Image();
+    hi.onload = () => { if (!cancelled) setHiReady(true); };
+    hi.onerror = () => {}; // keep the base image; no downgrade
+    hi.src = highRes;
+    return () => { cancelled = true; hi.onload = null; };
+  }, [inView, loaded, errored, hasHiRes, highRes]);
 
   return (
     <div
@@ -118,6 +137,18 @@ export default function LazyImage({
           onLoad={() => setLoaded(true)}
           onError={() => { setErrored(true); setLoaded(true); }}
           style={{ position: 'relative', width: '100%', height: '100%', objectFit, opacity: loaded ? 1 : 0, transition: reduced ? 'none' : 'opacity 260ms ease-out' }}
+        />
+      )}
+
+      {/* High-resolution upgrade, fades in over the base once decoded */}
+      {inView && !errored && hasHiRes && hiReady && (
+        <img
+          src={highRes}
+          alt=""
+          aria-hidden
+          decoding="async"
+          data-hires="1"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit, opacity: 1, transition: reduced ? 'none' : 'opacity 260ms ease-out' }}
         />
       )}
 
