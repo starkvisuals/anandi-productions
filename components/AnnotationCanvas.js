@@ -236,7 +236,10 @@ export default function AnnotationCanvas({ imageUrl, thumbnailUrl = null, annota
       return (
         <div key={a.id} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible' }}>
-            <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: isSelected ? '4px' : '3px', pointerEvents: 'stroke', cursor: 'pointer', filter: isSelected ? `drop-shadow(0 0 3px ${a.color})` : 'none' }} onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }} />
+            {/* wide invisible hit path — makes the thin stroke easy to select/delete (mousedown so it beats the draw surface) */}
+            <path d={pathD} stroke="transparent" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ strokeWidth: '14px', pointerEvents: 'stroke', cursor: 'pointer' }}
+              onMouseDown={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }} onTouchStart={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }} onClick={(e) => { e.stopPropagation(); setSelectedAnnot(a.id); }} />
+            <path d={pathD} stroke={a.color} strokeWidth="0.5" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: isSelected ? '4px' : '3px', pointerEvents: 'none', filter: isSelected ? `drop-shadow(0 0 3px ${a.color})` : 'none' }} />
           </svg>
           {a.text && <div style={{ ...labelStyle, left: `${minX}%`, top: `${Math.max(0, minY)}%`, transform: 'translateY(-100%)' }}>{a.text}</div>}
           {isSelected && <button onClick={(e) => deleteAnnot(a.id, e)} style={{ position: 'absolute', left: `${minX}%`, top: `${minY}%`, transform: 'translate(-50%, -50%)', width: '20px', height: '20px', background: '#ef4444', border: '2px solid #fff', borderRadius: '50%', color: '#fff', fontSize: '11px', cursor: 'pointer', zIndex: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.3)', pointerEvents: 'auto' }}>×</button>}
@@ -316,19 +319,19 @@ export default function AnnotationCanvas({ imageUrl, thumbnailUrl = null, annota
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', alignItems: 'center', flexShrink: 0, background: t.bgSecondary, borderBottom: `1px solid ${t.border}` }}>
-        <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '10px', padding: '3px' }}>
+      <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', alignItems: 'center', flexShrink: 0, background: t.bgSecondary, borderBottom: `1px solid ${t.border}`, overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: '2px', background: t.bgInput, borderRadius: '10px', padding: '3px', flexShrink: 0 }}>
           {TOOLS.map(tl => (
             <button key={tl.id} onClick={() => setTool(tl.id)} title={tl.label}
-              style={{ width: '34px', height: '34px', background: tool === tl.id ? t.primary : 'transparent', border: 'none', borderRadius: '8px', color: tool === tl.id ? '#fff' : t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+              style={{ width: '34px', height: '34px', flexShrink: 0, background: tool === tl.id ? t.primary : 'transparent', border: 'none', borderRadius: '8px', color: tool === tl.id ? '#fff' : t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
               {tl.icon}
             </button>
           ))}
         </div>
-        <div style={{ width: '1px', height: '24px', background: t.border }} />
-        <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+        <div style={{ width: '1px', height: '24px', background: t.border, flexShrink: 0 }} />
+        <div style={{ display: 'flex', gap: '3px', alignItems: 'center', flexShrink: 0 }}>
           {COLORS.map(c => (
-            <button key={c} onClick={() => setColor(c)} style={{ width: '22px', height: '22px', background: c, border: color === c ? `2.5px solid ${t.text}` : '2px solid transparent', borderRadius: '50%', cursor: 'pointer', boxShadow: color === c ? `0 0 0 2px ${c}` : 'none', transition: 'all 0.15s' }} />
+            <button key={c} onClick={() => setColor(c)} style={{ width: '22px', height: '22px', flexShrink: 0, background: c, border: color === c ? `2.5px solid ${t.text}` : '2px solid transparent', borderRadius: '50%', cursor: 'pointer', boxShadow: color === c ? `0 0 0 2px ${c}` : 'none', transition: 'all 0.15s' }} />
           ))}
         </div>
         <div style={{ flex: 1 }} />

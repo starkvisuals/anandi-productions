@@ -32,8 +32,8 @@ fix for four bugs at once is **A1.5b — swap AnnotationCanvas → ReviewCanvas
 | B1 | P0 | Annotations don't stay aligned with the video on responsive/resize | Legacy AnnotationCanvas uses pixel coords → drifts. ReviewCanvas stores %-coords + measures the frame box. **Fix via A1.5b.** | open |
 | B2 | P1 | Video loads very slowly | Perf: lightbox `<video>` may pull the full file / no poster / not using the Mux HLS rendition. Investigate `selectedAsset.url` vs `muxPlaybackId` path (~MainApp 8925). Separate small part. | open |
 | B3 | P0 | Text annotation ("T") not working | Legacy tool broken. ReviewCanvas text tool works. **Fix via A1.5b.** | open |
-| B4 | P1 | Hand-drawn (freehand) annotation can't be deleted | Legacy freehand not selectable/deletable. ReviewCanvas freehand is selectable + has a delete affordance. **Fix via A1.5b.** | open |
-| B5 | P2 | Boxes + colour dots render as ovals (squished on narrow width) | Flex children missing `flexShrink:0`/equal w-h in the legacy toolbar + lightbox chrome. Mostly disappears with A1.5b (ReviewCanvas toolbar dots are round). Any remaining lightbox-chrome ovals: fold into the later UI-UX layout rework. | open |
+| B4 | P1 | Hand-drawn (freehand) annotation can't be deleted | **FIXED** in AnnotationCanvas: freehand only had `onClick` select, so the draw surface's `onMouseDown` intercepted it → could never select → no delete ×. Added a wide transparent hit-path + `onMouseDown`/`onTouchStart` select. Now click the stroke → × appears → delete. *Re-test.* | ✅ fixed |
+| B5 | P2 | Boxes + colour dots render as ovals (squished on narrow width) | **FIXED** in AnnotationCanvas toolbar: added `flexShrink:0` to tool buttons + colour dots + their groups, and `overflowX:auto` on the toolbar so it scrolls instead of squishing. Any oval dots in the *lightbox top chrome* (MainApp) are separate → fold into the later UI-UX layout rework. *Re-test.* | ✅ fixed (annotate toolbar) |
 | B6 | P1 | "1 error" toast in the lightbox | Unknown — need the error text (expand the red toast / browser console). Could be pre-existing or video-related. | needs info |
 
 ## A1.5b plan (the big win — fixes B1, B3, B4, B5)
