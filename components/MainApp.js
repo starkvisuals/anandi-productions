@@ -5923,6 +5923,45 @@ export default function MainApp() {
       };
     }, [selectedAsset?.muxPlaybackId, selectedAsset?.id]);
 
+    // Auto-resolve the Mux playbackId when a video is opened that has finished
+    // uploading but never had its playbackId saved (the webhook is a no-op — see
+    // docs/FRAMEIO-STUDY.md / REVIEW-BUGS B2). Polls the upload status; once Mux
+    // reports ready, persists muxPlaybackId + thumbnail/duration/aspect so the
+    // player switches from the slow raw file to fast Mux HLS. Self-healing; no
+    // Firebase Admin SDK needed. (Proper fix = wire the webhook, later.)
+    useEffect(() => {
+      const a = selectedAsset;
+      if (!a || a.type !== 'video' || a.muxPlaybackId || !a.muxUploadId) return;
+      let cancelled = false;
+      let attempts = 0;
+      const poll = async () => {
+        if (cancelled) return;
+        attempts++;
+        try {
+          const res = await fetch(`/api/mux/upload?uploadId=${a.muxUploadId}`);
+          const data = await res.json();
+          const pid = data?.asset?.playbackId;
+          if (cancelled) return;
+          if (pid) {
+            const patch = {
+              muxPlaybackId: pid,
+              thumbnail: data.asset.thumbnailUrl || a.thumbnail,
+              duration: data.asset.duration || a.duration,
+              aspectRatio: data.asset.aspectRatio || a.aspectRatio,
+            };
+            const updatedAssets = (selectedProject.assets || []).map(x => x.id === a.id ? { ...x, ...patch } : x);
+            setSelectedAsset(prev => (prev && prev.id === a.id ? { ...prev, ...patch } : prev));
+            setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updatedAssets } : p));
+            try { await updateProject(selectedProject.id, { assets: updatedAssets }); } catch (e) { console.error('Persist muxPlaybackId failed:', e); }
+            return; // done
+          }
+        } catch (e) { /* still processing / transient — keep polling */ }
+        if (!cancelled && attempts < 20) setTimeout(poll, 4000); // ~80s of retries
+      };
+      poll();
+      return () => { cancelled = true; };
+    }, [selectedAsset?.id, selectedAsset?.muxPlaybackId, selectedAsset?.muxUploadId]);
+
     // Close speed menu on outside click
     useEffect(() => {
       if (!showSpeedMenu) return;
