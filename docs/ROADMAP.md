@@ -9,9 +9,10 @@
 
 ## ▶ LAST DONE / NEXT UP
 
-- **LAST DONE:** A1.4 — `components/review/ReviewViewer.js` composes canvas + timeline + sidebar into one controlled unit `<ReviewViewer asset onUpdateAsset currentUser videoRef mentionables />`. Owns view state (selectedId, currentTime, duration, videoRef); all persistence via `onUpdateAsset` patches. `feedback[]` is canonical (comments + drawing); legacy `annotations[]` stays READABLE on canvas (write-back routed, not in the rail). `/dev/review` reduced to asset state + one viewer. Added a **real local `public/dev-sample.mp4`** (24s, ffmpeg) so video actually plays in-sandbox — real duration/seek verified end-to-end, dark + light, no console errors. Legacy green circle shows on canvas but not the rail. ✅
-- **NEXT UP:** **A1.5** — Wire `<ReviewViewer>` into MainApp's lightbox. Replace the `assetTab==='annotate'` branch + separate feedback panel + `handleSaveAnnotations`/`handleSaveVideoAnnotations` (ARCHITECTURE: handlers ~7017–7120, lightbox render ~9140–9600). Map the real asset → `{feedback, annotations, url, type}`; `onUpdateAsset` must call the existing `updateProject`/asset-write path and **preserve mention/email/task side-effects** on comment add. Delete the dead annotate/feedback code. Verify in the running app, not just `/dev/review`.
-- **Build order:** A1 → A3.3/A3 → A2 → B → C1–C5 → A4/A5 → D → E → C6/C7.
+- **LAST DONE:** A2.1 + A3.1 + A3.3 — reusable, token-driven asset components, verified on new `/dev/assets` (dark + light, no console errors). `components/media/LazyImage.js` = true blur-up (thumb → full fade, aspect-ratio reserves space = no CLS, T18 cached-image guard, onError fallback). `components/assets/AssetCard.js` = grid tile (blur-up thumb, video play glyph + duration, hover lift, selected ring, color-label dot, selection ✓, rating stars, feedback badge, status chip) with a **right-click `Menu`** (Share / Copy URL / Download / Rename / — / **Delete in red**; only actions whose callbacks are passed appear). Verified via DOM: menu opacity 1, 1 divider, Delete = rgb(239,68,68). ✅
+- **⏸ A1.5 DEFERRED (needs live app test):** the lightbox (~MainApp 8850–9600) is a deeply-woven **custom Mux/HLS player** (own `<video>`, shuttle, fullscreen, keyboard handlers) — dropping `<ReviewViewer>` (own video+canvas) in wholesale collides with it and can only be validated with Firebase auth + a real project, not in-sandbox. Do A1.5 as a **focused, live-tested pass**: map real asset → `{feedback, annotations, url, type}`; wire a single smart `onUpdateAsset` that persists via `updateProject` AND, on a feedback item gaining non-empty text, fires the existing mention/email/task/activity/status side-effects (reuse `handleAddFeedback` logic ~7017); untangle the custom player vs ReviewCanvas's `<video>`; delete dead annotate/feedback code. **All the /dev components it needs (ReviewViewer, AssetCard, LazyImage) now exist and are verified.**
+- **NEXT UP:** **A2.2** — resolution ladder (bg-load higher-res over lower-res; extend LazyImage with a `srcSet`/`highRes` swap), OR **A5.1** project-creation streamline. Then **A1.5** live pass, **B** cleanup, **C** design migration.
+- **Build order:** A1(.1–.4 ✅, .5 live-pending) → A3.3/A3 ✅ → A2(.1 ✅, .2) → B → C1–C5 → A4/A5 → D → E → C6/C7.
 
 ---
 
@@ -43,13 +44,13 @@ Unify `feedback[]` (comments) + `annotations[]` (drawings) into ONE loop. Custom
 - [ ] **A1.5** Wire into MainApp lightbox — replace annotate mode + feedback panel + both save paths with `<ReviewViewer>`; preserve mention/email/task side-effects; delete dead code
 
 ### A2 — Thumbnail + resolution loading
-- [ ] **A2.1** Progressive/blur-up thumbnails (extend `LazyImage`); no flash
+- [x] **A2.1** Progressive/blur-up thumbnails → `components/media/LazyImage.js` (thumb→full fade, aspect-ratio no-CLS, T18 guard, onError); verified `/dev/assets`
 - [ ] **A2.2** Resolution ladder — bg-load higher-res over lower-res (srcset / Mux renditions)
 
 ### A3 — Asset grid + lightbox UX (mobile + polish)
-- [ ] **A3.1** Asset grid card → primitives + tokens; smooth hover
+- [x] **A3.1** Asset grid card → `components/assets/AssetCard.js` (primitives + tokens, blur-up thumb, hover, rating/select/label/status); verified `/dev/assets`
 - [ ] **A3.2** Lightbox shell → primitives; mobile full-screen sheet, desktop keyboard
-- [ ] **A3.3** Right-click asset menu → `Menu` primitive; clean grouped options (Share/Download/Copy URL/Rename/Delete-in-red)
+- [x] **A3.3** Right-click asset menu → `Menu` primitive in AssetCard; grouped Share/Copy URL/Download/Rename + Delete-in-red with divider; verified via DOM
 
 ### A4 — Compare + Filters (exist at /test — wire in)
 - [ ] **A4.1** Wire ComparePanel into lightbox (Cmd+click set already built)
