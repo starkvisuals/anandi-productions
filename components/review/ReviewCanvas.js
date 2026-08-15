@@ -36,7 +36,8 @@ import { useReducedMotion } from '@/lib/motion';
 
 // Brand-forward review palette (kept distinct from semantic tokens — these are
 // user-chosen annotation colors, brand yellow first).
-const DRAW_COLORS = ['#FACC15', '#EF4444', '#22C55E', '#3B82F6', '#A855F7', '#F97316', '#FFFFFF'];
+// Frame.io-style trimmed palette: brand yellow + red / green / blue / magenta.
+const DRAW_COLORS = ['#FACC15', '#EF4444', '#22C55E', '#3B82F6', '#EC4899'];
 
 const genId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -48,7 +49,10 @@ const ICON = {
   freehand: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 17c3-4 5-6 7-6s3 3 5 3 4-3 6-6"/></svg>,
   text: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4,7 4,4 20,4 20,7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>,
 };
-const TOOLS = ['pin', 'rect', 'circle', 'arrow', 'freehand', 'text'];
+// Frame.io's set (arrow/line-as-freehand/rect/draw) + pin for stills. Dropped the
+// text tool (was broken; Frame.io uses the comment text itself) and the ellipse
+// (Frame.io has none). Legacy circle/text items still RENDER — just can't be created.
+const TOOLS = ['pin', 'arrow', 'rect', 'freehand'];
 
 export default function ReviewCanvas({
   media,
