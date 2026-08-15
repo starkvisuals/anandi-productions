@@ -34,6 +34,7 @@ export default function VideoTimeline({
   selectedId = null,
   onSeek,
   onSelect,
+  thumbnailAt,   // optional (seconds) => imageUrl — Frame.io-style hover-scrub preview
 }) {
   const { t } = useTheme();
   const trackRef = useRef(null);
@@ -131,12 +132,21 @@ export default function VideoTimeline({
           <div style={{ position: 'absolute', left: 0, width: `${pct}%`, top: '50%', transform: 'translateY(-50%)', height: 5, borderRadius: RADIUS.full, background: t.accent }} />
         )}
 
-        {/* Hover time bubble */}
-        {hasDuration && hoverFrac != null && (
-          <div style={{ position: 'absolute', left: `${hoverFrac * 100}%`, top: -22, transform: 'translateX(-50%)', pointerEvents: 'none', fontSize: 10, fontFamily: 'ui-monospace, monospace', fontWeight: WEIGHT.semibold, color: t.text, background: t.surfaceElev, border: `1px solid ${t.border}`, borderRadius: RADIUS.sm, padding: '1px 5px', whiteSpace: 'nowrap' }}>
-            {fmtTimecode(hoverFrac * duration)}
-          </div>
-        )}
+        {/* Hover preview — thumbnail (Frame.io-style scrub) + timecode, clamped in view */}
+        {hasDuration && hoverFrac != null && (() => {
+          const hoverTime = hoverFrac * duration;
+          const thumbUrl = thumbnailAt ? thumbnailAt(Math.round(hoverTime)) : null;
+          return (
+            <div style={{ position: 'absolute', left: `clamp(84px, ${hoverFrac * 100}%, calc(100% - 84px))`, bottom: 'calc(100% + 8px)', transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 9, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              {thumbUrl && (
+                <img src={thumbUrl} alt="" style={{ width: 160, height: 90, objectFit: 'cover', borderRadius: RADIUS.md, border: `1px solid ${t.border}`, boxShadow: t.shadowLg, background: '#000', display: 'block' }} />
+              )}
+              <span style={{ fontSize: 10, fontFamily: 'ui-monospace, monospace', fontWeight: WEIGHT.semibold, color: t.text, background: t.surfaceElev, border: `1px solid ${t.border}`, borderRadius: RADIUS.sm, padding: '1px 5px', whiteSpace: 'nowrap' }}>
+                {fmtTimecode(hoverTime)}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* Comment markers */}
         {hasDuration && markers.map(c => {

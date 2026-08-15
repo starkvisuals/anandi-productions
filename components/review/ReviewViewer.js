@@ -40,12 +40,20 @@ function mediaFromAsset(asset = {}) {
   return { type, src, hls, poster };
 }
 
-export default function ReviewViewer({ asset, onUpdateAsset, currentUser, videoRef: externalVideoRef, mentionables = [] }) {
+export default function ReviewViewer({ asset, onUpdateAsset, currentUser, videoRef: externalVideoRef, mentionables = [], thumbnailAt: thumbnailAtProp }) {
   const localVideoRef = useRef(null);
   const videoRef = externalVideoRef || localVideoRef;
 
   const media = useMemo(() => mediaFromAsset(asset), [asset]);
   const isVideo = media.type === 'video';
+
+  // Frame.io-style scrub preview: Mux serves a thumbnail at any timestamp from a
+  // CDN (browser-cached per second), so hovering the timeline is near-instant.
+  const thumbnailAt = useMemo(() => {
+    if (thumbnailAtProp) return thumbnailAtProp;
+    if (!asset?.muxPlaybackId) return undefined;
+    return (s) => `https://image.mux.com/${asset.muxPlaybackId}/thumbnail.jpg?time=${Math.max(0, s)}&width=240&height=135&fit_mode=preserve`;
+  }, [thumbnailAtProp, asset?.muxPlaybackId]);
 
   const [selectedId, setSelectedId] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -119,6 +127,7 @@ export default function ReviewViewer({ asset, onUpdateAsset, currentUser, videoR
             selectedId={selectedId}
             onSeek={seekTo}
             onSelect={setSelectedId}
+            thumbnailAt={thumbnailAt}
           />
         )}
       </div>

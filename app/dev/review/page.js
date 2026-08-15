@@ -50,6 +50,16 @@ const LEGACY_IMAGE_ANNOTATIONS = [
 
 const MENTIONABLES = [{ id: 'u1', name: 'Harnesh' }, { id: 'u2', name: 'Riya' }, { id: 'u3', name: 'Kimiko' }];
 
+// Mock hover-scrub thumbnails: a distinct swatch per ~3s bucket so we can see the
+// preview change as we scrub (real app uses Mux thumbnail.jpg?time=…).
+const SCRUB_COLORS = ['#0ea5e9', '#22c55e', '#eab308', '#f97316', '#ef4444', '#a855f7', '#ec4899', '#14b8a6'];
+const mockThumbnailAt = (s) => {
+  const bucket = Math.floor(s / 3) % SCRUB_COLORS.length;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="135"><rect width="240" height="135" fill="${SCRUB_COLORS[bucket]}"/><text x="120" y="78" font-family="sans-serif" font-size="30" fill="#fff" text-anchor="middle" opacity="0.9">${Math.floor(s)}s</text></svg>`
+  );
+};
+
 export default function DevReviewPage() {
   const [mode, setMode] = useState('dark');
   return (
@@ -101,6 +111,7 @@ function Shell({ mode, setMode }) {
           onUpdateAsset={updateAsset}
           currentUser={{ id: 'me', name: 'You' }}
           mentionables={MENTIONABLES}
+          thumbnailAt={isVideo ? mockThumbnailAt : undefined}
         />
       </div>
     </div>
