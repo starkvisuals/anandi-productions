@@ -90,6 +90,12 @@ export default function ReviewCanvas({
   const imgRef = useRef(null);
   const localVideoRef = useRef(null);
   const videoRef = externalVideoRef || localVideoRef;
+  const hlsRef = useRef(null);
+
+  // Mux/HLS: media.hls (an .m3u8) streams adaptively (fast start + fast seek).
+  // Fall back to a direct file (media.src) when there's no HLS or hls.js can't run.
+  const hlsSrc = media?.hls || (media?.src && media.src.includes('.m3u8') ? media.src : null);
+  const directSrc = hlsSrc ? undefined : media?.src;
 
   // A cached / data-URI image can finish loading BEFORE React attaches onLoad,
   // so the event never fires and imageLoaded stays false forever (a real trap —
@@ -125,6 +131,35 @@ export default function ReviewCanvas({
       v.removeEventListener('pause', onPause);
     };
   }, [isVideo, videoRef, onTimeUpdate, onDurationChange]);
+
+  // Attach HLS for Mux videos. Safari plays .m3u8 natively; elsewhere use hls.js
+  // (already a dependency). Falls back to the direct file on failure.
+  useEffect(() => {
+    if (!isVideo || !hlsSrc) return;
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.canPlayType('application/vnd.apple.mpegurl')) { v.src = hlsSrc; return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const Hls = (await import('hls.js')).default;
+        if (cancelled) return;
+        if (Hls.isSupported()) {
+          if (hlsRef.current) hlsRef.current.destroy();
+          const hls = new Hls({ enableWorker: true, maxBufferLength: 30 });
+          hlsRef.current = hls;
+          hls.loadSource(hlsSrc);
+          hls.attachMedia(v);
+          hls.on(Hls.Events.ERROR, (e, data) => { if (data?.fatal && media?.src) v.src = media.src; });
+        } else if (media?.src) {
+          v.src = media.src;
+        }
+      } catch (e) {
+        if (!cancelled && media?.src) v.src = media.src;
+      }
+    })();
+    return () => { cancelled = true; if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
+  }, [isVideo, hlsSrc, media?.src]);
 
   // Which items to render right now.
   // Image: all. Video: those with no timestamp, OR near currentTime, OR selected.
@@ -364,7 +399,7 @@ export default function ReviewCanvas({
             {isVideo ? (
               <video
                 ref={videoRef}
-                src={media.src}
+                src={directSrc}
                 poster={media.poster}
                 controls
                 playsInline

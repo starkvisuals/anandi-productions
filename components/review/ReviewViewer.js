@@ -33,8 +33,11 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 function mediaFromAsset(asset = {}) {
   const type = String(asset.mediaType || asset.type || '').toLowerCase().includes('video') ? 'video' : 'image';
   const src = asset.url || asset.src || asset.fileUrl || '';
-  const poster = asset.posterUrl || asset.thumbnailUrl || asset.thumbnail || undefined;
-  return { type, src, poster };
+  // Prefer Mux HLS (fast adaptive streaming) when the asset has a playback id.
+  const hls = asset.muxPlaybackId ? `https://stream.mux.com/${asset.muxPlaybackId}.m3u8` : undefined;
+  const poster = asset.posterUrl || asset.thumbnailUrl || asset.thumbnail
+    || (asset.muxPlaybackId ? `https://image.mux.com/${asset.muxPlaybackId}/thumbnail.jpg` : undefined);
+  return { type, src, hls, poster };
 }
 
 export default function ReviewViewer({ asset, onUpdateAsset, currentUser, videoRef: externalVideoRef, mentionables = [] }) {
