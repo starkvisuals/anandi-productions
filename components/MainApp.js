@@ -25,6 +25,7 @@ import ActivityFeedDrawer from './workflow/ActivityFeedDrawer';
 import OnboardingFlow from './hr/OnboardingFlow';
 import AnnotationCanvas from './AnnotationCanvas';
 import CommentSidebar from './review/CommentSidebar';
+import ReviewViewer from './review/ReviewViewer';
 import ComparePanel from './ComparePanel';
 
 // Dynamic import MuxPlayer to avoid SSR issues
@@ -7167,6 +7168,56 @@ export default function MainApp() {
     const handleReviewSeek = (seconds) => { if (videoRef.current) { videoRef.current.currentTime = seconds; videoRef.current.pause(); setVideoPlaying(false); } };
     const handleReviewSelect = (id) => { setHighlightedFeedbackId(id); };
 
+    // ── A1.5b: mount the full <ReviewViewer> in the Annotate tab ──────────────
+    // Lossless naming adapter between the stored shape (userName/isDone/timestamp)
+    // and ReviewViewer's (author/resolved/createdAt). Spreads preserve drawing
+    // fields (type/x/y/width/path/color/videoTimestamp) in both directions.
+    const realToReview = (fb) => ({ ...fb, type: fb.type || 'general', author: fb.userName || fb.author || 'Team', resolved: !!fb.isDone, createdAt: fb.timestamp || fb.createdAt, replies: (fb.replies || []).map(r => ({ ...r, author: r.userName || r.author, createdAt: r.timestamp || r.createdAt })) });
+    const reviewToReal = (c) => ({ ...c, userName: c.author || c.userName, isDone: !!c.resolved, timestamp: c.createdAt || c.timestamp, replies: (c.replies || []).map(r => ({ ...r, userName: r.author || r.userName, timestamp: r.createdAt || r.timestamp })) });
+    const reviewAsset = selectedAsset ? {
+      ...selectedAsset,
+      url: selectedAsset.url,
+      type: selectedAsset.type,
+      muxPlaybackId: selectedAsset.muxPlaybackId,
+      feedback: (selectedAsset.feedback || []).map(realToReview),
+      annotations: selectedAsset.annotations || [],
+    } : null;
+    const reviewThumbnailAt = selectedAsset?.muxPlaybackId
+      ? (s) => `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg?time=${Math.max(0, s)}&width=240&height=135&fit_mode=preserve`
+      : undefined;
+    // Persist a patch from ReviewViewer + fire side-effects when a comment gains text.
+    const handleReviewAssetUpdate = async (patch) => {
+      const prevFeedback = selectedAsset.feedback || [];
+      const realPatch = { ...patch };
+      if (patch.feedback) realPatch.feedback = patch.feedback.map(reviewToReal);
+      const updatedAssets = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, ...realPatch } : a);
+      setSelectedAsset(prev => (prev ? { ...prev, ...realPatch } : prev));
+      setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updatedAssets } : p));
+      // Side-effects for feedback items that newly gained text (mentions/email/task/activity).
+      const activities = [];
+      if (realPatch.feedback) {
+        const prevById = new Map(prevFeedback.map(f => [f.id, f]));
+        const mentionRegex = /@([A-Za-z\s]+?)(?=\s|$|@|,|\.)/g;
+        const allMentionable = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()];
+        for (const fb of realPatch.feedback) {
+          const before = prevById.get(fb.id);
+          const hadText = before && before.text && before.text.trim();
+          const hasText = fb.text && fb.text.trim();
+          if (!hasText || hadText) continue;
+          const mentions = [];
+          for (const m of fb.text.matchAll(mentionRegex)) {
+            const u = allMentionable.find(x => x.name?.toLowerCase() === m[1].trim().toLowerCase());
+            if (u && !mentions.find(y => y.id === u.id)) mentions.push(u);
+          }
+          activities.push({ id: generateId(), type: 'feedback', message: `${userProfile.name} added feedback on ${selectedAsset.name}${mentions.length ? ` (mentioned ${mentions.map(m => m.name).join(', ')})` : ''}`, timestamp: new Date().toISOString() });
+          if (isClientView || isProducer) createTaskFromFeedback({ ...fb }, selectedAsset, selectedProject);
+          if (selectedAsset.assignedTo) { const as = editors.find(e => e.id === selectedAsset.assignedTo); if (as?.email) sendEmailNotification(as.email, `New feedback: ${selectedAsset.name}`, `${userProfile.name} commented: "${fb.text}"`, 'feedback'); }
+          for (const mn of mentions) { if (mn.email && mn.id !== selectedAsset.assignedTo) sendEmailNotification(mn.email, `You were mentioned: ${selectedAsset.name}`, `${userProfile.name} mentioned you: "${fb.text}"`, 'mention'); }
+        }
+      }
+      try { await updateProject(selectedProject.id, { assets: updatedAssets, ...(activities.length ? { activityLog: [...(selectedProject.activityLog || []), ...activities] } : {}) }); } catch (e) { console.error('Review update failed:', e); }
+    };
+
     // Can mark feedback done: producers, editors, video editors, freelancers - NOT clients
     const canMarkFeedbackDone = ['producer', 'admin', 'team-lead', 'editor', 'video-editor', 'colorist', 'animator', 'vfx-artist', 'sound-designer'].includes(userProfile?.role);
     const handleSaveAnnotations = async (annotations) => {
@@ -8921,6 +8972,21 @@ export default function MainApp() {
             
             {/* Main Content Area */}
             <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+              {/* A1.5b: unified Frame.io review — the Annotate tab renders <ReviewViewer>
+                  (canvas + hover-scrub timeline + comment rail + Mux HLS) as a reversible
+                  overlay. Switch to Preview for the classic player + nav. */}
+              {assetTab === 'annotate' && (selectedAsset.type === 'image' || selectedAsset.type === 'video') && reviewAsset && (
+                <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: t.bg }}>
+                  <ReviewViewer
+                    key={selectedAsset.id}
+                    asset={reviewAsset}
+                    onUpdateAsset={handleReviewAssetUpdate}
+                    currentUser={{ id: userProfile?.id, name: userProfile?.name }}
+                    mentionables={reviewMentionables}
+                    thumbnailAt={reviewThumbnailAt}
+                  />
+                </div>
+              )}
               {/* Left Navigation Arrow — offset past the asset panel */}
               {hasPrev && (
                 <button onClick={goToPrev} className="hover-lift" style={{ position: 'absolute', left: isMobile ? '8px' : (isFullscreen || assetPanelCollapsed ? '20px' : '216px'), top: '50%', transform: 'translateY(-50%)', width: isMobile ? '36px' : '44px', height: isMobile ? '36px' : '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: isMobile ? '16px' : '20px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>‹</button>
