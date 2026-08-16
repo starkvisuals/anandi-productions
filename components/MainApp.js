@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Component } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { getProjects, getProject, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
 import { useKeyboardShortcuts, SHORTCUT_GROUPS } from '@/lib/useKeyboardShortcuts';
@@ -9,6 +9,29 @@ import { getTemplate, materializeBlocksFromTemplate, getCurrentBlock } from '@/l
 import { runHook } from '@/lib/workflow/runner';
 import { DEFAULT_COLOR_LABELS, BLOCK_TYPES } from '@/lib/workflow/constants';
 import { checkProjectSLAReminders } from '@/lib/workflow/checkSLAReminders';
+
+// Contains a crash in the review overlay so it never white-screens the whole app,
+// and surfaces the error text on screen (A1.5b). Reset by keying on the asset id.
+class ReviewErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('ReviewViewer crashed:', error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#0a0a0a', color: '#fff', zIndex: 40 }}>
+          <div style={{ maxWidth: 520, textAlign: 'center' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>The new review view hit an error</div>
+            <div style={{ fontSize: 12, color: '#f87171', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word', marginBottom: 12 }}>{String(this.state.error?.message || this.state.error)}</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Switch to the <strong>Preview</strong> tab to keep working — the classic player is unaffected.</div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const COLOR_SHORTCUT_MAP = { red: 'P', yellow: 'M', green: 'G', blue: 'B', purple: 'V', orange: 'O', gray: 'K' };
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8977,14 +9000,15 @@ export default function MainApp() {
                   overlay. Switch to Preview for the classic player + nav. */}
               {assetTab === 'annotate' && (selectedAsset.type === 'image' || selectedAsset.type === 'video') && reviewAsset && (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: t.bg }}>
-                  <ReviewViewer
-                    key={selectedAsset.id}
-                    asset={reviewAsset}
-                    onUpdateAsset={handleReviewAssetUpdate}
-                    currentUser={{ id: userProfile?.id, name: userProfile?.name }}
-                    mentionables={reviewMentionables}
-                    thumbnailAt={reviewThumbnailAt}
-                  />
+                  <ReviewErrorBoundary key={selectedAsset.id}>
+                    <ReviewViewer
+                      asset={reviewAsset}
+                      onUpdateAsset={handleReviewAssetUpdate}
+                      currentUser={{ id: userProfile?.id, name: userProfile?.name }}
+                      mentionables={reviewMentionables}
+                      thumbnailAt={reviewThumbnailAt}
+                    />
+                  </ReviewErrorBoundary>
                 </div>
               )}
               {/* Left Navigation Arrow — offset past the asset panel */}
