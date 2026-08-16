@@ -7195,16 +7195,21 @@ export default function MainApp() {
     // Lossless naming adapter between the stored shape (userName/isDone/timestamp)
     // and ReviewViewer's (author/resolved/createdAt). Spreads preserve drawing
     // fields (type/x/y/width/path/color/videoTimestamp) in both directions.
-    const realToReview = (fb) => ({ ...fb, type: fb.type || 'general', author: fb.userName || fb.author || 'Team', resolved: !!fb.isDone, createdAt: fb.timestamp || fb.createdAt, replies: (fb.replies || []).map(r => ({ ...r, author: r.userName || r.author, createdAt: r.timestamp || r.createdAt })) });
-    const reviewToReal = (c) => ({ ...c, userName: c.author || c.userName, isDone: !!c.resolved, timestamp: c.createdAt || c.timestamp, replies: (c.replies || []).map(r => ({ ...r, userName: r.author || r.userName, timestamp: r.createdAt || r.timestamp })) });
-    const reviewAsset = selectedAsset ? {
-      ...selectedAsset,
-      url: selectedAsset.url,
-      type: selectedAsset.type,
-      muxPlaybackId: selectedAsset.muxPlaybackId,
-      feedback: (selectedAsset.feedback || []).map(realToReview),
-      annotations: selectedAsset.annotations || [],
-    } : null;
+    const realToReview = (fb) => (!fb || typeof fb !== 'object') ? { id: String(Math.random()), type: 'general', text: '' } : ({ ...fb, type: fb.type || 'general', author: fb.userName || fb.author || 'Team', resolved: !!fb.isDone, createdAt: fb.timestamp || fb.createdAt, replies: Array.isArray(fb.replies) ? fb.replies.filter(Boolean).map(r => ({ ...r, author: r.userName || r.author, createdAt: r.timestamp || r.createdAt })) : [] });
+    const reviewToReal = (c) => (!c || typeof c !== 'object') ? c : ({ ...c, userName: c.author || c.userName, isDone: !!c.resolved, timestamp: c.createdAt || c.timestamp, replies: Array.isArray(c.replies) ? c.replies.filter(Boolean).map(r => ({ ...r, userName: r.author || r.userName, timestamp: r.createdAt || r.timestamp })) : [] });
+    // Bulletproof: this runs in MainApp render (outside the boundary), so it must
+    // never throw — a bad feedback/annotation entry would white-screen the whole app.
+    let reviewAsset = null;
+    try {
+      if (selectedAsset) reviewAsset = {
+        ...selectedAsset,
+        feedback: (Array.isArray(selectedAsset.feedback) ? selectedAsset.feedback : []).filter(Boolean).map(realToReview),
+        annotations: (Array.isArray(selectedAsset.annotations) ? selectedAsset.annotations : []).filter(Boolean),
+      };
+    } catch (e) {
+      console.error('reviewAsset map failed:', e);
+      reviewAsset = selectedAsset ? { ...selectedAsset, feedback: [], annotations: [] } : null;
+    }
     const reviewThumbnailAt = selectedAsset?.muxPlaybackId
       ? (s) => `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg?time=${Math.max(0, s)}&width=240&height=135&fit_mode=preserve`
       : undefined;
