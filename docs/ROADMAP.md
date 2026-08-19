@@ -73,7 +73,7 @@ Unify `feedback[]` (comments) + `annotations[]` (drawings) into ONE loop. Custom
 Each: inline→primitives, hex→tokens, `—`→EmptyState, "Loading…"→Skeleton, emoji→Icon, ad-hoc modal→Modal, Toast on every action. No logic change. Verify dark+light+mobile.
 - [x] **C1** Login (`components/LoginPage.js`) — migrated to `Input`/`Button` primitives + `useTheme` tokens; rebranded off-brand indigo/purple → **brand yellow + near-white primary** (design contract); theme-aware form + fixed dark brand hero; password toggle works; verified, no console errors
 - [x] **C2** Sidebar active state → **brand yellow** (`t.brandYellow`): nav item text/tint/icon, active indicator bar, mobile active border — all safe accent roles (never a fill behind text). Was off-brand indigo `t.primary`. Compile-clean; Harnesh to eyeball live. *(No separate top-nav tab bar — the sidebar is the nav.)*
-- [ ] **C3** Dashboard
+- [~] **C3** Dashboard — **accent pass done:** the clearly-safe indigo accents → **brand yellow** (both progress bars, "View All" link, activity timeline dot/icon/project-link). Deliberately LEFT the data-viz/category colours (per-project-type gradients, stat-number palette, status dots) — those must stay distinct + shouldn't be blind-rebranded. Compile-clean. Full dashboard rebrand (fills/buttons) → the live verified pass.
 - [ ] **C4** Project view shell (tabs/header/toolbar; grid is A3)
 - [ ] **C5** HR module (`components/hr/**`) — EmployeeModule → DetailModal → forms → panels
 - [ ] **C6** Global mobile responsive pass (375/768/1024/1440)

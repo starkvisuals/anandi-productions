@@ -2808,7 +2808,7 @@ export default function MainApp() {
           ))}
         </div>
         <div style={{ height: '3px', background: t.border, borderRadius: '2px', marginBottom: '24px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${overallProgress}%`, background: 'linear-gradient(90deg, #6366f1, #a855f7)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
+          <div style={{ height: '100%', width: `${overallProgress}%`, background: t.brandYellow, borderRadius: '2px', transition: 'width 0.5s ease' }} />
         </div>
 
         {/* 4. Netflix Project Row */}
@@ -2834,7 +2834,7 @@ export default function MainApp() {
                   Recent Projects
                   <span style={{ fontSize: '11px', color: t.textMuted, fontWeight: '400' }}>({activeProjects.length})</span>
                 </h3>
-                <button onClick={() => setView('projects')} style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>View All →</button>
+                <button onClick={() => setView('projects')} style={{ background: 'none', border: 'none', color: t.brandYellow, fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>View All →</button>
               </div>
               <div className="netflix-row">
                 {activeProjects.slice(0, 8).map(p => {
@@ -2897,7 +2897,7 @@ export default function MainApp() {
                         <div style={{ fontSize: '13px', fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                         <div style={{ fontSize: '11px', color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>{p.client}</div>
                         <div style={{ marginTop: '10px', height: '3px', background: t.border, borderRadius: '2px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${progressPct}%`, background: 'linear-gradient(90deg, #6366f1, #a855f7)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
+                          <div style={{ height: '100%', width: `${progressPct}%`, background: t.brandYellow, borderRadius: '2px', transition: 'width 0.5s ease' }} />
                         </div>
                         <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '4px', textAlign: 'right' }}>{progressPct}%</div>
                       </div>
@@ -2987,13 +2987,13 @@ export default function MainApp() {
                       return (
                         <div key={a.id} className="animate-fadeInUp" onClick={() => { setSelectedProjectId(a.projectId); setView('projects'); }} style={{ display: 'flex', gap: '10px', padding: '6px 0', cursor: 'pointer', position: 'relative' }}>
                           {/* Timeline dot */}
-                          <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: t.bgCard, border: `2px solid #6366f1`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
-                            <div style={{ transform: 'scale(0.55)' }}>{Icons[actIcon] && Icons[actIcon]('#6366f1')}</div>
+                          <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: t.bgCard, border: `2px solid ${t.brandYellow}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
+                            <div style={{ transform: 'scale(0.55)' }}>{Icons[actIcon] && Icons[actIcon](t.brandYellow)}</div>
                           </div>
                           <div style={{ flex: 1, minWidth: 0, paddingBottom: '8px' }}>
                             <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{a.message}</div>
                             <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px' }}>
-                              <span style={{ color: '#6366f1', cursor: 'pointer' }}>{a.projectName}</span> {'\u2022'} {formatTimeAgo(a.timestamp)}
+                              <span style={{ color: t.brandYellow, cursor: 'pointer' }}>{a.projectName}</span> {'\u2022'} {formatTimeAgo(a.timestamp)}
                             </div>
                           </div>
                         </div>
