@@ -2456,12 +2456,12 @@ export default function MainApp() {
                   cursor: 'pointer',
                   fontSize: '13px',
                   fontWeight: isActive ? '600' : '400',
-                  background: isActive ? `${t.primary}15` : 'transparent',
-                  color: isActive ? t.primary : t.textSecondary,
+                  background: isActive ? `${t.brandYellow}1f` : 'transparent',
+                  color: isActive ? t.brandYellow : t.textSecondary,
                   justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                   transition: 'all 0.2s ease',
                   position: 'relative',
-                  ...(isMobile && isActive ? { borderBottom: `2px solid ${t.primary}`, borderRadius: '0', background: `${t.primary}10` } : {}),
+                  ...(isMobile && isActive ? { borderBottom: `2px solid ${t.brandYellow}`, borderRadius: '0', background: `${t.brandYellow}14` } : {}),
                   ...(isMobile ? { padding: '10px 12px', minHeight: '44px', minWidth: '44px', justifyContent: 'center' } : {})
                 }}
                 title={sidebarCollapsed ? item.label : ''}
@@ -2488,10 +2488,10 @@ export default function MainApp() {
                     width: '3px',
                     height: '60%',
                     borderRadius: '0 3px 3px 0',
-                    background: `linear-gradient(180deg, ${t.primary}, ${t.accent || t.primary})`,
+                    background: t.brandYellow,
                   }} />
                 )}
-                {Icons[item.icon] && Icons[item.icon](isActive ? t.primary : t.textSecondary)}
+                {Icons[item.icon] && Icons[item.icon](isActive ? t.brandYellow : t.textSecondary)}
                 {!isMobile && !sidebarCollapsed && (
                   <>
                     <span style={{ flex: 1 }}>{item.label}</span>
