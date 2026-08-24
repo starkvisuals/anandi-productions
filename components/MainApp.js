@@ -32,8 +32,22 @@ class ReviewErrorBoundary extends Component {
   }
 }
 
+// Free the Firebase Storage files an asset owns (main + preview/thumb + versions).
+// Best-effort: only Firebase URLs (Mux/external skipped), each delete is caught so
+// a missing file or hiccup never blocks the user's delete action. Stops the storage
+// leak that was filling the bucket (deletes used to keep files forever).
+async function deleteAssetStorageFiles(asset) {
+  if (!asset) return;
+  const keys = ['url', 'thumbnail', 'thumbnailUrl', 'preview', 'previewUrl', 'hiResUrl'];
+  const urls = [];
+  keys.forEach((k) => { if (asset[k]) urls.push(asset[k]); });
+  (asset.versions || []).forEach((v) => keys.forEach((k) => { if (v && v[k]) urls.push(v[k]); }));
+  const fb = urls.filter((u) => typeof u === 'string' && (u.includes('firebasestorage') || u.includes('appspot.com') || u.startsWith('gs://')));
+  await Promise.all(fb.map((u) => deleteObject(ref(storage, u)).catch(() => {})));
+}
+
 const COLOR_SHORTCUT_MAP = { red: 'P', yellow: 'M', green: 'G', blue: 'B', purple: 'V', orange: 'O', gray: 'K' };
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
 import CreateProjectModal from './CreateProjectModal';
@@ -4660,6 +4674,9 @@ export default function MainApp() {
       const proj = projects.find(p => p.id === projId);
       if (!confirm(`Delete "${proj.name}"?\n\nThis will permanently delete the project and all its assets. This action cannot be undone.`)) return;
       try {
+        // Free every asset's Storage files first — otherwise they're orphaned in
+        // the bucket forever (the leak that filled storage).
+        await Promise.all((proj.assets || []).map(deleteAssetStorageFiles));
         await deleteProject(projId);
         setProjects(projects.filter(p => p.id !== projId));
         showToast('Project deleted', 'success');
@@ -6937,9 +6954,11 @@ export default function MainApp() {
     const handleBulkDelete = async () => {
       if (!confirm(`Delete ${selectedAssets.size} assets? This cannot be undone.`)) return;
       const deletedAt = new Date().toISOString();
+      const toDelete = (selectedProject.assets || []).filter(a => selectedAssets.has(a.id));
       const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, deleted: true, deletedAt } : a);
       const activity = { id: generateId(), type: 'delete', message: `${userProfile.name} deleted ${selectedAssets.size} assets`, timestamp: new Date().toISOString() };
       await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] });
+      await Promise.all(toDelete.map(deleteAssetStorageFiles)); // free their Firebase Storage files
       await refreshProject();
       setSelectedAssets(new Set());
       showToast(`${selectedAssets.size} assets deleted`, 'success');
@@ -8112,9 +8131,10 @@ export default function MainApp() {
                               onClick={async (e) => { 
                                 e.stopPropagation(); 
                                 if (!confirm(`Delete "${a.name}"?`)) return; 
-                                const updated = (selectedProject.assets || []).map(x => x.id === a.id ? { ...x, deleted: true, deletedAt: new Date().toISOString() } : x); 
-                                await updateProject(selectedProject.id, { assets: updated }); 
-                                await refreshProject(); 
+                                const updated = (selectedProject.assets || []).map(x => x.id === a.id ? { ...x, deleted: true, deletedAt: new Date().toISOString() } : x);
+                                await updateProject(selectedProject.id, { assets: updated });
+                                deleteAssetStorageFiles(a); // free its Firebase Storage files
+                                await refreshProject();
                                 showToast('Deleted', 'success'); 
                               }} 
                               style={{ position: 'absolute', top: '10px', right: a.isSelected ? '48px' : '10px', width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s, background 0.15s' }}
@@ -9853,7 +9873,7 @@ export default function MainApp() {
                               )}
                               <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '8px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', textDecoration: 'none', color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>↓ Download Preview</a>
                               {isProducer && (
-                                <div onClick={async () => { if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); await updateProject(selectedProject.id, { assets: updated }); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '8px 10px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑 Delete Asset</div>
+                                <div onClick={async () => { if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); await updateProject(selectedProject.id, { assets: updated }); deleteAssetStorageFiles(selectedAsset); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '8px 10px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑 Delete Asset</div>
                               )}
                             </div>
                           </div>
