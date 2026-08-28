@@ -46,6 +46,10 @@ async function deleteAssetStorageFiles(asset) {
   await Promise.all(fb.map((u) => deleteObject(ref(storage, u)).catch(() => {})));
 }
 
+// Temporarily OFF — the new ReviewViewer overlay crashed on live data; keep the
+// proven classic player/annotate during the shoot. Flip to true to re-enable.
+const ENABLE_REVIEW_OVERLAY = false;
+
 const COLOR_SHORTCUT_MAP = { red: 'P', yellow: 'M', green: 'G', blue: 'B', purple: 'V', orange: 'O', gray: 'K' };
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -4845,7 +4849,7 @@ export default function MainApp() {
             theme={theme}
             onClose={() => setShowCreate(false)}
             onCreate={handleCreate}
-            teamMembers={[...coreTeam, ...freelancers].filter(m => m.id !== userProfile?.id)}
+            teamMembers={[...coreTeam, ...freelancers].filter(m => m.id !== userProfile?.id && m.employmentStatus !== 'terminated' && m.employmentStatus !== 'resigned')}
           />
         )}
       </div>
@@ -9023,7 +9027,7 @@ export default function MainApp() {
               {/* A1.5b: unified Frame.io review — the Annotate tab renders <ReviewViewer>
                   (canvas + hover-scrub timeline + comment rail + Mux HLS) as a reversible
                   overlay. Switch to Preview for the classic player + nav. */}
-              {assetTab === 'annotate' && (selectedAsset.type === 'image' || selectedAsset.type === 'video') && reviewAsset && (
+              {ENABLE_REVIEW_OVERLAY && assetTab === 'annotate' && (selectedAsset.type === 'image' || selectedAsset.type === 'video') && reviewAsset && (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: t.bg }}>
                   <ReviewErrorBoundary key={selectedAsset.id}>
                     <ReviewViewer
