@@ -1325,19 +1325,24 @@ export default function MainApp() {
   useEffect(() => { const check = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1200); }; check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   useEffect(() => { loadData(); }, []);
   
-  const loadData = async () => { 
-    setLoading(true); 
-    try { 
-      const [p, u, f, c, ct] = await Promise.all([getProjectsForUser(userProfile.id, userProfile.role), getUsers(), getFreelancers(), getClients(), getCoreTeam()]); 
-      setProjects(p); 
-      setUsers(u); 
-      setFreelancers(f); 
-      setClients(c); 
-      setCoreTeam(ct);
-      // Check deadlines after loading
-      setTimeout(() => checkDeadlines(p), 1000);
-    } catch (e) { console.error(e); } 
-    setLoading(false); 
+  const loadData = async () => {
+    setLoading(true);
+    // Fail-soft: load each dataset independently so ONE failing query can never
+    // blank the whole app. Each result is applied on its own; failures are logged
+    // and surfaced, but the rest of the app still loads.
+    const [p, u, f, c, ct] = await Promise.allSettled([
+      getProjectsForUser(userProfile.id, userProfile.role),
+      getUsers(), getFreelancers(), getClients(), getCoreTeam(),
+    ]);
+    const failed = [];
+    if (p.status === 'fulfilled') { setProjects(p.value); setTimeout(() => checkDeadlines(p.value), 1000); }
+    else { console.error('loadData: projects failed', p.reason); failed.push('projects'); }
+    if (u.status === 'fulfilled') setUsers(u.value); else { console.error('loadData: users failed', u.reason); failed.push('users'); }
+    if (f.status === 'fulfilled') setFreelancers(f.value); else { console.error('loadData: freelancers failed', f.reason); failed.push('freelancers'); }
+    if (c.status === 'fulfilled') setClients(c.value); else { console.error('loadData: clients failed', c.reason); failed.push('clients'); }
+    if (ct.status === 'fulfilled') setCoreTeam(ct.value); else { console.error('loadData: core team failed', ct.reason); failed.push('team'); }
+    if (failed.length) showToast(`Couldn’t load: ${failed.join(', ')}. Refresh to retry.`, 'error');
+    setLoading(false);
   };
   const showToast = (msg, type = 'info') => setToast({ message: msg, type });
   const selectedProject = projects.find(p => p.id === selectedProjectId);
