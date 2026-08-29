@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { db } from '../lib/firebase';
 import { getTemplates } from '../lib/workflow/helpers';
 
@@ -73,18 +73,30 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
   const t = THEMES[theme];
   const [step, setStep] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   // Workflow templates (B1)
   const [workflowTemplates, setWorkflowTemplates] = useState([]);
   const [workflowTemplateId, setWorkflowTemplateId] = useState('');
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templatesError, setTemplatesError] = useState(false);
 
-  useEffect(() => {
+  const loadTemplates = useCallback(() => {
+    setTemplatesLoading(true);
+    setTemplatesError(false);
     getTemplates(db).then(tpls => {
       setWorkflowTemplates(tpls);
       const def = tpls.find(tp => tp.isSystemDefault);
       if (def) setWorkflowTemplateId(def.id);
-    }).catch(err => console.error('[CreateProjectModal] failed to load workflow templates', err));
+      setTemplatesLoading(false);
+    }).catch(err => {
+      console.error('[CreateProjectModal] failed to load workflow templates', err);
+      setTemplatesError(true);
+      setTemplatesLoading(false);
+    });
   }, []);
+
+  useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
   // Step 1: Basics
   const [name, setName] = useState('');
@@ -156,6 +168,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
 
   const handleCreate = async () => {
     setCreating(true);
+    setCreateError('');
     try {
       const chainMap = {
         'producer': ['producer'],
@@ -187,6 +200,7 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
       onClose();
     } catch (e) {
       console.error('Create failed:', e);
+      setCreateError(e?.message || 'Something went wrong creating the project. Please try again.');
     }
     setCreating(false);
   };
@@ -239,9 +253,21 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
       <div style={{ fontSize: '12px', color: t.textMuted, lineHeight: '1.5' }}>
         Choose a workflow template that best fits your project type.
       </div>
-      {workflowTemplates.length === 0 ? (
-        <div style={{ padding: '32px', textAlign: 'center', color: t.textMuted, fontSize: '13px' }}>
-          Loading templates...
+      {templatesLoading ? (
+        <div style={{ padding: '32px', textAlign: 'center', color: t.textMuted, fontSize: '13px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '32px', height: '32px', border: `3px solid ${t.border}`, borderTopColor: t.primary, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          Loading templates…
+        </div>
+      ) : templatesError ? (
+        <div style={{ padding: '28px', textAlign: 'center', color: t.textMuted, fontSize: '13px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+          <div style={{ color: t.text, fontWeight: 600 }}>Couldn’t load workflow templates</div>
+          <div style={{ lineHeight: 1.5, maxWidth: '360px' }}>You can continue without one — a standard workflow will be used. Or retry.</div>
+          <button onClick={loadTemplates} style={{ marginTop: '4px', padding: '8px 18px', background: t.primary, border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Retry</button>
+        </div>
+      ) : workflowTemplates.length === 0 ? (
+        <div style={{ padding: '28px', textAlign: 'center', color: t.textMuted, fontSize: '13px', lineHeight: 1.5 }}>
+          No workflow templates yet. You can continue without one — a standard workflow will be used.
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
@@ -693,6 +719,11 @@ export default function CreateProjectModal({ onClose, onCreate, theme = 'dark', 
         </div>
 
         {/* Footer */}
+        {createError && (
+          <div style={{ padding: '10px 20px', background: 'rgba(239,68,68,0.1)', borderTop: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <span style={{ fontWeight: 700 }}>Couldn’t create project:</span> {createError}
+          </div>
+        )}
         <div style={{ padding: '14px 20px', borderTop: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: t.modalBg }}>
           <button onClick={() => step > 0 ? setStep(step - 1) : onClose()} style={{ padding: '9px 18px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.textSecondary, fontSize: '13px', cursor: 'pointer' }}>
             {step > 0 ? 'Back' : 'Cancel'}
