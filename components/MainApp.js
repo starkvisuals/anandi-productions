@@ -1612,7 +1612,7 @@ export default function MainApp() {
     
     const task = createTask({
       type: 'feedback',
-      title: `REVISION: ${asset.name} - "${feedback.text.slice(0, 40)}${feedback.text.length > 40 ? '...' : ''}"`,
+      title: `REVISION: ${asset.name} - "${(feedback.text || '').slice(0, 40)}${(feedback.text || '').length > 40 ? '...' : ''}"`,
       description: feedback.text,
       projectId: project.id,
       assetId: asset.id,
@@ -9213,7 +9213,7 @@ export default function MainApp() {
                                       setHighlightedFeedbackId(fb.id);
                                       setTimeout(() => setHighlightedFeedbackId(null), 3000);
                                     }}
-                                    title={`${fb.userName}: ${fb.text.substring(0, 50)}${fb.text.length > 50 ? '...' : ''}`}
+                                    title={`${fb.userName}: ${(fb.text || '').substring(0, 50)}${(fb.text || '').length > 50 ? '...' : ''}`}
                                     style={{
                                       position: 'absolute',
                                       left: `${videoDuration ? (fb.videoTimestamp / videoDuration) * 100 : 0}%`,
@@ -10580,10 +10580,10 @@ export default function MainApp() {
 
       // Asset feedback as events
       (asset?.feedback || []).forEach(fb => {
-        items.push({ id: fb.id, type: 'feedback', message: `${fb.userName} added feedback: "${fb.text.substring(0, 80)}${fb.text.length > 80 ? '...' : ''}"`, timestamp: fb.timestamp, userId: fb.userId, userName: fb.userName, round: fb.round, source: 'feedback', feedbackId: fb.id, isDone: fb.isDone, videoTimestamp: fb.videoTimestamp });
+        items.push({ id: fb.id, type: 'feedback', message: `${fb.userName} added feedback: "${(fb.text || '').substring(0, 80)}${(fb.text || '').length > 80 ? '...' : ''}"`, timestamp: fb.timestamp, userId: fb.userId, userName: fb.userName, round: fb.round, source: 'feedback', feedbackId: fb.id, isDone: fb.isDone, videoTimestamp: fb.videoTimestamp });
         // Feedback replies
         (fb.replies || []).forEach(r => {
-          items.push({ id: r.id, type: 'reply', message: `${r.userName} replied: "${r.text.substring(0, 80)}${r.text.length > 80 ? '...' : ''}"`, timestamp: r.timestamp, userId: r.userId, userName: r.userName, source: 'reply', parentId: fb.id });
+          items.push({ id: r.id, type: 'reply', message: `${r.userName} replied: "${(r.text || '').substring(0, 80)}${(r.text || '').length > 80 ? '...' : ''}"`, timestamp: r.timestamp, userId: r.userId, userName: r.userName, source: 'reply', parentId: fb.id });
         });
       });
 
