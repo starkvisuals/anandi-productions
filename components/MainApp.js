@@ -2480,7 +2480,7 @@ export default function MainApp() {
                   fontSize: '13px',
                   fontWeight: isActive ? '600' : '400',
                   background: isActive ? `${t.brandYellow}1f` : 'transparent',
-                  color: isActive ? t.brandYellow : t.textSecondary,
+                  color: isActive ? (theme === 'dark' ? t.brandYellow : t.text) : t.textSecondary,
                   justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                   transition: 'all 0.2s ease',
                   position: 'relative',
@@ -2514,7 +2514,7 @@ export default function MainApp() {
                     background: t.brandYellow,
                   }} />
                 )}
-                {Icons[item.icon] && Icons[item.icon](isActive ? t.brandYellow : t.textSecondary)}
+                {Icons[item.icon] && Icons[item.icon](isActive ? (theme === 'dark' ? t.brandYellow : t.text) : t.textSecondary)}
                 {!isMobile && !sidebarCollapsed && (
                   <>
                     <span style={{ flex: 1 }}>{item.label}</span>
@@ -2857,7 +2857,7 @@ export default function MainApp() {
                   Recent Projects
                   <span style={{ fontSize: '11px', color: t.textMuted, fontWeight: '400' }}>({activeProjects.length})</span>
                 </h3>
-                <button onClick={() => setView('projects')} style={{ background: 'none', border: 'none', color: t.brandYellow, fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>View All →</button>
+                <button onClick={() => setView('projects')} style={{ background: 'none', border: 'none', color: theme === 'dark' ? t.brandYellow : t.text, fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>View All →</button>
               </div>
               <div className="netflix-row">
                 {activeProjects.slice(0, 8).map(p => {
@@ -3016,7 +3016,7 @@ export default function MainApp() {
                           <div style={{ flex: 1, minWidth: 0, paddingBottom: '8px' }}>
                             <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.text }}>{a.message}</div>
                             <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px' }}>
-                              <span style={{ color: t.brandYellow, cursor: 'pointer' }}>{a.projectName}</span> {'\u2022'} {formatTimeAgo(a.timestamp)}
+                              <span style={{ color: theme === 'dark' ? t.brandYellow : t.text, fontWeight: 600, cursor: 'pointer' }}>{a.projectName}</span> {'\u2022'} {formatTimeAgo(a.timestamp)}
                             </div>
                           </div>
                         </div>
