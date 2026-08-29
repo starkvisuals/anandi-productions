@@ -9,6 +9,17 @@
 
 ## ▶ LAST DONE / NEXT UP
 
+- **LAST DONE (2026-08-30):** Big functional-bug session (all diagnosed live + fixed + verified):
+  - **File upload was 100% broken** (`20b8822`): the Upload button was `onClick={handleUpload}`, passing the click EVENT as `forcedFiles`; the handler's `if(!toProcess.length) return` saw `event.length===undefined` and returned before doing anything → "nothing happens on upload". Fixed to `onClick={() => handleUpload()}` + hardened the handler to ignore non-array args. **Verified:** uploaded a test file live, it appeared + logged in activity, then deleted it.
+  - **Calendar/Inbox "not working" + the whole-session "two-click to open a project" quirk** (`f20ae33`): ONE root cause — the content area was wrapped in `<AnimatePresence mode="wait">` keyed on view+projectId; `mode="wait"` held the new view behind the old view's 0.2s exit anim, so nav/header switched but content lagged a click behind. Removed the gating (kept the keyed fade-in). **Verified:** single-click opens projects; Calendar/Inbox switch instantly from within a project; Calendar renders fine (was just hidden by the lag).
+  - Brand polish: video player + lightbox tabs + project-view tab bars/toggles → brand yellow; light-mode contrast fix on active nav/links; lightbox/expanded-sidebar overlap fix. All verified both themes.
+  - **Mux is now CONFIGURED** in prod (Harnesh added the keys; `/api/mux/test` → configured, debug → connection successful). New video uploads will stream via HLS. Existing videos need re-upload.
+- **⏳ STILL REQUESTED BY HARNESH (2026-08-30) — bigger chunks, do one at a time:**
+  1. **Team ↔ Employee not connected** — data-model work (Team view vs Employees module; likely `users` with isEmployee/isCore/isFreelancer flags not unified). Investigate live.
+  2. **Workflow not working** — the workflow-block subsystem (materializeBlocksFromTemplate/advanceProject); ROADMAP-flagged fragile. Needs careful diagnosis.
+  3. **Tasks UI not good** — redesign the tasks view (kanban/list) to the design system.
+  4. **Project-view UI redesign** — Harnesh provided a Frame.io-grade reference mockup (big project header w/ thumbnail, stats row Assets/Folders/Requests/Approved/Pending, filter chips, right rail Requests+Activity, storage meter). Substantial multi-part redesign of the project detail view.
+  - Minor: single-card asset delete uses a native `confirm()` (fine for users; just froze headless automation during testing).
 - **LAST DONE (2026-08-29, cont.):** Two more live issues fixed + **verified in Harnesh's session**:
   - **#1 Video reliability** (`fe51538`): the lightbox `<video>` had zero error/stall handling, so a transient Firebase Storage **503** on the raw `.mp4` left it stuck on a black frame. Added onError auto-retry (3× backoff), buffering spinner (onWaiting/onStalled), and a clear "Couldn't load this video / Retry" overlay. (Durable fix still = Mux HLS.)
   - **#2 Project-creation "stuck at Loading templates…"** (`ceccb37`): root cause = the `workflowTemplates` Firestore collection is **empty (0 docs — confirmed via REST)**, and the wizard used `templates.length===0` as a "loading" proxy → hung forever at step 2. Added real loading/error/empty states. **Verified live:** step 2 now shows "No workflow templates yet — continue without one" + Next enabled. Also surfaced silent create-project save failures (`handleCreate` now shows an error banner instead of only console.error). **Note:** no workflow templates exist in the DB — Harnesh may want to create some (or keep using "standard workflow").
