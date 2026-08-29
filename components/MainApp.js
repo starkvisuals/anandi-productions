@@ -4963,7 +4963,7 @@ export default function MainApp() {
           <div>
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>Team</h1>
             <p style={{ margin: '6px 0 0', fontSize: '13px', color: t.textMuted }}>
-              {coreTeam.length + freelancers.length} team members • {clients.length} clients
+              {activeCore.length + activeFreelancers.length} team members • {clients.length} clients
             </p>
           </div>
           {isProducer && (
