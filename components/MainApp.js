@@ -9019,7 +9019,7 @@ export default function MainApp() {
                 <button onClick={() => setIsFullscreen(true)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>⛶ {!isMobile && 'Fullscreen'}</button>
                 {/* Tab buttons */}
                 {[{ id: 'preview', icon: '', label: 'Preview' }, { id: 'annotate', icon: '', label: 'Annotate' }, { id: 'compare', icon: '', label: 'Compare' }, { id: 'activity', icon: '', label: 'Activity' }].map(tb => (
-                  <button key={tb.id} onClick={() => setAssetTab(tb.id)} style={{ padding: '6px 12px', background: assetTab === tb.id ? 'rgba(99,102,241,0.9)' : 'rgba(255,255,255,0.06)', border: assetTab === tb.id ? 'none' : '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: assetTab === tb.id ? '#fff' : 'rgba(255,255,255,0.7)', fontSize: '11px', cursor: 'pointer', fontWeight: assetTab === tb.id ? '600' : '400', transition: 'all 0.2s' }}>{tb.icon} {!isMobile && tb.label}</button>
+                  <button key={tb.id} onClick={() => setAssetTab(tb.id)} style={{ padding: '6px 12px', background: assetTab === tb.id ? 'rgba(250,204,21,0.15)' : 'rgba(255,255,255,0.06)', border: assetTab === tb.id ? '1px solid rgba(250,204,21,0.5)' : '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: assetTab === tb.id ? '#FACC15' : 'rgba(255,255,255,0.7)', fontSize: '11px', cursor: 'pointer', fontWeight: assetTab === tb.id ? '600' : '400', transition: 'all 0.2s' }}>{tb.icon} {!isMobile && tb.label}</button>
                 ))}
               </div>
             </div>
@@ -9139,9 +9139,9 @@ export default function MainApp() {
                       {selectedAsset.type === 'video' ? (
                         selectedAsset.muxUploadId && !selectedAsset.url && !selectedAsset.muxPlaybackId ? (
                           <div style={{ textAlign: 'center', padding: '40px' }}>
-                            <div style={{ width: '50px', height: '50px', border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                            <div style={{ width: '50px', height: '50px', border: '3px solid rgba(250,204,21,0.25)', borderTopColor: '#FACC15', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
                             <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>Processing video...</div>
-                            <button onClick={async () => { try { const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`); const data = await res.json(); if (data.asset?.playbackId) { const updatedAssets = selectedProject.assets.map(a => a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a); await updateProject(selectedProject.id, { assets: updatedAssets }); await refreshProject(); showToast('Ready!', 'success'); } else { showToast('Still processing...', 'info'); } } catch (e) { showToast('Check failed', 'error'); } }} style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>Check</button>
+                            <button onClick={async () => { try { const res = await fetch(`/api/mux/upload?uploadId=${selectedAsset.muxUploadId}`); const data = await res.json(); if (data.asset?.playbackId) { const updatedAssets = selectedProject.assets.map(a => a.id === selectedAsset.id ? { ...a, muxPlaybackId: data.asset.playbackId, thumbnail: data.asset.thumbnailUrl || a.thumbnail } : a); await updateProject(selectedProject.id, { assets: updatedAssets }); await refreshProject(); showToast('Ready!', 'success'); } else { showToast('Still processing...', 'info'); } } catch (e) { showToast('Check failed', 'error'); } }} style={{ padding: '10px 20px', background: '#fff', border: 'none', borderRadius: '8px', color: '#0A0A0A', fontWeight: 600, cursor: 'pointer' }}>Check</button>
                             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                           </div>
                         ) : (
@@ -9199,7 +9199,7 @@ export default function MainApp() {
 
                           {/* Big Play Button Overlay (when paused) */}
                           {!videoPlaying && videoDuration > 0 && (
-                            <div onClick={(e) => { e.stopPropagation(); videoRef.current?.play(); }} style={{ position: 'absolute', top: 'calc(50% - 40px)', left: '50%', transform: 'translate(-50%, -50%)', width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.15s, background 0.15s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.8)'; e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.1)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.6)'; e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)'; }}>
+                            <div onClick={(e) => { e.stopPropagation(); videoRef.current?.play(); }} style={{ position: 'absolute', top: 'calc(50% - 40px)', left: '50%', transform: 'translate(-50%, -50%)', width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.15s, background 0.15s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.8)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(250,204,21,0.6)'; e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.1)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.6)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)'; }}>
                               <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><polygon points="6,4 20,12 6,20"/></svg>
                             </div>
                           )}
@@ -9255,9 +9255,9 @@ export default function MainApp() {
                                 {/* Buffered */}
                                 <div className="scrub-track" style={{ position: 'absolute', left: 0, height: '4px', background: 'rgba(255,255,255,0.25)', borderRadius: '2px', top: '50%', transform: 'translateY(-50%)', width: `${videoDuration ? (videoBuffered / videoDuration) * 100 : 0}%`, transition: 'width 0.3s, height 0.15s' }} />
                                 {/* Progress */}
-                                <div className="scrub-track" style={{ position: 'absolute', left: 0, height: '4px', background: '#6366f1', borderRadius: '2px', top: '50%', transform: 'translateY(-50%)', width: `${videoDuration ? (videoTime / videoDuration) * 100 : 0}%`, transition: 'height 0.15s' }} />
+                                <div className="scrub-track" style={{ position: 'absolute', left: 0, height: '4px', background: '#FACC15', borderRadius: '2px', top: '50%', transform: 'translateY(-50%)', width: `${videoDuration ? (videoTime / videoDuration) * 100 : 0}%`, transition: 'height 0.15s' }} />
                                 {/* Playhead */}
-                                <div style={{ position: 'absolute', left: `${videoDuration ? (videoTime / videoDuration) * 100 : 0}%`, top: '50%', transform: 'translate(-50%, -50%)', width: '12px', height: '12px', borderRadius: '50%', background: '#6366f1', border: '2px solid #fff', boxShadow: '0 0 6px rgba(0,0,0,0.5)', transition: isScrubbing ? 'none' : 'left 0.1s', zIndex: 3 }} />
+                                <div style={{ position: 'absolute', left: `${videoDuration ? (videoTime / videoDuration) * 100 : 0}%`, top: '50%', transform: 'translate(-50%, -50%)', width: '12px', height: '12px', borderRadius: '50%', background: '#FACC15', border: '2px solid #fff', boxShadow: '0 0 6px rgba(0,0,0,0.5)', transition: isScrubbing ? 'none' : 'left 0.1s', zIndex: 3 }} />
 
                                 {/* Comment Markers — with expanded hit area */}
                                 {videoFeedbackMarkers.map(fb => (
@@ -9342,7 +9342,7 @@ export default function MainApp() {
                                 value={videoMuted ? 0 : videoVolume}
                                 onChange={(e) => { e.stopPropagation(); const v = parseFloat(e.target.value); setVideoVolume(v); setVideoMuted(v === 0); if (videoRef.current) { videoRef.current.volume = v; videoRef.current.muted = v === 0; } }}
                                 onClick={(e) => e.stopPropagation()}
-                                style={{ width: '60px', height: '3px', cursor: 'pointer', accentColor: '#6366f1' }}
+                                style={{ width: '60px', height: '3px', cursor: 'pointer', accentColor: '#FACC15' }}
                               />
 
                               {/* Speed */}
