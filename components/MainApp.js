@@ -11209,13 +11209,16 @@ export default function MainApp() {
           </div>
         </header>
 
-        {/* Content with page transition */}
-        <AnimatePresence mode="wait">
+        {/* Content — keyed fade-in on view/project change. NOTE: intentionally NOT
+            wrapped in <AnimatePresence mode="wait">. That gated the NEW view behind the
+            OLD view's 0.2s exit animation, which desynced the nav/header from the content
+            (header switched, content lagged a click behind) — the root cause of
+            "Calendar/Inbox not working" and the "need two clicks to open a project" bug.
+            The keyed motion.div re-mounts and fades in immediately on every view change. */}
           <motion.div
             key={view + (selectedProjectId || '')}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             style={{ padding: isMobile ? '16px' : '24px' }}
           >
@@ -11249,7 +11252,6 @@ export default function MainApp() {
             {view === 'releases' && <ReleasesModule t={t} userProfile={userProfile} />}
             {view === 'workflow-templates' && isProducer && <WorkflowTemplatesView t={t} theme={theme} userProfile={userProfile} />}
           </motion.div>
-        </AnimatePresence>
 
         {/* Keyboard Shortcut Cheat Sheet */}
         {showShortcuts && (
