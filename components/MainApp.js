@@ -409,25 +409,46 @@ const generatePreview = (file, maxSize = 1200) => {
 
 // Generate video thumbnail from first frame
 const generateVideoThumbnail = (file) => {
+  // ALWAYS resolves (never rejects, never hangs). A thumbnail is best-effort —
+  // if the browser can't decode/seek the video it resolves(null) so the UPLOAD
+  // still completes (previously a stalled decode/seek left the Promise pending
+  // forever and hung the whole upload at ~92% "Creating thumbnail…").
   return new Promise((resolve) => {
     const video = document.createElement('video');
+    let settled = false;
+    const finish = (blob) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { URL.revokeObjectURL(video.src); } catch (e) {}
+      resolve(blob || null);
+    };
+    // Hard timeout: a stalled decode/seek can never hang the upload.
+    const timer = setTimeout(() => finish(null), 8000);
     video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
     video.onloadeddata = () => {
-      video.currentTime = 1; // Skip to 1 second
+      const d = video.duration;
+      // Seek to a frame that exists even for very short clips (< 1s).
+      const t = (isFinite(d) && d > 0) ? Math.min(1, d / 2) : 0;
+      try { video.currentTime = t; } catch (e) { finish(null); }
     };
     video.onseeked = () => {
-      const canvas = document.createElement('canvas');
-      const maxSize = 400;
-      let w = video.videoWidth, h = video.videoHeight;
-      if (w > h) { if (w > maxSize) { h = h * maxSize / w; w = maxSize; } }
-      else { if (h > maxSize) { w = w * maxSize / h; h = maxSize; } }
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, w, h);
-      canvas.toBlob(resolve, 'image/jpeg', 0.7);
-      URL.revokeObjectURL(video.src);
+      try {
+        let w = video.videoWidth, h = video.videoHeight;
+        if (!w || !h) return finish(null);
+        const maxSize = 400;
+        if (w > h) { if (w > maxSize) { h = h * maxSize / w; w = maxSize; } }
+        else { if (h > maxSize) { w = w * maxSize / h; h = maxSize; } }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+        canvas.toBlob((b) => finish(b), 'image/jpeg', 0.7);
+      } catch (e) { finish(null); }
     };
-    video.src = URL.createObjectURL(file);
+    video.onerror = () => finish(null);
+    try { video.src = URL.createObjectURL(file); } catch (e) { finish(null); }
   });
 };
 
@@ -4922,13 +4943,19 @@ export default function MainApp() {
       );
     };
 
-    const allMembers = [...coreTeam, ...freelancers, ...clients];
+    // Hide former employees (terminated/resigned) from the Team view — they were
+    // still showing because getCoreTeam/getFreelancers filter on isCore/isFreelancer,
+    // which termination doesn't clear. (Clients have no employment status.)
+    const isFormer = (u) => u?.employmentStatus === 'terminated' || u?.employmentStatus === 'resigned';
+    const activeCore = coreTeam.filter(u => !isFormer(u));
+    const activeFreelancers = freelancers.filter(u => !isFormer(u));
+    const allMembers = [...activeCore, ...activeFreelancers, ...clients];
     const getFilteredMembers = (list) => {
       if (!teamSearch) return list;
       const q = teamSearch.toLowerCase();
       return list.filter(u => (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
     };
-    const displayMembers = tab === 'all' ? getFilteredMembers(allMembers) : tab === 'core' ? getFilteredMembers(coreTeam) : tab === 'freelancers' ? getFilteredMembers(freelancers) : getFilteredMembers(clients);
+    const displayMembers = tab === 'all' ? getFilteredMembers(allMembers) : tab === 'core' ? getFilteredMembers(activeCore) : tab === 'freelancers' ? getFilteredMembers(activeFreelancers) : getFilteredMembers(clients);
 
     return (
       <div>
@@ -4977,7 +5004,7 @@ export default function MainApp() {
 
         {/* Underline tabs */}
         <div style={{ display: 'flex', gap: '24px', borderBottom: `1px solid ${t.border}`, marginBottom: '20px' }}>
-          {[{ id: 'all', label: `All (${allMembers.length})` }, { id: 'core', label: `Core Team (${coreTeam.length})` }, { id: 'freelancers', label: `Freelancers (${freelancers.length})` }, { id: 'clients', label: `Clients (${clients.length})` }].map(tabItem => (
+          {[{ id: 'all', label: `All (${allMembers.length})` }, { id: 'core', label: `Core Team (${activeCore.length})` }, { id: 'freelancers', label: `Freelancers (${activeFreelancers.length})` }, { id: 'clients', label: `Clients (${clients.length})` }].map(tabItem => (
             <button
               key={tabItem.id}
               onClick={() => setTab(tabItem.id)}
