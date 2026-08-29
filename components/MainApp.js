@@ -7721,9 +7721,9 @@ export default function MainApp() {
             {/* View Mode Toggle */}
             {tab === 'assets' && assets.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', background: t.bgInput, borderRadius: '8px', padding: '4px' }}>
-                <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'grid' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}>Grid</button>
-                <button onClick={() => setViewMode('list')} style={{ padding: '6px 12px', background: viewMode === 'list' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'list' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}>List</button>
-                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#6366f1' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'kanban' ? '#fff' : t.text, fontSize: '11px', cursor: 'pointer' }}>Kanban</button>
+                <button onClick={() => setViewMode('grid')} style={{ padding: '6px 12px', background: viewMode === 'grid' ? '#FACC15' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'grid' ? '#0A0A0A' : t.text, fontWeight: viewMode === 'grid' ? '600' : '400', fontSize: '11px', cursor: 'pointer' }}>Grid</button>
+                <button onClick={() => setViewMode('list')} style={{ padding: '6px 12px', background: viewMode === 'list' ? '#FACC15' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'list' ? '#0A0A0A' : t.text, fontWeight: viewMode === 'list' ? '600' : '400', fontSize: '11px', cursor: 'pointer' }}>List</button>
+                <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 12px', background: viewMode === 'kanban' ? '#FACC15' : 'transparent', border: 'none', borderRadius: '6px', color: viewMode === 'kanban' ? '#0A0A0A' : t.text, fontWeight: viewMode === 'kanban' ? '600' : '400', fontSize: '11px', cursor: 'pointer' }}>Kanban</button>
               </div>
             )}
             <button
