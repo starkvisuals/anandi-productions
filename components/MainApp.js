@@ -6358,8 +6358,10 @@ export default function MainApp() {
     const aspectRatio = ASPECT_RATIOS[appearance.aspectRatio];
 
     const handleUpload = async (forcedFiles) => {
-      const toProcess = forcedFiles ?? uploadFiles;
-      if (!toProcess.length) return;
+      // Guard: only accept an explicit array/list of files; anything else (e.g. a
+      // click event passed by onClick) falls back to the selected uploadFiles.
+      const toProcess = (forcedFiles && typeof forcedFiles.length === 'number' && !(forcedFiles instanceof Event)) ? forcedFiles : uploadFiles;
+      if (!toProcess || !toProcess.length) return;
       setShowUpload(false);
 
       for (const file of toProcess) {
@@ -8560,7 +8562,7 @@ export default function MainApp() {
                   </div>
                   {uploadFiles.length > 0 && <div style={{ maxHeight: '140px', overflow: 'auto', background: t.bgInput, borderRadius: '8px', padding: '10px' }}>{uploadFiles.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{f.name}</span><span style={{ color: t.textMuted, flexShrink: 0 }}>{formatFileSize(f.size)}</span></div>)}</div>}
                   <div><label style={{ display: 'block', fontSize: '11px', color: t.textMuted, marginBottom: '6px' }}>Category (folder)</label><Select theme={theme} value={selectedCat || cats[0]?.id || ''} onChange={setSelectedCat}>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
-                  <Btn theme={theme} onClick={handleUpload} disabled={!uploadFiles.length} color="#22c55e">Upload {uploadFiles.length || ''} Files</Btn>
+                  <Btn theme={theme} onClick={() => handleUpload()} disabled={!uploadFiles.length} color="#22c55e">Upload {uploadFiles.length || ''} Files</Btn>
                 </>
               ) : (
                 <>
