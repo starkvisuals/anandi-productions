@@ -8984,7 +8984,7 @@ export default function MainApp() {
           return (
           <div
             className="modal-backdrop"
-            style={{ position: 'fixed', top: 0, bottom: 0, right: 0, left: isMobile ? 0 : '60px', background: t.bg, zIndex: 1000, display: 'flex', flexDirection: 'column' }}
+            style={{ position: 'fixed', top: 0, bottom: 0, right: 0, left: isMobile ? 0 : (sidebarCollapsed ? '60px' : '240px'), background: t.bg, zIndex: 1000, display: 'flex', flexDirection: 'column' }}
             onTouchStart={onTouchStartHandler}
             onTouchMove={onTouchMoveHandler}
             onTouchEnd={onTouchEndHandler}
