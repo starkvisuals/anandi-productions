@@ -4118,10 +4118,10 @@ export default function MainApp() {
                   onClick={() => setTaskTab(tab.id)}
                   style={{
                     padding: '7px 14px',
-                    background: taskTab === tab.id ? t.primary : 'transparent',
+                    background: taskTab === tab.id ? '#FACC15' : 'transparent',
                     border: 'none',
                     borderRadius: '8px',
-                    color: taskTab === tab.id ? '#fff' : t.textSecondary,
+                    color: taskTab === tab.id ? '#0A0A0A' : t.textSecondary,
                     fontSize: '12px',
                     fontWeight: taskTab === tab.id ? '600' : '400',
                     cursor: 'pointer',
@@ -4138,8 +4138,8 @@ export default function MainApp() {
                       borderRadius: '8px',
                       fontSize: '9px',
                       fontWeight: '700',
-                      background: taskTab === tab.id ? 'rgba(255,255,255,0.25)' : '#ef444425',
-                      color: taskTab === tab.id ? '#fff' : '#ef4444'
+                      background: taskTab === tab.id ? 'rgba(0,0,0,0.18)' : '#ef444425',
+                      color: taskTab === tab.id ? '#0A0A0A' : '#ef4444'
                     }}>{tab.count}</span>
                   )}
                 </button>
@@ -4183,10 +4183,10 @@ export default function MainApp() {
                     onClick={() => setViewMode(v.id)}
                     style={{
                       padding: '6px 10px',
-                      background: viewMode === v.id ? t.primary : 'transparent',
+                      background: viewMode === v.id ? '#FACC15' : 'transparent',
                       border: 'none',
                       borderRadius: '6px',
-                      color: viewMode === v.id ? '#fff' : t.textSecondary,
+                      color: viewMode === v.id ? '#0A0A0A' : t.textSecondary,
                       fontSize: '14px',
                       cursor: 'pointer'
                     }}
@@ -4737,7 +4737,7 @@ export default function MainApp() {
               <button key={tab.id} onClick={() => setProjectTab(tab.id)} style={{
                 padding: '10px 0', fontSize: '13px', cursor: 'pointer',
                 background: 'none', border: 'none',
-                borderBottom: projectTab === tab.id ? '2px solid #6366f1' : '2px solid transparent',
+                borderBottom: projectTab === tab.id ? '2px solid #FACC15' : '2px solid transparent',
                 color: projectTab === tab.id ? t.text : t.textMuted,
                 fontWeight: projectTab === tab.id ? '600' : '400',
                 transition: 'all 0.2s',
@@ -7702,7 +7702,7 @@ export default function MainApp() {
           {/* Tabs */}
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#6366f1' : 'transparent', border: tab === t ? 'none' : `1px solid ${THEMES[theme].border}`, borderRadius: '8px', color: tab === t ? '#fff' : THEMES[theme].text, fontSize: '11px', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? 'Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
+              {['assets', 'tasks', 'decks', 'team', 'activity', 'links'].map(t => <button key={t} data-tab={t} onClick={() => setTab(t)} style={{ padding: '8px 14px', background: tab === t ? '#FACC15' : 'transparent', border: tab === t ? 'none' : `1px solid ${THEMES[theme].border}`, borderRadius: '8px', color: tab === t ? '#0A0A0A' : THEMES[theme].text, fontSize: '11px', fontWeight: tab === t ? '600' : '400', cursor: 'pointer', textTransform: 'capitalize' }}>{t === 'tasks' ? '✓ Tasks' : t === 'decks' ? 'Decks' : (isMobile ? t.charAt(0).toUpperCase() : t)}</button>)}
             </div>
             {tab === 'assets' && selectedAssets.size > 0 && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
