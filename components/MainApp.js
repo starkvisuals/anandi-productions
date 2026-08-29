@@ -5822,6 +5822,9 @@ export default function MainApp() {
     const [videoHoverTime, setVideoHoverTime] = useState(null);
     const [videoHoverX, setVideoHoverX] = useState(0);
     const [videoBuffered, setVideoBuffered] = useState(0);
+    const [videoLoadError, setVideoLoadError] = useState(false); // raw-file playback failed (e.g. Firebase 503) after retries
+    const [videoBuffering, setVideoBuffering] = useState(false);  // waiting/stalled — show spinner
+    const videoRetryRef = useRef(0); // auto-retry counter for transient load failures
     const videoControlsTimer = useRef(null);
     const scrubBarRef = useRef(null);
     const [touchStart, setTouchStart] = useState(null);
@@ -6293,6 +6296,28 @@ export default function MainApp() {
         setShuttleSpeed(0);
       }
     }, [assetTab, selectedAsset?.type]);
+
+    // Reset video load-error / retry / buffering state when the open asset changes
+    useEffect(() => {
+      videoRetryRef.current = 0;
+      setVideoLoadError(false);
+      setVideoBuffering(false);
+    }, [selectedAsset?.id]);
+
+    // Video element failed to load (e.g. transient Firebase Storage 503 on the raw file).
+    // Auto-retry a few times with backoff — these are usually transient — then surface a clear error.
+    const handleVideoElError = () => {
+      const vid = videoRef.current;
+      if (!vid || !selectedAsset?.url) return; // nothing to retry (Mux <source> path handles its own errors)
+      if (videoRetryRef.current < 3) {
+        videoRetryRef.current += 1;
+        setVideoBuffering(true);
+        setTimeout(() => { try { vid.load(); } catch (e) {} }, 700 * videoRetryRef.current);
+      } else {
+        setVideoBuffering(false);
+        setVideoLoadError(true);
+      }
+    };
 
     if (!selectedProject) return null;
     const cats = selectedProject.categories || [];
@@ -9132,6 +9157,12 @@ export default function MainApp() {
                             poster={selectedAsset.muxPlaybackId ? (selectedAsset.thumbnail || `https://image.mux.com/${selectedAsset.muxPlaybackId}/thumbnail.jpg`) : (selectedAsset.thumbnailUrl || undefined)}
                             onTimeUpdate={handleVideoTimeUpdate}
                             onLoadedMetadata={(e) => { setVideoDuration(e.target.duration); setVideoAspect(e.target.videoWidth && e.target.videoHeight ? e.target.videoWidth / e.target.videoHeight : null); }}
+                            onError={handleVideoElError}
+                            onStalled={() => setVideoBuffering(true)}
+                            onWaiting={() => setVideoBuffering(true)}
+                            onLoadedData={() => { setVideoBuffering(false); setVideoLoadError(false); videoRetryRef.current = 0; }}
+                            onCanPlay={() => { setVideoBuffering(false); setVideoLoadError(false); }}
+                            onPlaying={() => setVideoBuffering(false)}
                             onPlay={() => setVideoPlaying(true)}
                             onPause={() => setVideoPlaying(false)}
                             onEnded={() => { setVideoPlaying(false); setShuttleSpeed(0); }}
@@ -9140,6 +9171,26 @@ export default function MainApp() {
                           >
                             {selectedAsset.muxPlaybackId && <source src={`https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`} type="application/x-mpegURL" />}
                           </video>
+
+                          {/* Buffering spinner (loading / transient stall) */}
+                          {videoBuffering && !videoLoadError && (
+                            <div style={{ position: 'absolute', top: 'calc(50% - 40px)', left: '50%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', pointerEvents: 'none' }}>
+                              <div style={{ width: '44px', height: '44px', border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                            </div>
+                          )}
+
+                          {/* Load-error overlay (e.g. Firebase Storage 503 after retries) */}
+                          {videoLoadError && (
+                            <div style={{ position: 'absolute', top: 'calc(50% - 40px)', left: '50%', transform: 'translate(-50%, -50%)', width: 'min(340px, 80%)', textAlign: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', padding: '22px 20px' }}>
+                              <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>Couldn’t load this video</div>
+                              <div style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, marginBottom: '16px' }}>Storage is responding slowly — this is usually temporary. Try again in a moment.</div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); videoRetryRef.current = 0; setVideoLoadError(false); setVideoBuffering(true); try { videoRef.current?.load(); } catch (err) {} }}
+                                style={{ padding: '9px 22px', background: '#FACC15', border: 'none', borderRadius: '8px', color: '#0A0A0A', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+                              >Retry</button>
+                            </div>
+                          )}
 
                           {/* Big Play Button Overlay (when paused) */}
                           {!videoPlaying && videoDuration > 0 && (
