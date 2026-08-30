@@ -881,9 +881,38 @@ const Toast = ({ message, type, onClose }) => {
     </div>
   );
 };
-const Btn = ({ children, onClick, color = '#6366f1', disabled, small, outline, theme = 'dark' }) => {
+// The ONE button. Consistent height / radius / weight / states across the app.
+// variant: primary(default) | secondary | ghost | danger.  Back-compat props:
+//   color="#hex" -> filled semantic button (e.g. green upload / red delete)
+//   outline      -> secondary,  small -> sm size.
+// States (hover/press/focus-visible/disabled) come from the .ap-btn class in
+// globals.css so they never fight these inline colours.
+const BTN_SIZES = { sm: { h: 32, padX: 12, fs: 12, gap: 6 }, md: { h: 40, padX: 16, fs: 13.5, gap: 8 } };
+const Btn = ({ children, onClick, color, variant, disabled, loading, small, outline, fullWidth, iconOnly, theme = 'dark', style, ...rest }) => {
   const t = THEMES[theme];
-  return <button onClick={onClick} disabled={disabled} style={{ padding: small ? '8px 14px' : '10px 18px', background: outline ? 'transparent' : color, border: outline ? `1px solid ${color}` : 'none', borderRadius: '8px', color: outline ? color : '#fff', fontSize: small ? '11px' : '13px', fontWeight: '500', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s' }}>{children}</button>;
+  const isDark = theme !== 'light';
+  const sz = small ? BTN_SIZES.sm : BTN_SIZES.md;
+  let bg, fg, border;
+  if (outline || variant === 'secondary') { bg = 'transparent'; fg = t.text; border = `1px solid ${t.border}`; }
+  else if (variant === 'ghost') { bg = 'transparent'; fg = t.textSecondary; border = '1px solid transparent'; }
+  else if (color) { bg = color; fg = '#fff'; border = `1px solid ${color}`; }
+  else if (variant === 'danger') { bg = t.danger || '#ef4444'; fg = '#fff'; border = `1px solid ${t.danger || '#ef4444'}`; }
+  else { bg = isDark ? '#F5F5F5' : '#111114'; fg = isDark ? '#0A0A0A' : '#FFFFFF'; border = '1px solid transparent'; } // brand primary
+  const off = disabled || loading;
+  return (
+    <button
+      className="ap-btn" onClick={off ? undefined : onClick} disabled={off}
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: `${sz.gap}px`,
+        height: `${sz.h}px`, minHeight: `${sz.h}px`, padding: iconOnly ? 0 : `0 ${sz.padX}px`,
+        width: fullWidth ? '100%' : (iconOnly ? `${sz.h}px` : 'auto'),
+        background: bg, color: fg, border, borderRadius: '8px', fontSize: `${sz.fs}px`, fontWeight: 600,
+        fontFamily: 'inherit', lineHeight: 1, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.55 : 1,
+        whiteSpace: 'nowrap', ...style }}
+      {...rest}
+    >
+      {loading ? <span style={{ width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} /> : children}
+    </button>
+  );
 };
 const Input = ({ value, onChange, placeholder, type = 'text', style, theme = 'dark', ...props }) => {
   const t = THEMES[theme];
@@ -7435,7 +7464,7 @@ export default function MainApp() {
             {isProducer && <Btn theme={theme} onClick={() => setShowUpload(true)} small color="#22c55e">{Icons.upload('#fff')}{!isMobile && ' Upload'}</Btn>}
             {isProducer && !isMobile && <Btn theme={theme} onClick={() => setShowShare(true)} small outline>{Icons.share(t.primary)}{!isMobile && ' Share'}</Btn>}
             {isProducer && (
-              <button
+              <Btn theme={theme} small outline title="Edit Project"
                 onClick={() => {
                   setEditProjectData({
                     name: selectedProject.name,
@@ -7455,11 +7484,7 @@ export default function MainApp() {
                   });
                   setShowEditProject(true);
                 }}
-                style={{ background: t.bgCard, border: `1px solid ${t.border}`, cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', color: t.textSecondary, fontSize: '12px' }}
-                title="Edit Project"
-              >
-                {Icons.edit(t.textSecondary)}{!isMobile && ' Edit'}
-              </button>
+              >{Icons.edit(t.textSecondary)}{!isMobile && ' Edit'}</Btn>
             )}
             <div style={{ position: 'relative' }}>
               <Btn theme={theme} onClick={() => setShowAppearance(!showAppearance)} small outline>{Icons.settings(t.primary)}</Btn>

@@ -226,6 +226,26 @@ button:active {
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+/* --- Unified button primitive (Btn) interaction states ---
+   These only touch filter / transform / outline so they never conflict with the
+   button's own inline background/color. One consistent hover, press and focus
+   across every Btn in the app. */
+.ap-btn {
+  transition: filter 0.14s ease, transform 0.1s ease, box-shadow 0.14s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.ap-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.ap-btn:active:not(:disabled) { transform: scale(0.97); }
+.ap-btn:focus-visible {
+  outline: 2px solid #FACC15;
+  outline-offset: 2px;
+}
+.ap-btn:disabled { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .ap-btn { transition: filter 0.14s ease; }
+  .ap-btn:active:not(:disabled) { transform: none; }
+}
+
 /* --- Hover Effects --- */
 
 .hover-lift {
