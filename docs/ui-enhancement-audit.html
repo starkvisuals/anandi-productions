@@ -1,0 +1,414 @@
+<title>Anandi UI Audit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ground:#FAF9F5; --surface:#FFFFFF; --surface-2:#F2EFE8; --surface-3:#EAE6DC;
+    --text:#17171B; --text-2:#54545E; --text-3:#8C8C96; --border:#E4E0D6; --border-2:#D6D1C4;
+    --accent:#8A6A00;            /* readable gold for text on light */
+    --accent-bar:#FACC15;        /* brand yellow — bars/fills/marks only */
+    --p0:#DC2626; --p1:#EA580C; --p2:#0284C7; --p3:#64748B; --good:#16A34A;
+    --p0-bg:#FDECEC; --p1-bg:#FCEEE3; --p2-bg:#E6F3FB; --p3-bg:#EEF1F4; --good-bg:#E7F5EC;
+    --shadow:0 1px 2px rgba(20,18,10,.04),0 6px 24px rgba(20,18,10,.06);
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0B0B0E; --surface:#141419; --surface-2:#1B1B22; --surface-3:#23232C;
+      --text:#ECECEF; --text-2:#A2A2AD; --text-3:#6C6C77; --border:#282830; --border-2:#33333D;
+      --accent:#FACC15; --accent-bar:#FACC15;
+      --p0:#FB7185; --p1:#FB923C; --p2:#38BDF8; --p3:#94A3B8; --good:#4ADE80;
+      --p0-bg:#2A1518; --p1-bg:#2A1B10; --p2-bg:#0E2330; --p3-bg:#1A2029; --good-bg:#122318;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 30px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0B0B0E; --surface:#141419; --surface-2:#1B1B22; --surface-3:#23232C;
+    --text:#ECECEF; --text-2:#A2A2AD; --text-3:#6C6C77; --border:#282830; --border-2:#33333D;
+    --accent:#FACC15; --accent-bar:#FACC15;
+    --p0:#FB7185; --p1:#FB923C; --p2:#38BDF8; --p3:#94A3B8; --good:#4ADE80;
+    --p0-bg:#2A1518; --p1-bg:#2A1B10; --p2-bg:#0E2330; --p3-bg:#1A2029; --good-bg:#122318;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 30px rgba(0,0,0,.5);
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--ground); color:var(--text);
+    font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:16px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:0 24px}
+  h1,h2,h3,h4{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif; text-wrap:balance; margin:0; letter-spacing:-.01em}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ── Header ── */
+  header{border-bottom:1px solid var(--border); background:var(--surface); position:relative; overflow:hidden}
+  header::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:3px;
+    background:linear-gradient(90deg,var(--accent-bar) 0 46%,transparent 46%)}
+  .head-inner{padding:52px 24px 40px; max-width:1080px; margin:0 auto}
+  .eyebrow{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; gap:10px}
+  .apmark{display:inline-flex; align-items:center; gap:7px; font-family:"Bricolage Grotesque"; font-weight:800; letter-spacing:.02em; color:var(--text)}
+  .tri{width:0;height:0;border-left:9px solid var(--accent-bar);border-top:6px solid transparent;border-bottom:6px solid transparent}
+  h1{font-size:clamp(34px,6vw,60px); font-weight:800; line-height:1.02; margin:18px 0 14px}
+  .lede{font-size:clamp(17px,2.2vw,20px); color:var(--text-2); max-width:60ch; line-height:1.5}
+  .meta{margin-top:22px; display:flex; flex-wrap:wrap; gap:8px 20px; font-size:13px; color:var(--text-3); font-family:"IBM Plex Mono",monospace}
+  .meta b{color:var(--text-2); font-weight:600}
+
+  section{padding:56px 0; border-bottom:1px solid var(--border)}
+  .kicker{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; gap:12px; margin-bottom:14px}
+  .kicker::before{content:""; width:22px; height:2px; background:var(--accent-bar); display:inline-block}
+  h2{font-size:clamp(25px,3.6vw,34px); font-weight:700; line-height:1.08}
+  .sub{color:var(--text-2); max-width:64ch; margin:14px 0 0; font-size:16.5px}
+  p{margin:14px 0}
+  .prose{max-width:66ch}
+
+  /* verdict */
+  .verdict{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px 30px; box-shadow:var(--shadow); position:relative}
+  .verdict::before{content:""; position:absolute; left:0; top:22px; bottom:22px; width:4px; border-radius:0 4px 4px 0; background:var(--accent-bar)}
+  .verdict h3{font-size:20px; font-weight:700; margin-bottom:8px}
+  .verdict p{color:var(--text-2); margin:10px 0 0; max-width:70ch}
+  .verdict .big{color:var(--text); font-weight:600}
+
+  /* metric grid */
+  .grid{display:grid; gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)} .g5{grid-template-columns:repeat(5,1fr)}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; box-shadow:var(--shadow)}
+  .metric .n{font-family:"Bricolage Grotesque"; font-weight:800; font-size:38px; line-height:1; color:var(--text); letter-spacing:-.02em}
+  .metric .n.warn{color:var(--p0)}
+  .metric .n em{font-style:normal; font-size:18px; color:var(--text-3); font-weight:600}
+  .metric .lbl{margin-top:8px; font-size:13.5px; color:var(--text-2); line-height:1.4}
+  .metric .lbl b{color:var(--text); font-weight:600}
+
+  /* score tiles */
+  .score .top{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+  .score .name{font-size:14px; font-weight:600; color:var(--text)}
+  .score .val{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:600; color:var(--text-2)}
+  .bar{height:7px; border-radius:99px; background:var(--surface-3); margin-top:11px; overflow:hidden}
+  .bar > i{display:block; height:100%; border-radius:99px; background:var(--accent-bar)}
+  .bar.b0 > i{background:var(--p0)} .bar.b1 > i{background:var(--p1)} .bar.b2 > i{background:var(--p1)}
+  .score .note{margin-top:9px; font-size:12.5px; color:var(--text-3); line-height:1.4}
+
+  /* chips */
+  .chip{display:inline-flex; align-items:center; gap:6px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; letter-spacing:.03em; padding:3px 9px; border-radius:6px; white-space:nowrap}
+  .p0{color:var(--p0); background:var(--p0-bg)} .p1{color:var(--p1); background:var(--p1-bg)}
+  .p2{color:var(--p2); background:var(--p2-bg)} .p3{color:var(--p3); background:var(--p3-bg)}
+  .ok{color:var(--good); background:var(--good-bg)}
+
+  /* issue list */
+  .issue{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow)}
+  .issue + .issue{margin-top:14px}
+  .issue .hd{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .issue h3{font-size:18.5px; font-weight:700}
+  .issue .row{margin-top:12px; display:grid; grid-template-columns:88px 1fr; gap:6px 16px; align-items:start}
+  .issue .row .k{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-3); padding-top:2px}
+  .issue .row .v{color:var(--text-2); font-size:15px}
+  .issue .row .v b{color:var(--text); font-weight:600}
+  .issue .row .v.fix{color:var(--text)}
+
+  /* comparison */
+  .compare{display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow)}
+  .compare > div{padding:20px 22px}
+  .compare .now{background:var(--surface-2)}
+  .compare .to{background:var(--surface); border-left:1px solid var(--border)}
+  .compare .tag{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px}
+  .compare .now .tag{color:var(--text-3)} .compare .to .tag{color:var(--accent)}
+  .compare ul{margin:0; padding-left:18px} .compare li{margin:7px 0; color:var(--text-2); font-size:14.5px}
+  .compare .to li{color:var(--text)}
+
+  ul.clean{list-style:none; margin:16px 0 0; padding:0}
+  ul.clean > li{position:relative; padding:11px 0 11px 30px; border-top:1px solid var(--border); color:var(--text-2); font-size:15.5px}
+  ul.clean > li:first-child{border-top:0}
+  ul.clean > li::before{content:""; position:absolute; left:4px; top:18px; width:7px; height:7px; border-radius:2px; background:var(--accent-bar)}
+  ul.clean > li b{color:var(--text); font-weight:600}
+  ul.clean > li .chip{margin-left:6px; vertical-align:1px}
+
+  /* screen block */
+  .screen{border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow)}
+  .screen + .screen{margin-top:16px}
+  .screen .bar-t{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 22px; background:var(--surface-2); border-bottom:1px solid var(--border)}
+  .screen h3{font-size:17px; font-weight:700}
+  .screen .body{padding:6px 22px 16px}
+
+  /* table */
+  .tbl-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow)}
+  table{border-collapse:collapse; width:100%; min-width:560px; background:var(--surface)}
+  th,td{text-align:left; padding:13px 16px; border-bottom:1px solid var(--border); font-size:14.5px; vertical-align:top}
+  th{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); background:var(--surface-2)}
+  td b{color:var(--text); font-weight:600} td{color:var(--text-2)}
+  tr:last-child td{border-bottom:0}
+  .tot td{background:var(--surface-2); font-weight:600; color:var(--text)}
+
+  .callout{background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:16px 20px; font-size:15px; color:var(--text-2); margin-top:18px}
+  .callout b{color:var(--text)}
+
+  footer{padding:44px 0 64px; color:var(--text-3); font-size:13.5px}
+  footer .wrap{display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; justify-content:space-between}
+
+  .toggle{position:fixed; top:14px; right:14px; z-index:9; background:var(--surface); border:1px solid var(--border-2); color:var(--text-2); font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; letter-spacing:.05em; padding:7px 11px; border-radius:8px; cursor:pointer; box-shadow:var(--shadow)}
+  .toggle:hover{color:var(--text)}
+
+  @media (max-width:760px){
+    .g5,.g4,.g3,.g2{grid-template-columns:1fr 1fr}
+    .compare{grid-template-columns:1fr} .compare .to{border-left:0; border-top:1px solid var(--border)}
+    .issue .row{grid-template-columns:1fr; gap:2px} .issue .row .k{padding-top:8px}
+    .head-inner{padding:40px 20px 32px}
+  }
+  @media (max-width:460px){ .g5,.g4,.g3,.g2{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+
+<button class="toggle" onclick="(function(){var r=document.documentElement;var c=r.getAttribute('data-theme');var d=matchMedia('(prefers-color-scheme:dark)').matches;var n=c?(c==='dark'?'light':'dark'):(d?'light':'dark');r.setAttribute('data-theme',n);})()">◐ Theme</button>
+
+<header>
+  <div class="head-inner">
+    <div class="eyebrow"><span class="apmark">A<span class="tri"></span>P</span> ANANDI PRODUCTIONS · UI AUDIT</div>
+    <h1>UI Enhancement Audit</h1>
+    <p class="lede">The app now <em>works</em> — the problem is that it doesn't <em>feel</em> like one product. A full read of every screen, the design-system drift behind "all the buttons are different," the gap to your reference design, and how to make the delivery flow actually smart.</p>
+    <div class="meta">
+      <span><b>Scope</b> whole app · web (desktop + mobile)</span>
+      <span><b>Mode</b> Operate (a tool, not a brochure)</span>
+      <span><b>Method</b> live walkthrough + code metrics + design detector</span>
+      <span><b>Date</b> 30 Aug 2026</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="verdict">
+      <h3>The one-line diagnosis</h3>
+      <p><span class="big">Your design system already exists — it's just bypassed almost everywhere.</span> The polished pieces live in <span class="mono">components/ui/</span>, but the 11,000-line <span class="mono">MainApp.js</span> hand-styles <b>158 raw buttons</b> against only <b>41</b> that use the shared component. That single fact produces every symptom you named: buttons of different sizes and shapes, mixed indigo/brand colour, uneven spacing, and a UI that reads as "assembled" rather than "designed."</p>
+      <p>Fixing it is not a rewrite. It's <b>routing everything through a small set of primitives and tokens</b> — the same move, repeated. Do that and the reference look (your Frame.io mockups) becomes reachable in slices, without touching functionality.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Health at a glance</div>
+    <h2>Where it stands today</h2>
+    <p class="sub">Two scorecards: Nielsen's usability heuristics (how it <em>behaves</em>) and the technical dimensions (how it's <em>built</em>). Honest scores — most shipping apps land 20–32/40. Anandi sits at the bottom of that band, and consistency is the anchor dragging it down.</p>
+
+    <div style="margin-top:26px; display:flex; flex-wrap:wrap; gap:16px; align-items:stretch">
+      <div class="card" style="flex:1; min-width:260px; display:flex; flex-direction:column; justify-content:center">
+        <div class="mono" style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)">Usability score</div>
+        <div style="display:flex; align-items:baseline; gap:10px; margin-top:6px">
+          <span class="n mono" style="font-family:'Bricolage Grotesque';font-weight:800;font-size:54px;line-height:1;color:var(--text)">20</span>
+          <span style="font-size:22px;color:var(--text-3);font-weight:600" class="mono">/ 40</span>
+          <span class="chip p1" style="margin-left:auto">NEEDS WORK</span>
+        </div>
+        <div class="bar" style="margin-top:16px"><i style="width:50%"></i></div>
+        <div class="score note" style="margin-top:12px">Nielsen's 10 heuristics, scored in the table at the end. Consistency (1/4) and Help (1/4) are the two floors.</div>
+      </div>
+      <div class="grid g2" style="flex:2; min-width:300px; gap:14px">
+        <div class="card score"><div class="top"><span class="name">Accessibility</span><span class="val">2 / 4</span></div><div class="bar b2"><i style="width:50%"></i></div><div class="note">7–9px text in places; contrast misses; primitives are a11y-correct but bypassed.</div></div>
+        <div class="card score"><div class="top"><span class="name">Performance</span><span class="val">2 / 4</span></div><div class="bar b2"><i style="width:50%"></i></div><div class="note">13 layout-animating transitions (jank); one 11k-line component re-renders widely.</div></div>
+        <div class="card score"><div class="top"><span class="name">Theming</span><span class="val">1 / 4</span></div><div class="bar b0"><i style="width:25%"></i></div><div class="note">474 hard-coded colours (86 distinct); tokens exist but rarely used.</div></div>
+        <div class="card score"><div class="top"><span class="name">Responsive</span><span class="val">2 / 4</span></div><div class="bar b2"><i style="width:50%"></i></div><div class="note">Mobile considered, but 158 hand-styled buttons mean touch targets & wraps vary.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">The core problem</div>
+    <h2>The consistency crisis — measured</h2>
+    <p class="sub">You said "all buttons are different sizes and shapes." You're right, and here's the proof pulled straight from the code. Every number below is a place where a value was chosen by hand instead of taken from the system.</p>
+
+    <div class="grid g3" style="margin-top:26px">
+      <div class="card metric"><div class="n warn">158<em> vs 41</em></div><div class="lbl"><b>Raw buttons vs primitives.</b> ~79% of buttons skip the shared <span class="mono">Button</span> — each styled from scratch.</div></div>
+      <div class="card metric"><div class="n warn">15</div><div class="lbl"><b>Corner radii in use</b> — from 2px to 999px. A real system has 3–4. This <em>is</em> "different shapes."</div></div>
+      <div class="card metric"><div class="n warn">18+</div><div class="lbl"><b>Button padding values</b> (6&nbsp;10, 6&nbsp;12, 4&nbsp;8, 10&nbsp;12, 3&nbsp;8…). This <em>is</em> "different sizes."</div></div>
+      <div class="card metric"><div class="n warn">19</div><div class="lbl"><b>Font sizes</b>, 7px→60px. Several (7/8/9px) are below the readable floor.</div></div>
+      <div class="card metric"><div class="n warn">474</div><div class="lbl"><b>Hard-coded hex colours</b> (86 distinct) — indigo <span class="mono">#6366f1</span> and brand yellow fight throughout.</div></div>
+      <div class="card metric"><div class="n warn">5</div><div class="lbl"><b>"Side-tab" accent borders</b> — the single most recognisable tell of AI-generated UI. Flagged by the detector.</div></div>
+    </div>
+
+    <div class="callout"><b>The fix is one repeated move, not a redesign.</b> Define the scale once (a spacing step, a radius set of ~3, one type ramp, semantic colour tokens), then replace raw <span class="mono">&lt;button&gt;</span>s with <span class="mono">&lt;Button variant size&gt;</span> screen by screen. Buttons become identical by construction; the brand (black + a single yellow accent, never a yellow fill behind text) reads clearly; spacing lands on a grid. Nothing about behaviour changes.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">The target</div>
+    <h2>Closing the gap to your reference</h2>
+    <p class="sub">Your mockups (the dashboard and project view) aren't just prettier — they're <em>denser with signal</em> and calmer to scan. Keep every function; adopt the structure. The biggest wins:</p>
+
+    <h3 style="margin-top:30px;font-size:18px">Dashboard</h3>
+    <div class="compare" style="margin-top:14px">
+      <div class="now"><div class="tag">Today</div><ul>
+        <li>5 stat pills, but flat and low-contrast</li>
+        <li>Recent projects: grey placeholder cards</li>
+        <li>"Needs Attention" is empty / generic</li>
+        <li>No storage visibility</li>
+      </ul></div>
+      <div class="to"><div class="tag">Reference → adopt</div><ul>
+        <li>Stat tiles with a soft-tinted icon each, one clear number, sitting on the grid</li>
+        <li>Real project thumbnails + a readable progress bar with the % inline</li>
+        <li><b>"Needs Attention" with an action button per row</b> (Upload / Review) — the app tells you what to do next</li>
+        <li>A <b>Storage-usage ring</b> (used / total, by asset type) — real, glanceable</li>
+        <li>Right-rail Activity feed, tightened</li>
+      </ul></div>
+    </div>
+
+    <h3 style="margin-top:30px;font-size:18px">Project view</h3>
+    <div class="compare" style="margin-top:14px">
+      <div class="now"><div class="tag">Today</div><ul>
+        <li>Tall purple gradient header, big empty band under it</li>
+        <li>Action buttons are three different shapes/sizes (green Upload, outline Share, ghost Edit, icon-only gear)</li>
+        <li>Counts (Pending/Progress/Review/Done) as tiny text</li>
+        <li>Folder cards + asset grid, but no requests/activity in view</li>
+      </ul></div>
+      <div class="to"><div class="tag">Reference → adopt</div><ul>
+        <li>Compact header: project thumbnail + name + status pill + members, all on one line</li>
+        <li><b>A stat row</b> — Assets · Folders · Requests · Approved · Pending — as equal tiles</li>
+        <li>One button family: primary <b>Upload</b>, secondary <b>Share</b>, everything else same height/radius</li>
+        <li>Filter chips (All · Videos · Photos · Docs · Audio) + Grid/List/Kanban as a segmented control</li>
+        <li><b>Right rail: Requests + Activity</b> always in view — the work-context you need while browsing assets</li>
+        <li>Asset cards with real thumbnails, duration/type badge, hover actions</li>
+      </ul></div>
+    </div>
+
+    <div class="callout" style="margin-top:22px"><b>Placement & readability, kept.</b> None of this moves a feature — it re-ranks what's already there so the eye lands on the number, the status, and the next action first. That's the whole difference between the two columns.</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Screen by screen</div>
+    <h2>What to enhance, per surface</h2>
+    <p class="sub">Concrete, functionality-safe changes. Severity is <span class="chip p0">P0</span> ship-blocking feel, <span class="chip p1">P1</span> high, <span class="chip p2">P2</span> medium, <span class="chip p3">P3</span> nice-to-have.</p>
+
+    <div style="margin-top:24px">
+      <div class="screen"><div class="bar-t"><h3>Global — the button & token system</h3><span class="chip p0">P0 · foundational</span></div>
+        <div class="body"><ul class="clean">
+          <li><b>Replace raw buttons with the <span class="mono">Button</span> primitive</b> (variant: primary/secondary/ghost/danger · size: sm/md/lg). One height, radius and padding per size, everywhere. <span class="chip p0">P0</span></li>
+          <li><b>Adopt a token set:</b> spacing (4/8/12/16/24/32), radius (6/10/14 + full), a type ramp (12/13/14/16/20/26/34), and semantic colours. Retire the 474 literals over time. <span class="chip p0">P0</span></li>
+          <li><b>One accent rule:</b> yellow is accent/focus/bars only — never a fill behind text; primary CTA is near-white-on-dark / dark-on-light. (Already true in places; make it universal.) <span class="chip p1">P1</span></li>
+          <li>Kill the 5 side-tab accent borders and 13 layout-animating transitions (animate transform/opacity instead). <span class="chip p2">P2</span></li>
+        </ul></div>
+      </div>
+
+      <div class="screen"><div class="bar-t"><h3>Dashboard</h3><span class="chip p1">P1</span></div>
+        <div class="body"><ul class="clean">
+          <li>Rebuild the 5 stat pills as tinted-icon tiles on the grid; make the numbers the loudest thing. <span class="chip p1">P1</span></li>
+          <li>Add the <b>Storage-usage ring</b> (real data — you're at 472 GB / 2 TB) with a per-type breakdown. <span class="chip p2">P2</span></li>
+          <li>Make <b>"Needs Attention"</b> a real, computed queue with an inline action per row. <span class="chip p1">P1</span> <em>(see "Make it smart")</em></li>
+          <li>Real project thumbnails + inline % on the progress bar. <span class="chip p2">P2</span></li>
+        </ul></div>
+      </div>
+
+      <div class="screen"><div class="bar-t"><h3>Project view</h3><span class="chip p1">P1</span></div>
+        <div class="body"><ul class="clean">
+          <li>Compact the header (one line) and reclaim the empty band; unify the four action buttons into one family. <span class="chip p1">P1</span></li>
+          <li>Add the equal-tile <b>stat row</b> (Assets/Folders/Requests/Approved/Pending). <span class="chip p1">P1</span></li>
+          <li>Bring <b>Requests + Activity</b> into a right rail on this screen. <span class="chip p2">P2</span></li>
+          <li>Asset cards: consistent radius, duration/type badge, hover actions instead of an always-on "⋯". <span class="chip p2">P2</span></li>
+        </ul></div>
+      </div>
+
+      <div class="screen"><div class="bar-t"><h3>Review lightbox (the soul)</h3><span class="chip p1">P1</span></div>
+        <div class="body"><ul class="clean">
+          <li>Player and tabs are now on-brand (done this session). Next: consistent control sizing + a proper buffering/empty state on the canvas. <span class="chip p2">P2</span></li>
+          <li>Comment timecode chips inherit each comment's stored colour — old comments show muddy indigo. Normalise the palette. <span class="chip p3">P3</span></li>
+          <li>Mobile: the review layout needs its own stacked treatment (video → comments), not the desktop split. <span class="chip p1">P1</span></li>
+        </ul></div>
+      </div>
+
+      <div class="screen"><div class="bar-t"><h3>Modals — Edit Project / Create / Upload</h3><span class="chip p1">P1</span></div>
+        <div class="body"><ul class="clean">
+          <li>The Edit-Project "Deliverables" tab is a wall of equal-weight chips (indigo + green mixed) with no hierarchy — the "brainless delivery" you flagged. Group, default, and explain. <span class="chip p1">P1</span> <em>(see below)</em></li>
+          <li>Standardise every modal on one shell: same header, padding, footer button order (secondary left, primary right). <span class="chip p1">P1</span></li>
+          <li>Selected-chip colour should be the brand accent tint, not indigo. <span class="chip p2">P2</span></li>
+        </ul></div>
+      </div>
+
+      <div class="screen"><div class="bar-t"><h3>Tasks</h3><span class="chip p1">P1 · you flagged this</span></div>
+        <div class="body"><ul class="clean">
+          <li>Redesign the Kanban/list to the design system: consistent cards, status colour as a thin stripe not a fill, clear assignee + due chips, drag affordance. <span class="chip p1">P1</span></li>
+          <li>Empty and loading states (skeletons, a welcoming empty column) instead of blank space. <span class="chip p2">P2</span></li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Make it smart</div>
+    <h2>From "brainless delivery" to an app that thinks</h2>
+    <p class="sub">Right now Deliverables is a form: you tick formats and sizes and nothing happens with them. "Smart" means the app <em>uses</em> what it knows — project type, what's been uploaded, what's approved — to compute state and tell you what's next, instead of asking you to track it in your head.</p>
+
+    <ul class="clean" style="margin-top:22px">
+      <li><b>Smart deliverables.</b> Pick a project type (or the workflow template you can now create) → the required formats/sizes pre-fill. Then the project shows a live <b>delivery checklist</b>: "Full HD MP4 — 2 of 3 delivered · Vertical 9:16 — missing." Delivered vs required is computed from the assets, not tracked by hand. <span class="chip p1">P1</span></li>
+      <li><b>Real progress.</b> The header % should come from actual workflow-block / approval state (Pending→Progress→Review→Done→Delivered), not sit at 0%. Now that workflow templates save, this can be wired. <span class="chip p1">P1</span></li>
+      <li><b>A computed "Needs Attention".</b> One cross-project queue: uploads awaiting your action, reviews assigned to you, requests pending approval, overdue tasks — each with a one-click action. This is the dashboard's job. <span class="chip p1">P1</span></li>
+      <li><b>Smart requests.</b> A request ("Close-up dance shots") should link to the assets that fulfil it and flip to Fulfilled automatically when a matching asset is uploaded to that folder. <span class="chip p2">P2</span></li>
+      <li><b>Smart status & nudges.</b> Auto-move an asset to "Review-ready" on upload, "Changes requested" when a comment lands, "Approved" on approval — and fire the WhatsApp/email nudge you already support. Less manual status-setting. <span class="chip p2">P2</span></li>
+      <li><b>Auto proxies & thumbnails.</b> With Mux now live, every new video gets an HLS proxy + storyboard scrubbing + a poster automatically — no "VIDEO" placeholders. Backfill existing videos. <span class="chip p2">P2</span></li>
+      <li><b>Storage intelligence.</b> The ring isn't just decoration — surface "3 delivered projects = 1.2 TB, archive to reclaim," turning the meter into an action. <span class="chip p3">P3</span></li>
+    </ul>
+    <div class="callout"><b>Why this matters more than the paint.</b> A consistent button makes the app look designed; smart delivery makes it <em>feel</em> designed — it removes the tracking you currently do in your head. That's the difference between a pretty form and a tool that runs the studio.</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Sequenced plan</div>
+    <h2>What to do, in order</h2>
+    <p class="sub">Each row is a shippable, functionality-safe slice. Do them top-down; the foundation makes every later screen cheaper.</p>
+    <div class="tbl-wrap" style="margin-top:22px">
+      <table>
+        <thead><tr><th>#</th><th>Slice</th><th>Why</th><th>Effort</th><th>Pri</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">1</td><td><b>Token + Button unification</b> — one primitive, one scale, everywhere</td><td>Removes 90% of "different sizes/shapes" in one repeated move</td><td class="mono">L</td><td><span class="chip p0">P0</span></td></tr>
+          <tr><td class="mono">2</td><td><b>Project-view header + stat row</b> to reference</td><td>Your most-used screen; biggest visible lift</td><td class="mono">M</td><td><span class="chip p1">P1</span></td></tr>
+          <tr><td class="mono">3</td><td><b>Dashboard</b>: stat tiles, storage ring, computed Needs-Attention</td><td>First screen; sets the tone + makes it smart</td><td class="mono">M</td><td><span class="chip p1">P1</span></td></tr>
+          <tr><td class="mono">4</td><td><b>Smart deliverables</b> — checklist computed from assets</td><td>Directly answers "delivery is brainless"</td><td class="mono">M</td><td><span class="chip p1">P1</span></td></tr>
+          <tr><td class="mono">5</td><td><b>Modal shell</b> standardisation (Edit / Create / Upload)</td><td>Consistency where the fiddly forms live</td><td class="mono">S</td><td><span class="chip p1">P1</span></td></tr>
+          <tr><td class="mono">6</td><td><b>Tasks</b> redesign (Kanban/list to system)</td><td>You flagged it; contained surface</td><td class="mono">M</td><td><span class="chip p1">P1</span></td></tr>
+          <tr><td class="mono">7</td><td><b>Real progress</b> + smart status from workflow/approvals</td><td>Makes the numbers mean something</td><td class="mono">M</td><td><span class="chip p2">P2</span></td></tr>
+          <tr><td class="mono">8</td><td><b>Mobile passes</b> (review + project view) & a11y sweep</td><td>Team reviews on phones; WCAG AA</td><td class="mono">M</td><td><span class="chip p2">P2</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout" style="margin-top:20px"><b>Guardrail.</b> Every slice ships behind the same discipline we've used all session: change presentation only, compile-check, deploy, and verify live before calling it done. No functional regressions.</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Appendix</div>
+    <h2>Nielsen heuristics — scored</h2>
+    <p class="sub">The usability score above, itemised. 0 = broken, 4 = genuinely excellent.</p>
+    <div class="tbl-wrap" style="margin-top:22px">
+      <table>
+        <thead><tr><th>#</th><th>Heuristic</th><th>Score</th><th>Key issue</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">1</td><td>Visibility of system status</td><td class="mono">2</td><td>Silent failures historically (upload did nothing); progress/toasts improving</td></tr>
+          <tr><td class="mono">2</td><td>Match with the real world</td><td class="mono">3</td><td>Good domain language (shoots, assets, review, deliverables)</td></tr>
+          <tr><td class="mono">3</td><td>User control &amp; freedom</td><td class="mono">2</td><td>Native <span class="mono">confirm()</span> dialogs, no undo</td></tr>
+          <tr><td class="mono">4</td><td>Consistency &amp; standards</td><td class="mono" style="color:var(--p0)">1</td><td><b>The anchor.</b> 158 raw buttons · 15 radii · indigo/brand mix</td></tr>
+          <tr><td class="mono">5</td><td>Error prevention</td><td class="mono">2</td><td>Improving; several silent-fail traps now closed</td></tr>
+          <tr><td class="mono">6</td><td>Recognition over recall</td><td class="mono">3</td><td>Icons + labels; clear nav</td></tr>
+          <tr><td class="mono">7</td><td>Flexibility &amp; efficiency</td><td class="mono">2</td><td>Keyboard shortcuts exist; no bulk/smart flows yet</td></tr>
+          <tr><td class="mono">8</td><td>Aesthetic &amp; minimalist</td><td class="mono">2</td><td>Cluttered headers, off-brand remnants, uneven density</td></tr>
+          <tr><td class="mono">9</td><td>Help users recover from errors</td><td class="mono">2</td><td>Toasts now surface some errors; more needed</td></tr>
+          <tr><td class="mono">10</td><td>Help &amp; documentation</td><td class="mono" style="color:var(--p0)">1</td><td>Almost no in-app guidance or helpful empty states</td></tr>
+          <tr class="tot"><td class="mono">—</td><td>Total</td><td class="mono">20 / 40</td><td>Needs work — consistency &amp; help are the floors to lift first</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Anandi Productions — UI Enhancement Audit · prepared from a live walkthrough + code metrics + design detector.</span>
+    <span class="mono">Operate-mode · black + yellow · no functionality changes</span>
+  </div>
+</footer>
