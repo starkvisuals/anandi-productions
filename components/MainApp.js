@@ -4766,13 +4766,7 @@ export default function MainApp() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: t.text }}>Projects</h1>
           {isProducer && (
-            <button onClick={() => setShowCreate(true)} style={{
-              padding: '10px 20px',
-              background: `linear-gradient(135deg, ${t.primary}, ${t.accent || '#8b5cf6'})`,
-              border: 'none', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '6px',
-              boxShadow: `0 4px 14px ${t.primary}40`
-            }}>+ New Project</button>
+            <Btn theme={theme} onClick={() => setShowCreate(true)}>+ New Project</Btn>
           )}
         </div>
 
@@ -8726,7 +8720,7 @@ export default function MainApp() {
                   { id: 'deliverables', label: 'Deliverables', icon: '📦' },
                   { id: 'workflow', label: 'Workflow', icon: '⚙️' },
                 ].map(tab => (
-                  <button key={tab.id} onClick={() => setEditTab(tab.id)} style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: editTab === tab.id ? '2px solid #6366f1' : '2px solid transparent', color: editTab === tab.id ? '#6366f1' : t.textSecondary, fontSize: '12px', fontWeight: editTab === tab.id ? '600' : '400', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
+                  <button key={tab.id} onClick={() => setEditTab(tab.id)} style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: editTab === tab.id ? '2px solid #FACC15' : '2px solid transparent', color: editTab === tab.id ? t.text : t.textSecondary, fontSize: '12px', fontWeight: editTab === tab.id ? '600' : '400', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
                     <span style={{ fontSize: '14px' }}>{tab.icon}</span>{!isMobile && tab.label}
                   </button>
                 ))}
@@ -8885,7 +8879,7 @@ export default function MainApp() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                         {FILE_FORMATS.photo.map(fmt => {
                           const isActive = (editProjectData.requiredFormats || []).includes(fmt.id);
-                          return <button key={fmt.id} onClick={() => { const updated = isActive ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id) : [...(editProjectData.requiredFormats || []), fmt.id]; setEditProjectData({ ...editProjectData, requiredFormats: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(99,102,241,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '8px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{fmt.label}</button>;
+                          return <button key={fmt.id} onClick={() => { const updated = isActive ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id) : [...(editProjectData.requiredFormats || []), fmt.id]; setEditProjectData({ ...editProjectData, requiredFormats: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(250,204,21,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#FACC15' : t.border}`, borderRadius: '8px', color: isActive ? t.text : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{fmt.label}</button>;
                         })}
                       </div>
                     </div>
@@ -8894,7 +8888,7 @@ export default function MainApp() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                         {FILE_FORMATS.video.map(fmt => {
                           const isActive = (editProjectData.requiredFormats || []).includes(fmt.id);
-                          return <button key={fmt.id} onClick={() => { const updated = isActive ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id) : [...(editProjectData.requiredFormats || []), fmt.id]; setEditProjectData({ ...editProjectData, requiredFormats: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(99,102,241,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '8px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{fmt.label}</button>;
+                          return <button key={fmt.id} onClick={() => { const updated = isActive ? (editProjectData.requiredFormats || []).filter(f => f !== fmt.id) : [...(editProjectData.requiredFormats || []), fmt.id]; setEditProjectData({ ...editProjectData, requiredFormats: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(250,204,21,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#FACC15' : t.border}`, borderRadius: '8px', color: isActive ? t.text : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{fmt.label}</button>;
                         })}
                       </div>
                     </div>
@@ -8948,7 +8942,7 @@ export default function MainApp() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {[{ id: 'producer', label: 'Producer' }, { id: 'editor', label: 'Editor' }, { id: 'colorist', label: 'Colorist' }, { id: 'vfx', label: 'VFX Artist' }, { id: 'retoucher', label: 'Retoucher' }, { id: 'sound', label: 'Sound' }].map(role => {
                           const isActive = (editProjectData.versionUploadRoles || ['producer', 'editor']).includes(role.id);
-                          return <button key={role.id} onClick={() => { const current = editProjectData.versionUploadRoles || ['producer', 'editor']; const updated = isActive ? current.filter(r => r !== role.id) : [...current, role.id]; setEditProjectData({ ...editProjectData, versionUploadRoles: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(99,102,241,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#6366f1' : t.border}`, borderRadius: '8px', color: isActive ? '#6366f1' : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{role.label}</button>;
+                          return <button key={role.id} onClick={() => { const current = editProjectData.versionUploadRoles || ['producer', 'editor']; const updated = isActive ? current.filter(r => r !== role.id) : [...current, role.id]; setEditProjectData({ ...editProjectData, versionUploadRoles: updated }); }} style={{ padding: '6px 12px', background: isActive ? 'rgba(250,204,21,0.15)' : t.bgInput, border: `1px solid ${isActive ? '#FACC15' : t.border}`, borderRadius: '8px', color: isActive ? t.text : t.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: isActive ? '600' : '400' }}>{role.label}</button>;
                         })}
                       </div>
                     </div>

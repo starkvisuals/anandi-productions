@@ -107,12 +107,14 @@ export default function AssetRequestsPanel({ project, userProfile, isProducer, t
 
   const btnBase = {
     padding: '6px 14px',
-    borderRadius: '7px',
+    borderRadius: '8px',
     fontSize: '12px',
     fontWeight: '600',
     cursor: 'pointer',
     border: 'none',
   };
+  // Brand primary — near-white on dark / near-black on light (matches the app's Btn).
+  const brandPrimary = { background: theme !== 'light' ? '#F5F5F5' : '#111114', color: theme !== 'light' ? '#0A0A0A' : '#FFFFFF' };
 
   return (
     <div>
@@ -129,7 +131,8 @@ export default function AssetRequestsPanel({ project, userProfile, isProducer, t
         {isProducer && !showForm && (
           <button
             onClick={() => setShowForm(true)}
-            style={{ ...btnBase, background: t.primary || '#6366f1', color: '#fff', padding: '6px 16px' }}
+            className="ap-btn"
+            style={{ ...btnBase, ...brandPrimary, padding: '6px 16px' }}
           >
             + New Request
           </button>
@@ -186,7 +189,7 @@ export default function AssetRequestsPanel({ project, userProfile, isProducer, t
             <button type="button" onClick={() => setShowForm(false)} style={{ ...btnBase, background: 'transparent', border: `1px solid ${t.border}`, color: t.textSecondary }}>
               Cancel
             </button>
-            <button type="submit" disabled={submitting} style={{ ...btnBase, background: '#6366f1', color: '#fff', opacity: submitting ? 0.6 : 1 }}>
+            <button type="submit" disabled={submitting} className="ap-btn" style={{ ...btnBase, ...brandPrimary, opacity: submitting ? 0.6 : 1 }}>
               {submitting ? 'Creating…' : 'Create Request'}
             </button>
           </div>
@@ -205,9 +208,9 @@ export default function AssetRequestsPanel({ project, userProfile, isProducer, t
               fontSize: '11px',
               fontWeight: '600',
               cursor: 'pointer',
-              border: filter === f ? 'none' : `1px solid ${t.border}`,
-              background: filter === f ? (t.primary || '#6366f1') : 'transparent',
-              color: filter === f ? '#fff' : t.textSecondary,
+              border: filter === f ? '1px solid #FACC15' : `1px solid ${t.border}`,
+              background: filter === f ? '#FACC15' : 'transparent',
+              color: filter === f ? '#0A0A0A' : t.textSecondary,
               textTransform: 'capitalize',
             }}
           >
