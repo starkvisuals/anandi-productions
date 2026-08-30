@@ -270,6 +270,7 @@ export default function WorkflowTemplatesView({ t, theme, userProfile }) {
           mode={editor.mode}
           templateId={editor.templateId}
           t={t}
+          userProfile={userProfile}
           onClose={() => setEditor(null)}
           onSaved={async () => {
             setEditor(null);

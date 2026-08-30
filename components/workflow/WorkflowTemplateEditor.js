@@ -65,7 +65,7 @@ const hydrateBlock = (b) => ({
 
 // ─── Modal ─────────────────────────────────────────────────────────────────
 
-export default function WorkflowTemplateEditor({ mode, templateId, t, onClose, onSaved }) {
+export default function WorkflowTemplateEditor({ mode, templateId, t, userProfile, onClose, onSaved }) {
   const [loading, setLoading] = useState(mode !== 'new');
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -211,10 +211,10 @@ export default function WorkflowTemplateEditor({ mode, templateId, t, onClose, o
     try {
       let savedId;
       if (mode === 'edit') {
-        await updateTemplate(db, templateId, payload);
+        await updateTemplate(db, templateId, payload, userProfile?.id);
         savedId = templateId;
       } else {
-        const result = await createTemplate(db, payload);
+        const result = await createTemplate(db, payload, userProfile?.id);
         // createTemplate returns a DocumentReference from addDoc; keep backward-compat if id string
         savedId = result && typeof result === 'object' && result.id ? result.id : result;
       }
