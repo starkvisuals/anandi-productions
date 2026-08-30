@@ -2835,6 +2835,16 @@ export default function MainApp() {
     });
     attentionItems.sort((a, b) => a.priority - b.priority);
 
+    // Storage usage (Slice 3) — summed from real asset file sizes across projects.
+    const storage3 = allAssets.reduce((acc, a) => {
+      const sz = a.fileSize || 0;
+      const k = a.type === 'video' ? 'video' : a.type === 'image' ? 'image' : 'other';
+      acc[k] += sz; acc.total += sz; return acc;
+    }, { video: 0, image: 0, other: 0, total: 0 });
+    const STORAGE_CAP = 2 * 1024 ** 4; // 2 TB
+    const storagePct = Math.min(100, STORAGE_CAP ? (storage3.total / STORAGE_CAP) * 100 : 0);
+    const fmtBytes = (b) => { if (!b) return '0 B'; const u = ['B','KB','MB','GB','TB']; const i = Math.min(u.length - 1, Math.floor(Math.log(b) / Math.log(1024))); return `${(b / 1024 ** i).toFixed(i >= 3 ? 2 : 0)} ${u[i]}`; };
+
     return (
       <div style={{ overflow: 'auto', paddingBottom: '32px' }}>
         {/* 1. Command Strip */}
@@ -2867,7 +2877,7 @@ export default function MainApp() {
         {/* 2. Pulse Bar */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '28px', padding: '20px 0 16px', flexWrap: 'wrap' }}>
           {[
-            { label: 'Active Projects', value: activeProjects.length, color: '#6366f1' },
+            { label: 'Active Projects', value: activeProjects.length, color: t.brandYellow },
             { label: 'Due This Week', value: dueThisWeek.length, color: '#f59e0b' },
             { label: 'Overdue', value: overdueAssets.length, color: overdueAssets.length > 0 ? '#ef4444' : '#64748b' },
             { label: 'Pending Review', value: pendingReview.length, color: '#a855f7' },
@@ -3042,6 +3052,33 @@ export default function MainApp() {
 
           {/* Right Column (40%) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
+            {/* Storage Usage (Slice 3) */}
+            <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '14px', padding: '18px 20px' }}>
+              <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: 600, color: t.text }}>Storage Usage</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                <div style={{ position: 'relative', width: 120, height: 120, flexShrink: 0 }}>
+                  <svg width="120" height="120" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
+                    <circle cx="60" cy="60" r="52" fill="none" stroke={t.border} strokeWidth="10" />
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="#FACC15" strokeWidth="10" strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 52} strokeDashoffset={2 * Math.PI * 52 * (1 - storagePct / 100)}
+                      style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
+                  </svg>
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '17px', fontWeight: 700, color: t.text, lineHeight: 1 }}>{fmtBytes(storage3.total)}</span>
+                    <span style={{ fontSize: '10px', color: t.textMuted, marginTop: '3px' }}>of 2 TB</span>
+                  </div>
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '11px' }}>
+                  {[{ label: 'Video Assets', val: storage3.video, c: '#FACC15' }, { label: 'Images', val: storage3.image, c: '#a855f7' }, { label: 'Other', val: storage3.other, c: t.textMuted }].map(s => (
+                    <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.c, flexShrink: 0 }} />
+                      <span style={{ fontSize: '12.5px', color: t.textSecondary, flex: 1 }}>{s.label}</span>
+                      <span style={{ fontSize: '12.5px', fontWeight: 600, color: t.text }}>{fmtBytes(s.val)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
             {/* Activity Feed */}
             <div>
               <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -7498,36 +7535,32 @@ export default function MainApp() {
             const progress = projectAssets.length ? Math.round((approved / projectAssets.length) * 100) : 0;
 
             return (
-              <div style={{ padding: '8px 16px', background: t.bgInput, borderBottom: `1px solid ${t.border}`, display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '10px', color: t.textMuted }}>Pending</span>
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#fbbf24' }}>{pending}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '10px', color: t.textMuted }}>In Progress</span>
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#3b82f6' }}>{inProgress}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '10px', color: t.textMuted }}>Review</span>
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#a855f7' }}>{review}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '10px', color: t.textMuted }}>Done</span>
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#22c55e' }}>{approved}</span>
-                  </div>
-                  {overdue > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 8px', background: 'rgba(239,68,68,0.15)', borderRadius: '6px' }}>
-                      <span style={{ fontSize: '10px', color: '#ef4444' }}>Overdue</span>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444' }}>{overdue}</span>
+              <div style={{ padding: '14px 16px', background: t.bgInput, borderBottom: `1px solid ${t.border}` }}>
+                {/* Stat row — equal tiles (Slice 2) */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)', gap: '10px' }}>
+                  {[
+                    { label: 'Assets', value: projectAssets.length, dot: t.textMuted },
+                    { label: 'Folders', value: (selectedProject.categories || []).length, dot: t.textMuted },
+                    { label: 'Pending', value: pending, dot: '#fbbf24' },
+                    { label: 'In Review', value: review, dot: '#a855f7' },
+                    { label: 'Approved', value: approved, dot: '#22c55e' },
+                  ].map(s => (
+                    <div key={s.label} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '12px', padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
+                        <span style={{ fontSize: '10.5px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{s.label}</span>
+                      </div>
+                      <span style={{ fontSize: '24px', fontWeight: '700', color: t.text, lineHeight: 1 }}>{s.value}</span>
                     </div>
-                  )}
+                  ))}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '120px', height: '5px', background: t.bgCard, borderRadius: '3px' }}>
-                    <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#22c55e' : 'linear-gradient(90deg, #6366f1, #a855f7)', borderRadius: '3px', transition: 'width 0.4s ease' }} />
+                {/* Progress */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                  <div style={{ flex: 1, height: '6px', background: t.bgCard, borderRadius: '99px', overflow: 'hidden' }}>
+                    <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#22c55e' : '#FACC15', borderRadius: '99px', transition: 'width 0.4s ease' }} />
                   </div>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: progress === 100 ? '#22c55e' : '#6366f1' }}>{progress}%</span>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: progress === 100 ? '#22c55e' : t.textSecondary, whiteSpace: 'nowrap' }}>{progress}% complete</span>
+                  {overdue > 0 && <span style={{ fontSize: '11px', fontWeight: 600, color: '#ef4444', background: 'rgba(239,68,68,0.12)', padding: '3px 9px', borderRadius: '6px', whiteSpace: 'nowrap' }}>{overdue} overdue</span>}
                 </div>
               </div>
             );
