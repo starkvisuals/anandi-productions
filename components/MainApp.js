@@ -9255,7 +9255,10 @@ export default function MainApp() {
                             onClick={(e) => { e.stopPropagation(); const vid = videoRef.current; if (vid.paused) { vid.play(); } else { vid.pause(); } }}
                             style={{ maxWidth: '100%', maxHeight: 'calc(100% - 80px)', objectFit: 'contain', background: '#000', borderRadius: '8px 8px 0 0' }}
                           >
-                            {selectedAsset.muxPlaybackId && <source src={`https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`} type="application/x-mpegURL" />}
+                            {/* No <source> child for Mux: an <source type=x-mpegURL> only plays HLS
+                                natively in Safari and, in Chrome, buffers forever AND conflicts with
+                                the hls.js attachMedia effect above. hls.js (Chrome/FF) or video.src
+                                (Safari, set in the effect) is the single source. */}
                           </video>
 
                           {/* Buffering spinner (loading / transient stall) */}
