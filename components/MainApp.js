@@ -3200,7 +3200,7 @@ export default function MainApp() {
     
     // Kanban columns
     const COLUMNS = [
-      { id: 'pending', title: 'To Do', color: '#6366f1' },
+      { id: 'pending', title: 'To Do', color: '#94a3b8' },
       { id: 'in-progress', title: 'In Progress', color: '#f59e0b' },
       { id: 'review', title: 'Review', color: '#8b5cf6' },
       { id: 'done', title: 'Done', color: '#22c55e' }
@@ -3888,8 +3888,9 @@ export default function MainApp() {
             overflow: 'hidden'
           }}
         >
-          {/* Colored top border */}
-          <div style={{ height: '4px', background: column.color }} />
+          {/* Subtle status accent (was a 4px slab — the AI-slop tell). The colored
+              dot in the header below carries the status colour. */}
+          <div style={{ height: '2px', background: `${column.color}66` }} />
 
           {/* Column header */}
           <div style={{
@@ -3981,19 +3982,17 @@ export default function MainApp() {
           {/* Stats Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
             {[
-              { label: 'Overdue', value: overdueTasks.length, color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
-              { label: 'Due Today', value: todayTasks.length, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-              { label: 'Active', value: activeTasks.length, color: '#6366f1', bg: 'rgba(99,102,241,0.1)' },
-              { label: 'Done', value: completedTasks.length, color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+              { label: 'Overdue', value: overdueTasks.length, color: '#ef4444' },
+              { label: 'Due Today', value: todayTasks.length, color: '#f59e0b' },
+              { label: 'Active', value: activeTasks.length, color: '#FACC15' },
+              { label: 'Done', value: completedTasks.length, color: '#22c55e' },
             ].map(stat => (
-              <div key={stat.label} style={{ 
-                background: stat.bg, 
-                borderRadius: '10px', 
-                padding: '12px 16px',
-                borderLeft: `4px solid ${stat.color}`
-              }}>
-                <div style={{ fontSize: '22px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
-                <div style={{ fontSize: '11px', color: t.textMuted }}>{stat.label}</div>
+              <div key={stat.label} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '12px', padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: stat.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: '10.5px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{stat.label}</span>
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: '700', color: t.text, lineHeight: 1 }}>{stat.value}</div>
               </div>
             ))}
           </div>
