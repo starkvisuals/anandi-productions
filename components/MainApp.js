@@ -5995,71 +5995,60 @@ export default function MainApp() {
     const imageContainerRef = useRef(null);
     const lastPinchDistance = useRef(0);
 
-    // HLS.js initialization for Mux videos (Chrome/Firefox)
+    // HLS.js initialization for Mux videos (Chrome/Firefox). Robust against mount
+    // timing: the <video> may not be in the DOM the instant this effect runs (the
+    // lightbox fades in), so retry via rAF until videoRef is available instead of
+    // giving up permanently (that left Chrome with NO source -> "no supported source").
     useEffect(() => {
-      if (!selectedAsset?.muxPlaybackId || !videoRef.current) return;
-      
-      const video = videoRef.current;
-      const hlsUrl = `https://stream.mux.com/${selectedAsset.muxPlaybackId}.m3u8`;
-      
-      // Check if HLS is natively supported (Safari)
-      if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = hlsUrl;
-        return;
-      }
-      
-      // For Chrome/Firefox, use HLS.js
-      const loadHls = async () => {
+      const pid = selectedAsset?.muxPlaybackId;
+      if (!pid) return;
+      const hlsUrl = `https://stream.mux.com/${pid}.m3u8`;
+      let cancelled = false;
+      let rafId = null;
+
+      const attach = async () => {
+        if (cancelled) return;
+        const video = videoRef.current;
+        if (!video) { rafId = requestAnimationFrame(attach); return; } // ref not mounted yet — retry
+
+        // Safari (and any browser with native HLS) plays the manifest directly.
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = hlsUrl;
+          video.load();
+          return;
+        }
+        // Chrome / Firefox / Edge — attach hls.js.
         try {
-          // Dynamically import HLS.js
           const Hls = (await import('hls.js')).default;
-          
+          if (cancelled) return;
           if (Hls.isSupported()) {
-            // Cleanup previous instance
-            if (hlsRef.current) {
-              hlsRef.current.destroy();
-            }
-            
-            const hls = new Hls({
-              enableWorker: true,
-              lowLatencyMode: false,
-              backBufferLength: 90,
-              maxBufferLength: 30,
-              maxMaxBufferLength: 60,
-            });
-            
+            if (hlsRef.current) { try { hlsRef.current.destroy(); } catch (e) {} hlsRef.current = null; }
+            const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 90, maxBufferLength: 30 });
             hlsRef.current = hls;
             hls.loadSource(hlsUrl);
             hls.attachMedia(video);
-            
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              // Video is ready to play
-            });
-            
             hls.on(Hls.Events.ERROR, (event, data) => {
               if (data.fatal) {
-                console.error('HLS fatal error:', data);
-                // Fallback to direct URL if available
-                if (selectedAsset.url) {
-                  video.src = selectedAsset.url;
-                }
+                console.error('[player] HLS fatal:', data.type, data.details);
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+                else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
               }
             });
+          } else {
+            console.error('[player] hls.js not supported in this browser');
+            video.src = hlsUrl; // last resort
           }
         } catch (e) {
-          console.error('HLS.js load error:', e);
-          // Fallback to direct source
-          video.src = hlsUrl;
+          console.error('[player] hls.js import failed:', e);
+          const v = videoRef.current; if (v) { v.src = hlsUrl; }
         }
       };
-      
-      loadHls();
-      
+      attach();
+
       return () => {
-        if (hlsRef.current) {
-          hlsRef.current.destroy();
-          hlsRef.current = null;
-        }
+        cancelled = true;
+        if (rafId) cancelAnimationFrame(rafId);
+        if (hlsRef.current) { try { hlsRef.current.destroy(); } catch (e) {} hlsRef.current = null; }
       };
     }, [selectedAsset?.muxPlaybackId, selectedAsset?.id]);
 
