@@ -7554,6 +7554,78 @@ export default function MainApp() {
             );
           })()}
 
+          {/* Delivery Checklist — smart deliverables (Slice 4). Surfaces the required
+              formats/sizes (previously buried in Edit -> Deliverables) and tracks
+              readiness live from real asset statuses. */}
+          {(() => {
+            const reqFormats = selectedProject.requiredFormats || [];
+            const reqSizes = selectedProject.requiredSizes || [];
+            const cardWrap = { margin: '0 16px 16px', background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '14px', padding: '18px 20px' };
+            const openDeliverables = () => {
+              setEditProjectData({
+                name: selectedProject.name, client: selectedProject.client || '', categories: selectedProject.categories || [],
+                status: selectedProject.status || 'active', type: selectedProject.type || 'photoshoot',
+                requiredFormats: selectedProject.requiredFormats || [], requiredSizes: selectedProject.requiredSizes || [],
+                maxRevisions: selectedProject.maxRevisions || 0, versionUploadRoles: selectedProject.versionUploadRoles || ['producer', 'editor'],
+                approvalWorkflow: selectedProject.approvalWorkflow || 'producer',
+                notifyOnUpload: selectedProject.notifyOnUpload ?? true, notifyOnVersion: selectedProject.notifyOnVersion ?? true,
+                notifyOnApproval: selectedProject.notifyOnApproval ?? true, notifyOnDeadline: selectedProject.notifyOnDeadline ?? true,
+              });
+              setEditTab('deliverables'); setShowEditProject(true);
+            };
+            if (reqFormats.length === 0 && reqSizes.length === 0) {
+              return (
+                <div style={cardWrap}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                    <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: t.text }}>Delivery Checklist</h3>
+                    {isProducer && <Btn theme={theme} small outline onClick={openDeliverables}>Set deliverables</Btn>}
+                  </div>
+                  <div style={{ fontSize: '13px', color: t.textMuted, marginTop: '8px', lineHeight: 1.5 }}>No required formats or sizes set. Define what this project must deliver and this checklist tracks each one against your approved assets.</div>
+                </div>
+              );
+            }
+            const projAssets = (selectedProject.assets || []).filter(a => !a.deleted);
+            const allFmt = [...FILE_FORMATS.photo.map(f => ({ ...f, media: 'photo' })), ...FILE_FORMATS.video.map(f => ({ ...f, media: 'video' }))];
+            const allSz = [...SIZE_PRESETS.video.map(s => ({ ...s, media: 'video' })), ...SIZE_PRESETS.photo.map(s => ({ ...s, media: 'photo' }))];
+            const rows = [
+              ...reqFormats.map(id => allFmt.find(f => f.id === id)).filter(Boolean).map(f => ({ label: f.label, media: f.media, kind: 'Format' })),
+              ...reqSizes.map(id => allSz.find(s => s.id === id)).filter(Boolean).map(s => ({ label: s.label, media: s.media, kind: 'Size' })),
+            ];
+            const byMedia = { photo: projAssets.filter(a => a.type === 'image'), video: projAssets.filter(a => a.type === 'video') };
+            const statusFor = (media) => {
+              const arr = byMedia[media] || [];
+              const ok = arr.filter(a => a.status === 'approved' || a.status === 'delivered').length;
+              if (ok > 0) return { icon: '✓', color: '#22c55e', text: `${ok} approved source${ok > 1 ? 's' : ''}` };
+              if (arr.length > 0) return { icon: '◐', color: '#f59e0b', text: `${arr.length} in review` };
+              return { icon: '○', color: t.textMuted, text: 'awaiting upload' };
+            };
+            const readyCount = rows.filter(r => statusFor(r.media).icon === '✓').length;
+            const overall = readyCount === rows.length ? { label: 'Ready to deliver', color: '#22c55e' } : readyCount > 0 ? { label: 'In progress', color: '#f59e0b' } : { label: 'Not started', color: t.textMuted };
+            return (
+              <div style={cardWrap}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: t.text }}>Delivery Checklist</h3>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: overall.color, background: `${overall.color}1f`, padding: '3px 9px', borderRadius: '6px' }}>{overall.label}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: '12px', color: t.textMuted, fontFamily: 'monospace' }}>{readyCount}/{rows.length} sourced</span>
+                  {isProducer && <Btn theme={theme} small outline onClick={openDeliverables}>Edit</Btn>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px' }}>
+                  {rows.map((r, i) => { const st = statusFor(r.media); return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '10px' }}>
+                      <span style={{ color: st.color, fontSize: '15px', width: '16px', textAlign: 'center', flexShrink: 0 }}>{st.icon}</span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: '13px', color: t.text, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</div>
+                        <div style={{ fontSize: '10px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{r.media} · {r.kind}</div>
+                      </div>
+                      <span style={{ fontSize: '11px', color: st.color, whiteSpace: 'nowrap', flexShrink: 0 }}>{st.text}</span>
+                    </div>
+                  ); })}
+                </div>
+                <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '12px', lineHeight: 1.4 }}>Status reflects approved assets of each type (your export source). Tick individual exports off as you hand them over.</div>
+              </div>
+            );
+          })()}
+
           {/* Workflow stage timeline — only for projects with blocks */}
           {projectBlocks.length > 0 && (
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.border}` }}>
