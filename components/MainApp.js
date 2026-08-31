@@ -6011,13 +6011,11 @@ export default function MainApp() {
         const video = videoRef.current;
         if (!video) { rafId = requestAnimationFrame(attach); return; } // ref not mounted yet — retry
 
-        // Safari (and any browser with native HLS) plays the manifest directly.
-        if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = hlsUrl;
-          video.load();
-          return;
-        }
-        // Chrome / Firefox / Edge — attach hls.js.
+        // Prefer hls.js whenever it's supported (Chrome/Firefox/Edge/Chromium).
+        // We must NOT trust canPlayType('application/vnd.apple.mpegurl') to gate a
+        // native path first: Chromium reports it as "maybe" yet can't actually
+        // decode HLS, so that path set video.src to the .m3u8 and never played.
+        // hls.js (MediaSource) is the reliable path; native HLS is only for real Safari.
         try {
           const Hls = (await import('hls.js')).default;
           if (cancelled) return;
@@ -6034,14 +6032,15 @@ export default function MainApp() {
                 else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
               }
             });
-          } else {
-            console.error('[player] hls.js not supported in this browser');
-            video.src = hlsUrl; // last resort
+            return;
           }
         } catch (e) {
           console.error('[player] hls.js import failed:', e);
-          const v = videoRef.current; if (v) { v.src = hlsUrl; }
         }
+        // hls.js unavailable/unsupported (real Safari) -> native HLS via video.src.
+        const v = videoRef.current;
+        if (v && v.canPlayType('application/vnd.apple.mpegurl')) { v.src = hlsUrl; v.load(); }
+        else console.error('[player] no HLS playback path available');
       };
       attach();
 
