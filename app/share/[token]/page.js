@@ -146,37 +146,10 @@ export default function SharePage({ params }) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Keyboard shortcuts when modal is open
-  useEffect(() => {
-    if (!selectedAsset || !isClient) return;
-    const handleKey = async (e) => {
-      // Arrow navigation
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-        e.preventDefault();
-        const list = assets;
-        const idx = list.findIndex(a => a.id === selectedAsset.id);
-        if (idx === -1) return;
-        const next = e.key === 'ArrowRight' ? list[idx + 1] : list[idx - 1];
-        if (next) setSelectedAsset(next);
-        return;
-      }
-      // S — toggle select
-      if (e.key === 's' || e.key === 'S') { e.preventDefault(); await handleToggleSelect(selectedAsset.id); return; }
-      // P — red pick, M — yellow maybe, G — green alt, U — clear
-      if (e.key === 'p' || e.key === 'P') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'red'); }
-      if (e.key === 'm' || e.key === 'M') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'yellow'); }
-      if (e.key === 'g' || e.key === 'G') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'green'); }
-      if (e.key === 'b' || e.key === 'B') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'blue'); }
-      if (e.key === 'v' || e.key === 'V') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'purple'); }
-      if (e.key === 'o' || e.key === 'O') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'orange'); }
-      if (e.key === 'k' || e.key === 'K') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'gray'); }
-      if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (project.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); await updateProjectData(project.id, { assets: updated }); setProject({ ...project, assets: updated }); setSelectedAsset({ ...selectedAsset, colorLabel: null }); }
-      // Escape — close modal
-      if (e.key === 'Escape') setSelectedAsset(null);
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [selectedAsset, project, assets, isClient]);
+  // NOTE: the modal keyboard-shortcut effect lives below, AFTER the derived
+  // `isClient` / `assets` consts — its deps array reads them, so declaring it
+  // here (before those consts) threw "Cannot access 'assets' before
+  // initialization" and white-screened the whole share page.
 
   // Load project
   useEffect(() => {
@@ -233,6 +206,39 @@ export default function SharePage({ params }) {
   const assets = colorFilter ? allAssets.filter(a => a.colorLabel === colorFilter) : allAssets;
   const getCatCount = id => (project?.assets || []).filter(a => !a.deleted && a.category === id).length;
   const selectedCount = (project?.assets || []).filter(a => a.isSelected).length;
+
+  // Keyboard shortcuts when modal is open (declared after isClient/assets so the
+  // deps array can safely read them — see NOTE above the Load-project effect).
+  useEffect(() => {
+    if (!selectedAsset || !isClient) return;
+    const handleKey = async (e) => {
+      // Arrow navigation
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const list = assets;
+        const idx = list.findIndex(a => a.id === selectedAsset.id);
+        if (idx === -1) return;
+        const next = e.key === 'ArrowRight' ? list[idx + 1] : list[idx - 1];
+        if (next) setSelectedAsset(next);
+        return;
+      }
+      // S — toggle select
+      if (e.key === 's' || e.key === 'S') { e.preventDefault(); await handleToggleSelect(selectedAsset.id); return; }
+      // P — red pick, M — yellow maybe, G — green alt, U — clear
+      if (e.key === 'p' || e.key === 'P') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'red'); }
+      if (e.key === 'm' || e.key === 'M') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'yellow'); }
+      if (e.key === 'g' || e.key === 'G') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'green'); }
+      if (e.key === 'b' || e.key === 'B') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'blue'); }
+      if (e.key === 'v' || e.key === 'V') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'purple'); }
+      if (e.key === 'o' || e.key === 'O') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'orange'); }
+      if (e.key === 'k' || e.key === 'K') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'gray'); }
+      if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (project.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); await updateProjectData(project.id, { assets: updated }); setProject({ ...project, assets: updated }); setSelectedAsset({ ...selectedAsset, colorLabel: null }); }
+      // Escape — close modal
+      if (e.key === 'Escape') setSelectedAsset(null);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [selectedAsset, project, assets, isClient]);
 
   const handleRate = async (assetId, rating) => {
     const updated = (project.assets || []).map(a => a.id === assetId ? { ...a, rating } : a);
