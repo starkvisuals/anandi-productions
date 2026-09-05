@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Logo from '@/components/Logo';
 import { DEFAULT_COLOR_LABELS } from '@/lib/workflow/constants';
@@ -64,8 +64,25 @@ const StarRating = ({ rating = 0, onChange, size = 20, readonly = false }) => {
   );
 };
 
-// Get project by share token
+// Get project by share token.
+// Index-first: resolve `shareTokens/{token}` -> one project via direct GETs, so
+// a client never lists (downloads) the whole projects collection. Falls back to
+// the legacy scan only for tokens created before the index existed.
 const getProjectByShareToken = async (token) => {
+  try {
+    const idxSnap = await getDoc(doc(db, 'shareTokens', token));
+    if (idxSnap.exists()) {
+      const { projectId, active } = idxSnap.data();
+      if (active !== false && projectId) {
+        const pSnap = await getDoc(doc(db, 'projects', projectId));
+        if (pSnap.exists()) {
+          const p = { id: pSnap.id, ...pSnap.data() };
+          const link = (p.shareLinks || []).find(l => l.token === token && l.active);
+          if (link) return { project: p, link };
+        }
+      }
+    }
+  } catch (e) { /* fall through to legacy scan */ }
   try {
     const snap = await getDocs(collection(db, 'projects'));
     const projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));

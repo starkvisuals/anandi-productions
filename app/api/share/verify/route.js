@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 import crypto from 'crypto';
 
 // Hash password for comparison
@@ -16,18 +16,33 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Token and password required' }, { status: 400 });
     }
 
-    // Find the project with this share token
-    const projectsSnap = await getDocs(collection(db, 'projects'));
+    // Find the project with this share token.
+    // Index-first: `shareTokens/{token}` -> one project via direct GETs, so this
+    // route never lists the whole projects collection. Legacy scan is the fallback.
     let shareLink = null;
     let project = null;
 
-    for (const doc of projectsSnap.docs) {
-      const proj = { id: doc.id, ...doc.data() };
-      const link = (proj.shareLinks || []).find(sl => sl.token === token);
-      if (link) {
-        shareLink = link;
-        project = proj;
-        break;
+    try {
+      const idxSnap = await getDoc(doc(db, 'shareTokens', token));
+      if (idxSnap.exists()) {
+        const { projectId, active } = idxSnap.data();
+        if (active !== false && projectId) {
+          const pSnap = await getDoc(doc(db, 'projects', projectId));
+          if (pSnap.exists()) {
+            const proj = { id: pSnap.id, ...pSnap.data() };
+            const link = (proj.shareLinks || []).find(sl => sl.token === token);
+            if (link) { shareLink = link; project = proj; }
+          }
+        }
+      }
+    } catch (e) { /* fall through to legacy scan */ }
+
+    if (!shareLink) {
+      const projectsSnap = await getDocs(collection(db, 'projects'));
+      for (const d of projectsSnap.docs) {
+        const proj = { id: d.id, ...d.data() };
+        const link = (proj.shareLinks || []).find(sl => sl.token === token);
+        if (link) { shareLink = link; project = proj; break; }
       }
     }
 

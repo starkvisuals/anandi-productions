@@ -1,0 +1,70 @@
+rules_version = '2';
+
+// ============================================================================
+// Anandi Productions — Firestore Security Rules
+// ============================================================================
+// CONTEXT: The database was previously wide open (`allow read, write: if true`),
+// meaning ANYONE on the internet could read/write/delete every project — client
+// files, feedback, and share-link password hashes included. These rules close
+// that. Deploy via the Firebase console (there is no CLI pipeline in the repo):
+//   Firebase Console → Firestore Database → Rules → paste → Publish.
+//
+// DESIGN (fail-safe): a single catch-all grants any SIGNED-IN team member full
+// access, so NO authenticated feature can break. Anonymous (login-less client
+// share links) get ONLY the five narrow paths the share page actually needs.
+// Because `list` is never granted anonymously, no one can enumerate/download the
+// whole projects collection anymore — the mass-exfiltration hole is closed.
+//
+// PHASE 2 (airtight) — after the Firebase Admin service account is wired into
+// the server API routes, change the three anonymous `allow ... : if true` WRITE
+// lines below (marked ‹PHASE-2›) to `if false`, so client mutations flow only
+// through the server (which validates the share token). Reads can stay as-is or
+// also move server-side. Until then these writes remain open BY A KNOWN PROJECT
+// ID ONLY (ids are random and no longer listable) — a big reduction, not yet
+// airtight. See docs/SECURITY.md.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isTeam() { return request.auth != null; }
+
+    // ---- TEAM: any signed-in user can do everything (role scoping comes later).
+    // Guarantees every authenticated feature keeps working under lockdown.
+    match /{document=**} {
+      allow read, write: if isTeam();
+    }
+
+    // ---- Pre-login: AuthProvider reads settings/app to check setup status.
+    match /settings/app {
+      allow get: if true;
+    }
+
+    // ---- Login-less CLIENT SHARE FLOW (the only anonymous access) -----------
+    // Resolve a share link by token: a single-doc GET, never a list.
+    match /shareTokens/{token} {
+      allow get: if true;
+    }
+
+    // A shared project: read/update ONE doc by id. `list` is intentionally NOT
+    // granted here, so anonymous users cannot enumerate the collection.
+    match /projects/{projectId} {
+      allow get: if true;
+      allow update: if true;            // ‹PHASE-2› client rate/select/feedback/upload → set `if false`
+
+      // Workflow blocks the client review UI reads + writes (corrections).
+      match /blocks/{blockId} {
+        allow read: if true;
+        allow write: if true;           // ‹PHASE-2› → set `if false`
+      }
+      // Read-only deliverables list shown to the client.
+      match /assetRequests/{reqId} {
+        allow read: if true;
+      }
+      // Client selection submissions (create-only).
+      match /selectionSnapshots/{snapId} {
+        allow read, create: if true;    // ‹PHASE-2› → set `if false`
+      }
+    }
+  }
+}

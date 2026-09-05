@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// ============================================================================
+// Anandi Productions — Firebase Storage Security Rules
+// ============================================================================
+// Deploy: Firebase Console → Storage → Rules → paste → Publish.
+//
+// Assets live under `projects/{projectId}/...`. Clients (login-less editor share
+// links) upload previews there, and clients view previews via download URLs, so
+// read + write stay open on that path for now (INTERIM). Everything else is
+// team-only. PHASE 2: route client uploads through the server (Admin SDK) and
+// change the project-path `write` to `if false`, closing anonymous upload.
+// ============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Team (any signed-in user): full access.
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Login-less client share flow: view + upload project assets.
+    match /projects/{projectId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if true              // ‹PHASE-2› client/editor upload → set `if false`
+                   && request.resource.size < 500 * 1024 * 1024;  // 500MB cap: basic abuse guard
+    }
+  }
+}
