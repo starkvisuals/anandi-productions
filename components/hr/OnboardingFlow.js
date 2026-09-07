@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -189,6 +189,28 @@ export default function OnboardingFlow({ t }) {
       setSaving(false);
     }
   };
+
+  // Contractors don't sign the employee handbook — auto-skip that step. This
+  // MUST happen in an effect, never during render: calling saveAndNext() inline
+  // in the handbook render branch fired setState during render → an infinite
+  // re-render loop → "Application error" white-screen (only contractors hit it,
+  // which is why it surfaced the first time a contractor reached step 10).
+  const handbookSkipAttempted = useRef(false);
+  useEffect(() => {
+    const wc = userProfile?.workerClass || 'employee';
+    if (
+      userProfile &&
+      step?.id === 'handbook' &&
+      wc === 'contractor' &&
+      !userProfile?.signatures?.handbookAcceptance?.signed &&
+      !handbookSkipAttempted.current
+    ) {
+      handbookSkipAttempted.current = true;
+      saveAndNext({ 'signatures.handbookAcceptance': { signed: true, skipped: true, signedAt: new Date().toISOString() } });
+    }
+    // Reset the guard once we've left the handbook step, so a later revisit works.
+    if (step?.id !== 'handbook') handbookSkipAttempted.current = false;
+  }, [step?.id, userProfile]);
 
   const inputStyle = {
     width: '100%',
@@ -656,9 +678,14 @@ export default function OnboardingFlow({ t }) {
               {step.id === 'handbook' && (() => {
                 const wc = userProfile?.workerClass || 'employee';
                 if (wc === 'contractor') {
-                  // Auto-advance: contractors don't need the employee handbook
-                  saveAndNext({ 'signatures.handbookAcceptance': { signed: true, skipped: true, signedAt: new Date().toISOString() } });
-                  return null;
+                  // Contractors don't need the employee handbook — the effect above
+                  // auto-advances. Render a passive placeholder (NEVER call
+                  // saveAndNext here: setState-during-render crashes the app).
+                  return (
+                    <div style={{ textAlign: 'center', padding: '48px 20px', color: t.textMuted, fontSize: '13px' }}>
+                      Skipping employee handbook…
+                    </div>
+                  );
                 }
                 return (
                   <SignedDocumentStep
