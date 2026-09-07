@@ -918,41 +918,81 @@ const OnboardingTab = ({ t, employee }) => {
 
   const openSignedDocument = (key, sig) => {
     const label = labels[key];
-    const bodyText = resolveDocText(key, sig);
+    const bodyText = resolveDocText(key, sig) || '';
     const pdfUrl = key === 'offerLetter' ? employee?.documents?.offerLetter?.url : null;
-    const companyName = hrSettings?.companyDetails?.legalName || 'Anandi Productions';
+    const co = hrSettings?.companyDetails || {};
+    const companyName = co.legalName || 'Anandi Productions';
+    const logoUrl = co.logoUrl || '';
+    const contactLine = [co.address, co.adminEmail, co.phone].filter(Boolean).join('  ·  ');
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const signedInfo = sig?.signed
-      ? `Signed by ${sig.typedName || employee.name || ''}${sig.signedAt ? ' · ' + new Date(sig.signedAt).toLocaleString() : ''}${sig.ipAddress ? ' · IP ' + sig.ipAddress : ''}`
-      : 'Not signed';
-    // Compose a self-contained HTML doc and open it via a Blob URL (no
-    // document.write). All interpolated values are HTML-escaped.
+    const signName = sig?.typedName || employee.name || '';
+    const signDate = sig?.signedAt ? new Date(sig.signedAt).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' }) : '';
+    const signIP = sig?.ipAddress || '—';
+
+    // The executed signature block that drops into the contract's execution area.
+    const execBlock = `<div class="exec">
+<div class="exec-h">EXECUTED BY THE ${isContractor ? 'INDEPENDENT CONTRACTOR' : 'EMPLOYEE'}</div>
+${sig?.signatureUrl ? `<img class="sigimg" src="${esc(sig.signatureUrl)}" alt="signature"/>` : '<div class="sigline"></div>'}
+<div class="exec-row"><span class="lbl">Name</span><span class="val">${esc(signName)}</span></div>
+<div class="exec-row"><span class="lbl">Date</span><span class="val">${esc(signDate)}</span></div>
+<div class="exec-row"><span class="lbl">IP address</span><span class="val">${esc(signIP)}</span></div>
+<div class="exec-note">Signed electronically via the Anandi Productions onboarding portal. This electronic signature, together with the timestamp and IP address recorded above, is intended to have the same legal effect as a handwritten signature.</div>
+</div>`;
+
+    // Place the signature INSIDE the contract's execution block by matching the
+    // first "Signature: ____ / Date: ____" pair (the signer's line — the company
+    // countersignature block that follows is left blank for physical sign/stamp).
+    let bodyHtml;
+    if (pdfUrl) {
+      bodyHtml = `<iframe src="${esc(pdfUrl)}" style="width:100%;height:560px;border:1px solid #ddd;border-radius:6px;"></iframe>${execBlock}`;
+    } else {
+      const m = bodyText.match(/Signature:[ \t]*_+[ \t]*\r?\n[ \t]*Date:[ \t]*_+/);
+      if (m) {
+        const before = bodyText.slice(0, m.index);
+        const after = bodyText.slice(m.index + m[0].length);
+        bodyHtml = `<div class="doc">${esc(before)}</div>${execBlock}<div class="doc">${esc(after)}</div>`;
+      } else {
+        bodyHtml = `<div class="doc">${esc(bodyText) || '(document text unavailable)'}</div>${execBlock}`;
+      }
+    }
+
+    const logoHtml = logoUrl
+      ? `<img class="logo" src="${esc(logoUrl)}" alt="${esc(companyName)}"/>`
+      : `<div class="wordmark"><span class="wm-a">ANANDI</span><span class="wm-p">PRODUCTIONS</span></div>`;
+
+    // Self-contained HTML opened via a Blob URL (no document.write). Every
+    // interpolated value is HTML-escaped.
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(label)} — ${esc(employee.name)}</title>
 <style>
 body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;background:#f3f4f6;margin:0;padding:32px;}
-.sheet{max-width:760px;margin:0 auto;background:#fff;padding:48px 56px;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.12);}
-.hdr{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:24px;}
-.hdr h1{font-size:14px;letter-spacing:.08em;text-transform:uppercase;margin:0;}
-.hdr .co{font-size:12px;color:#666;}
-.doc{white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:#222;}
-.sig{margin-top:40px;border-top:1px solid #ddd;padding-top:24px;}
-.sig img{max-height:90px;border-bottom:1px solid #333;display:block;margin-bottom:6px;padding-bottom:4px;}
-.meta{font-size:11px;color:#555;margin-top:4px;}
-.toolbar{max-width:760px;margin:0 auto 16px;text-align:right;}
-.toolbar button{font:inherit;font-size:13px;padding:8px 16px;background:#111;color:#fff;border:0;border-radius:6px;cursor:pointer;}
-@media print{body{background:#fff;padding:0;}.sheet{box-shadow:none;border-radius:0;}.toolbar{display:none;}}
+.sheet{max-width:780px;margin:0 auto;background:#fff;padding:44px 56px 56px;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.12);}
+.letterhead{border-bottom:3px solid #FACC15;padding-bottom:16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;}
+.logo{max-height:44px;}
+.wordmark{display:flex;align-items:baseline;gap:8px;}
+.wm-a{font-weight:800;font-size:22px;letter-spacing:.14em;color:#0A0A0A;}
+.wm-p{font-weight:500;font-size:11px;letter-spacing:.34em;color:#666;text-transform:uppercase;}
+.co-contact{font-size:10.5px;color:#666;text-align:right;line-height:1.5;max-width:320px;}
+.doctitle{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#0A0A0A;font-weight:700;margin:22px 0 20px;}
+.doc{white-space:pre-wrap;font-size:12px;line-height:1.75;color:#1a1a1a;}
+.exec{margin:14px 0;padding:18px 20px;background:#fafafa;border:1px solid #e5e5e5;border-left:3px solid #FACC15;border-radius:6px;}
+.exec-h{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#888;font-weight:700;margin-bottom:12px;}
+.sigimg{max-height:80px;display:block;border-bottom:1px solid #333;padding-bottom:4px;margin-bottom:10px;}
+.sigline{height:40px;border-bottom:1px solid #333;margin-bottom:10px;}
+.exec-row{display:flex;font-size:12px;margin:3px 0;}
+.exec-row .lbl{width:110px;color:#888;flex-shrink:0;}
+.exec-row .val{color:#111;font-weight:600;}
+.exec-note{font-size:10px;color:#777;margin-top:12px;line-height:1.5;font-style:italic;}
+.footer{margin-top:32px;border-top:1px solid #eee;padding-top:12px;font-size:9.5px;color:#aaa;text-align:center;}
+.toolbar{max-width:780px;margin:0 auto 16px;text-align:right;}
+.toolbar button{font:inherit;font-size:13px;padding:9px 18px;background:#0A0A0A;color:#fff;border:0;border-radius:6px;cursor:pointer;}
+@media print{body{background:#fff;padding:0;}.sheet{box-shadow:none;border-radius:0;max-width:none;}.toolbar{display:none;}}
 </style></head><body>
 <div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
 <div class="sheet">
-<div class="hdr"><h1>${esc(label)}</h1><span class="co">${esc(companyName)}</span></div>
-${pdfUrl
-  ? `<iframe src="${esc(pdfUrl)}" style="width:100%;height:540px;border:1px solid #ddd;border-radius:6px;"></iframe>`
-  : `<div class="doc">${esc(bodyText) || '(document text unavailable)'}</div>`}
-<div class="sig">
-${sig?.signatureUrl ? `<img src="${esc(sig.signatureUrl)}" alt="signature"/>` : ''}
-<div class="meta"><strong>${esc(sig?.typedName || employee.name || '')}</strong></div>
-<div class="meta">${esc(signedInfo)}</div>
-</div>
+<div class="letterhead">${logoHtml}${contactLine ? `<div class="co-contact">${esc(contactLine)}</div>` : ''}</div>
+<div class="doctitle">${esc(label)}</div>
+${bodyHtml}
+<div class="footer">${esc(companyName)} · Document generated ${esc(new Date().toLocaleDateString('en-IN', { dateStyle: 'long' }))} · Confidential</div>
 </div></body></html>`;
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     const win = window.open(url, '_blank');
