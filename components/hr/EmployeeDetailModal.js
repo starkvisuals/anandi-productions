@@ -15,7 +15,9 @@ import {
   uploadEmployeeDocument,
   EMPLOYMENT_TYPES,
   DEPARTMENTS,
+  getHrSettings,
 } from '@/lib/hr';
+import { renderTemplate, buildTemplateData } from '@/lib/hrRender';
 
 /**
  * Admin modal showing an employee's full profile across tabs.
@@ -883,6 +885,81 @@ const OnboardingTab = ({ t, employee }) => {
   const status = employee.onboardingStatus || 'pending';
   const completedAt = employee.onboardingCompletedAt;
   const sigs = employee.signatures || {};
+  const [hrSettings, setHrSettings] = useState(null);
+  useEffect(() => { (async () => { try { setHrSettings(await getHrSettings()); } catch {} })(); }, []);
+
+  const isContractor = (employee.workerClass || 'employee') === 'contractor';
+
+  const labels = {
+    offerLetter: isContractor ? 'Engagement letter' : 'Offer letter',
+    employeeAgreement: isContractor ? 'Contractor agreement' : 'Employee agreement',
+    handbookAcceptance: 'Employee handbook',
+    termsAndConditions: 'Terms & conditions',
+  };
+
+  // Exact text signed — prefer the immutable snapshot, else re-render the current
+  // template (covers documents signed before snapshots were stored).
+  const resolveDocText = (key, sig) => {
+    if (sig?.documentText) return sig.documentText;
+    if (!hrSettings) return '';
+    const data = buildTemplateData(employee, hrSettings);
+    if (key === 'employeeAgreement') {
+      const tpl = isContractor
+        ? hrSettings?.templates?.contractorAgreement?.body
+        : hrSettings?.templates?.employeeAgreement?.body;
+      return renderTemplate(tpl, data);
+    }
+    if (key === 'termsAndConditions') return hrSettings?.termsAndConditionsText || '';
+    if (key === 'handbookAcceptance') {
+      return `I acknowledge that I have received and read the Anandi Productions Employee Handbook (${hrSettings?.handbookVersion || 'v1'}). I understand and agree to comply with all policies, procedures, and guidelines contained within.`;
+    }
+    return '';
+  };
+
+  const openSignedDocument = (key, sig) => {
+    const label = labels[key];
+    const bodyText = resolveDocText(key, sig);
+    const pdfUrl = key === 'offerLetter' ? employee?.documents?.offerLetter?.url : null;
+    const companyName = hrSettings?.companyDetails?.legalName || 'Anandi Productions';
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const signedInfo = sig?.signed
+      ? `Signed by ${sig.typedName || employee.name || ''}${sig.signedAt ? ' · ' + new Date(sig.signedAt).toLocaleString() : ''}${sig.ipAddress ? ' · IP ' + sig.ipAddress : ''}`
+      : 'Not signed';
+    // Compose a self-contained HTML doc and open it via a Blob URL (no
+    // document.write). All interpolated values are HTML-escaped.
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(label)} — ${esc(employee.name)}</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;background:#f3f4f6;margin:0;padding:32px;}
+.sheet{max-width:760px;margin:0 auto;background:#fff;padding:48px 56px;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.12);}
+.hdr{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:24px;}
+.hdr h1{font-size:14px;letter-spacing:.08em;text-transform:uppercase;margin:0;}
+.hdr .co{font-size:12px;color:#666;}
+.doc{white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:#222;}
+.sig{margin-top:40px;border-top:1px solid #ddd;padding-top:24px;}
+.sig img{max-height:90px;border-bottom:1px solid #333;display:block;margin-bottom:6px;padding-bottom:4px;}
+.meta{font-size:11px;color:#555;margin-top:4px;}
+.toolbar{max-width:760px;margin:0 auto 16px;text-align:right;}
+.toolbar button{font:inherit;font-size:13px;padding:8px 16px;background:#111;color:#fff;border:0;border-radius:6px;cursor:pointer;}
+@media print{body{background:#fff;padding:0;}.sheet{box-shadow:none;border-radius:0;}.toolbar{display:none;}}
+</style></head><body>
+<div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
+<div class="sheet">
+<div class="hdr"><h1>${esc(label)}</h1><span class="co">${esc(companyName)}</span></div>
+${pdfUrl
+  ? `<iframe src="${esc(pdfUrl)}" style="width:100%;height:540px;border:1px solid #ddd;border-radius:6px;"></iframe>`
+  : `<div class="doc">${esc(bodyText) || '(document text unavailable)'}</div>`}
+<div class="sig">
+${sig?.signatureUrl ? `<img src="${esc(sig.signatureUrl)}" alt="signature"/>` : ''}
+<div class="meta"><strong>${esc(sig?.typedName || employee.name || '')}</strong></div>
+<div class="meta">${esc(signedInfo)}</div>
+</div>
+</div></body></html>`;
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    const win = window.open(url, '_blank');
+    if (!win) { URL.revokeObjectURL(url); alert('Please allow pop-ups to view the signed document.'); return; }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       <div style={{ padding: '16px 18px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '12px' }}>
@@ -902,26 +979,29 @@ const OnboardingTab = ({ t, employee }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {['offerLetter', 'employeeAgreement', 'handbookAcceptance', 'termsAndConditions'].map(key => {
             const sig = sigs[key];
-            const labels = {
-              offerLetter: 'Offer letter',
-              employeeAgreement: 'Employee agreement',
-              handbookAcceptance: 'Employee handbook',
-              termsAndConditions: 'Terms & conditions',
-            };
+            const skipped = sig?.signed && sig?.skipped;
+            const canView = sig?.signed && !skipped;
             return (
-              <div key={key} style={{ padding: '12px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
+              <div key={key} style={{ padding: '12px 14px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: '13px', color: t.text, fontWeight: 600 }}>{labels[key]}</div>
-                  {sig?.signed ? (
+                  {skipped ? (
+                    <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>Not applicable — auto-skipped for contractors</div>
+                  ) : sig?.signed ? (
                     <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>
-                      Signed by {sig.typedName} · {sig.signedAt ? new Date(sig.signedAt).toLocaleString() : ''} · IP {sig.ipAddress || '—'}
+                      Signed by {sig.typedName || employee.name} · {sig.signedAt ? new Date(sig.signedAt).toLocaleString() : ''} · IP {sig.ipAddress || '—'}
                     </div>
                   ) : (
                     <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>Not signed</div>
                   )}
                 </div>
-                {sig?.signatureUrl && (
-                  <a href={sig.signatureUrl} target="_blank" rel="noopener noreferrer" style={{ color: t.primary, fontSize: '12px', fontWeight: 600 }}>View</a>
+                {canView && (
+                  <button
+                    onClick={() => openSignedDocument(key, sig)}
+                    style={{ flexShrink: 0, padding: '7px 14px', background: t.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    View / Download
+                  </button>
                 )}
               </div>
             );

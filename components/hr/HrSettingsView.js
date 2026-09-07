@@ -230,6 +230,9 @@ export default function HrSettingsView({ t }) {
               {[
                 ['Legal Name',   'companyDetails.legalName'],
                 ['Address',      'companyDetails.address'],
+                ['Company Email','companyDetails.adminEmail'],
+                ['Company Phone','companyDetails.phone'],
+                ['Owner Name',   'companyDetails.ownerName'],
                 ['CIN',          'companyDetails.cin'],
                 ['PAN',          'companyDetails.pan'],
                 ['TAN',          'companyDetails.tan'],

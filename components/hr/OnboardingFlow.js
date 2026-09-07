@@ -8,6 +8,7 @@ import {
   uploadEmployeeDocument, uploadEmployeeBlob, saveSignatureImage,
   getHrSettings,
 } from '@/lib/hr';
+import { renderTemplate, buildTemplateData } from '@/lib/hrRender';
 import WebcamCapture from './WebcamCapture';
 import SignaturePad from './SignaturePad';
 import Logo from '@/components/Logo';
@@ -25,18 +26,26 @@ export default function OnboardingFlow({ t }) {
 
   // Determine starting step from onboardingStatus — if user has progress,
   // resume at the next incomplete step.
+  // Resume at the FIRST incomplete step. Indices map to ONBOARDING_STEPS:
+  // 0 welcome · 1 personal · 2 address · 3 employment · 4 identity · 5 banking
+  // · 6 preferences · 7 photo · 8 offerLetter · 9 agreement · 10 handbook
+  // · 11 terms · 12 complete. (The previous version returned mis-mapped indices,
+  // which sent people back several steps and made them re-sign documents.)
   const computeInitialStep = () => {
     if (!userProfile) return 0;
-    if (userProfile.dateOfBirth && !userProfile.addressCurrent) return 2;
-    if (userProfile.addressCurrent && !userProfile.panNumber) return 3;
-    if (userProfile.panNumber && !(userProfile.bankAccount && userProfile.bankAccount.accountNumber)) return 4;
-    if (userProfile.bankAccount?.accountNumber && !userProfile.documents?.profilePhoto?.url) return 5;
-    if (userProfile.documents?.profilePhoto?.url && !userProfile.signatures?.offerLetter?.signed) return 6;
-    if (userProfile.signatures?.offerLetter?.signed && !userProfile.signatures?.employeeAgreement?.signed) return 7;
-    if (userProfile.signatures?.employeeAgreement?.signed && !userProfile.signatures?.handbookAcceptance?.signed) return 8;
-    if (userProfile.signatures?.handbookAcceptance?.signed && !userProfile.signatures?.termsAndConditions?.signed) return 9;
-    if (userProfile.signatures?.termsAndConditions?.signed) return 10;
-    return 0;
+    const s = userProfile.signatures || {};
+    const isContractor = (userProfile.workerClass || 'employee') === 'contractor';
+    if (!userProfile.dateOfBirth) return 1;                                   // personal
+    if (!userProfile.addressCurrent?.line1) return 2;                          // address
+    if (!(userProfile.dateOfJoining || userProfile.startDate)) return 3;       // employment
+    if (!userProfile.panNumber) return 4;                                      // identity
+    if (!userProfile.bankAccount?.accountNumber) return 5;                     // banking
+    if (!userProfile.documents?.profilePhoto?.url) return 7;                   // photo (preferences is optional)
+    if (!s.offerLetter?.signed) return 8;                                      // offer letter
+    if (!s.employeeAgreement?.signed) return 9;                                // agreement
+    if (!isContractor && !s.handbookAcceptance?.signed) return 10;             // handbook (employees only)
+    if (!s.termsAndConditions?.signed) return 11;                              // terms
+    return 12;                                                                 // complete
   };
 
   const [stepIndex, setStepIndex] = useState(computeInitialStep);
@@ -663,7 +672,7 @@ export default function OnboardingFlow({ t }) {
                   <SignedDocumentStep
                     docKey="employeeAgreement"
                     title={wc === 'contractor' ? 'Contractor Agreement' : 'Employee Agreement'}
-                    template={fillTemplate(tpl, userProfile)}
+                    template={renderTemplate(tpl, buildTemplateData(userProfile, hrSettings))}
                     userProfile={userProfile}
                     t={t}
                     saveAndNext={saveAndNext}
@@ -1035,6 +1044,10 @@ function SignedDocumentStep({ docKey, title, template, pdfUrl, handbookUrl, user
         signatureUrl: sig.url,
         signaturePath: sig.path,
         ipAddress: result.ipAddress,
+        // Immutable snapshot of the exact document text the person signed, so the
+        // admin can reproduce the signed agreement later even if the template is
+        // edited afterwards. (PDF-based docs like the offer letter have no text.)
+        documentText: template || null,
       };
       await saveAndNext({ signatures });
     } catch (e) {
@@ -1153,23 +1166,4 @@ function FileInput({ t, label, file, existingUrl, onChange, accept }) {
       )}
     </div>
   );
-}
-
-function fillTemplate(tpl, user) {
-  if (!tpl) return '';
-  const replacements = {
-    '{{name}}': user?.name || '',
-    '{{firstName}}': user?.firstName || '',
-    '{{email}}': user?.email || '',
-    '{{designation}}': user?.designation || '',
-    '{{department}}': user?.department || '',
-    '{{dateOfJoining}}': user?.dateOfJoining || '',
-    '{{annualCtc}}': user?.ctc?.annual ? Number(user.ctc.annual).toLocaleString('en-IN') : '—',
-    '{{employeeId}}': user?.employeeId || '',
-  };
-  let out = tpl;
-  for (const [k, v] of Object.entries(replacements)) {
-    out = out.split(k).join(v);
-  }
-  return out;
 }
