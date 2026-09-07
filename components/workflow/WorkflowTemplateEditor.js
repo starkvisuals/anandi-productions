@@ -23,6 +23,28 @@ const UPLOAD_VARIANT_OPTIONS = Object.values(UPLOAD_VARIANTS);
 const PRODUCTION_SPECIALTY_OPTIONS = Object.values(PRODUCTION_SPECIALTIES);
 const APPROVAL_MODE_OPTIONS = Object.values(APPROVAL_MODES);
 
+// ─── Plain-language vocabulary ───────────────────────────────────────────────
+// The workflow engine speaks in block TYPES (UploadBlock, SelectionRound…). A
+// producer should never see those. STAGE_META maps each type to a friendly name,
+// icon, one-liner and who does it — the block.type stored is unchanged.
+const STAGE_META = {
+  [BLOCK_TYPES.UploadBlock]:     { name: 'Upload files',           icon: '📥', who: 'Your team', desc: 'Add the source footage or photos to work from.', role: WORKFLOW_ROLES.PRODUCER },
+  [BLOCK_TYPES.SelectionRound]:  { name: 'Client picks favourites', icon: '⭐', who: 'The client', desc: 'The client stars and shortlists the shots they want.', role: WORKFLOW_ROLES.CLIENT },
+  [BLOCK_TYPES.ProductionBlock]: { name: 'Edit / production',       icon: '✂️', who: 'Your team', desc: 'Editing, colour, VFX, audio — the creative work.', role: WORKFLOW_ROLES.EDITOR },
+  [BLOCK_TYPES.ApprovalRound]:   { name: 'Client review',           icon: '✅', who: 'The client', desc: 'Client reviews and approves, or asks for changes.', role: WORKFLOW_ROLES.CLIENT },
+  [BLOCK_TYPES.AdaptBlock]:      { name: 'Make versions',           icon: '📐', who: 'Your team', desc: 'Resize and adapt into the required formats & sizes.', role: WORKFLOW_ROLES.EDITOR },
+  [BLOCK_TYPES.DeliveryBlock]:   { name: 'Deliver final files',     icon: '🎁', who: 'You',       desc: 'Hand over the finished, approved deliverables.', role: WORKFLOW_ROLES.PRODUCER },
+  [BLOCK_TYPES.Checkpoint]:      { name: 'Internal check',          icon: '🔍', who: 'Your team', desc: 'A quick internal quality gate before moving on.', role: WORKFLOW_ROLES.PRODUCER },
+  [BLOCK_TYPES.Parallel]:        { name: 'Parallel tasks',          icon: '⑂',  who: 'Your team', desc: 'Run several stages at the same time.', role: WORKFLOW_ROLES.PRODUCER },
+};
+const stageMeta = (type) => STAGE_META[type] || { name: type, icon: '▫️', who: '', desc: '', role: WORKFLOW_ROLES.PRODUCER };
+
+const ROLE_LABELS = { producer: 'You / producer', client: 'The client', editor: 'Editor', colorist: 'Colorist', vfx: 'VFX artist', audio: 'Audio', music: 'Music', agency: 'Agency', photographer: 'Photographer' };
+const VARIANT_LABELS = { raws: 'Raw / source files', references: 'Reference material', 'offline-edit': 'Offline edit', 'hi-res': 'Hi-res masters' };
+const SPECIALTY_LABELS = { edit: 'Editing', grading: 'Colour grading', vfx: 'VFX', audio: 'Audio', music: 'Music', supers: 'Supers / graphics', 'ai-gen': 'AI generation', generic: 'General' };
+const MODE_LABELS = { 'correction-or-approve': 'Approve or request changes', 'pick-one-of-many': 'Pick one option of several' };
+const roleLabel = (v) => ROLE_LABELS[v] || v;
+
 const defaultSLAForType = (type) => {
   switch (type) {
     case BLOCK_TYPES.UploadBlock:     return DEFAULT_SLA_HOURS.UPLOAD;
@@ -167,6 +189,17 @@ export default function WorkflowTemplateEditor({ mode, templateId, t, userProfil
     setNewLabel('');
     setNewSLA('');
     setExpandedId(blk._id);
+  };
+
+  // One-click add from the friendly stage picker — pre-fills a sensible name,
+  // owner and time limit for that stage so nothing technical needs filling in.
+  const addStage = (type) => {
+    const m = stageMeta(type);
+    const blk = makeBlankBlock(type);
+    blk.label = m.name;
+    blk.defaultRole = m.role;
+    blk.defaultSLAHours = defaultSLAForType(type) ?? null;
+    setBlocks(prev => [...prev, blk]);
   };
 
   // ─── Save ────────────────────────────────────────────────────────────────
@@ -335,12 +368,15 @@ export default function WorkflowTemplateEditor({ mode, templateId, t, userProfil
 
               {/* Right: blocks */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
                   <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: t.text, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                    Blocks ({blocks.length})
+                    Stages ({blocks.length})
                   </h3>
                   <span style={{ fontSize: 11, color: t.textMuted }}>Drag ⋮⋮ to reorder</span>
                 </div>
+                <p style={{ margin: '0 0 12px', fontSize: 12, color: t.textMuted }}>
+                  The steps this project runs through, top to bottom.
+                </p>
 
                 {blocks.length === 0 && (
                   <div style={{
@@ -348,7 +384,7 @@ export default function WorkflowTemplateEditor({ mode, templateId, t, userProfil
                     border: `1px dashed ${t.border}`, borderRadius: 10,
                     color: t.textMuted, fontSize: 13, marginBottom: 14,
                   }}>
-                    No blocks yet. Add one below.
+                    No stages yet — pick one below to get started.
                   </div>
                 )}
 
@@ -382,34 +418,37 @@ export default function WorkflowTemplateEditor({ mode, templateId, t, userProfil
                   ))}
                 </Reorder.Group>
 
-                {/* Add block composer */}
-                <div style={{
-                  marginTop: 14,
-                  padding: 12,
-                  border: `1px dashed ${t.border}`,
-                  borderRadius: 10,
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 8,
-                }}>
-                  <div style={{ gridColumn: '1 / -1', fontSize: 11, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                    Add Block
+                {/* Add-stage picker — friendly cards, one click each */}
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>
+                    Add a stage
                   </div>
-                  <select value={newType} onChange={(e) => setNewType(e.target.value)} style={inputStyle}>
-                    {TYPE_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                  <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Label" style={inputStyle} />
-                  <select value={newRole} onChange={(e) => setNewRole(e.target.value)} style={inputStyle}>
-                    {ROLE_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                  <input
-                    type="number"
-                    value={newSLA}
-                    onChange={(e) => setNewSLA(e.target.value)}
-                    placeholder={String(defaultSLAForType(newType) ?? 'SLA hours')}
-                    style={inputStyle}
-                  />
-                  <button onClick={handleAddBlock} style={{ ...btnPrimary, gridColumn: '1 / -1' }}>+ Add Block</button>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 8 }}>
+                    {TYPE_OPTIONS.map(type => {
+                      const m = stageMeta(type);
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => addStage(type)}
+                          title={m.desc}
+                          className="ap-btn"
+                          style={{
+                            textAlign: 'left', padding: '11px 12px',
+                            background: t.bgCard, border: `1px solid ${t.borderLight}`,
+                            borderRadius: 10, cursor: 'pointer',
+                            display: 'flex', flexDirection: 'column', gap: 5,
+                          }}
+                        >
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 16, lineHeight: 1 }}>{m.icon}</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{m.name}</span>
+                          </span>
+                          <span style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.35 }}>{m.desc}</span>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.3 }}>{m.who}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -436,6 +475,9 @@ export default function WorkflowTemplateEditor({ mode, templateId, t, userProfil
 // ─── Sub-components ────────────────────────────────────────────────────────
 
 function BlockRow({ blk, idx, t, expanded, onToggle, onUpdate, onTypeChange, onConfigTextChange, onRemove, inputStyle, labelStyle }) {
+  const [showAdvanced, setShowAdvanced] = useState(
+    () => !!blk.configError || (!!blk.configText && blk.configText.trim() && blk.configText.trim() !== '{}')
+  );
   return (
     <div>
       {/* Row header */}
@@ -458,10 +500,11 @@ function BlockRow({ blk, idx, t, expanded, onToggle, onUpdate, onTypeChange, onC
         }}>
           {idx + 1}
         </div>
+        <span style={{ fontSize: 18, lineHeight: 1 }} title={stageMeta(blk.type).name}>{stageMeta(blk.type).icon}</span>
         <input
           value={blk.label}
           onChange={(e) => onUpdate({ label: e.target.value })}
-          placeholder="Block label"
+          placeholder={stageMeta(blk.type).name}
           style={{ ...inputStyle, flex: 1 }}
         />
         <span style={{
@@ -469,7 +512,7 @@ function BlockRow({ blk, idx, t, expanded, onToggle, onUpdate, onTypeChange, onC
           background: t.bgInput, color: t.textMuted, border: `1px solid ${t.borderLight}`,
           whiteSpace: 'nowrap',
         }}>
-          {blk.type}
+          {stageMeta(blk.type).who}
         </span>
         <button
           onClick={onToggle}
@@ -495,73 +538,90 @@ function BlockRow({ blk, idx, t, expanded, onToggle, onUpdate, onTypeChange, onC
       {/* Expanded details */}
       {expanded && (
         <div style={{ padding: '0 10px 12px 10px', borderTop: `1px solid ${t.borderLight}`, paddingTop: 12 }}>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: t.textMuted, lineHeight: 1.4 }}>
+            {stageMeta(blk.type).desc}
+          </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 10 }}>
             <div>
-              <label style={labelStyle}>Type</label>
+              <label style={labelStyle}>Stage type</label>
               <select value={blk.type} onChange={(e) => onTypeChange(e.target.value)} style={inputStyle}>
-                {TYPE_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                {TYPE_OPTIONS.map(v => <option key={v} value={v}>{stageMeta(v).icon} {stageMeta(v).name}</option>)}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Default Role</label>
+              <label style={labelStyle}>Who does it</label>
               <select value={blk.defaultRole} onChange={(e) => onUpdate({ defaultRole: e.target.value })} style={inputStyle}>
-                {ROLE_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                {ROLE_OPTIONS.map(v => <option key={v} value={v}>{roleLabel(v)}</option>)}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>SLA Hours (blank = none)</label>
+              <label style={labelStyle}>Time limit — hours (blank = none)</label>
               <input
                 type="number"
                 value={blk.defaultSLAHours ?? ''}
                 onChange={(e) => onUpdate({ defaultSLAHours: e.target.value === '' ? null : Number(e.target.value) })}
                 style={inputStyle}
-                placeholder="Hours"
+                placeholder="e.g. 72"
               />
             </div>
             {blk.type === BLOCK_TYPES.UploadBlock && (
               <div>
-                <label style={labelStyle}>Variant</label>
+                <label style={labelStyle}>What's being uploaded</label>
                 <select value={blk.variant || ''} onChange={(e) => onUpdate({ variant: e.target.value })} style={inputStyle}>
-                  {UPLOAD_VARIANT_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                  {UPLOAD_VARIANT_OPTIONS.map(v => <option key={v} value={v}>{VARIANT_LABELS[v] || v}</option>)}
                 </select>
               </div>
             )}
             {blk.type === BLOCK_TYPES.ProductionBlock && (
               <div>
-                <label style={labelStyle}>Specialty</label>
+                <label style={labelStyle}>Type of work</label>
                 <select value={blk.specialty || ''} onChange={(e) => onUpdate({ specialty: e.target.value })} style={inputStyle}>
-                  {PRODUCTION_SPECIALTY_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                  {PRODUCTION_SPECIALTY_OPTIONS.map(v => <option key={v} value={v}>{SPECIALTY_LABELS[v] || v}</option>)}
                 </select>
               </div>
             )}
             {blk.type === BLOCK_TYPES.ApprovalRound && (
               <div>
-                <label style={labelStyle}>Approval Mode</label>
+                <label style={labelStyle}>What the client does</label>
                 <select value={blk.mode || ''} onChange={(e) => onUpdate({ mode: e.target.value })} style={inputStyle}>
-                  {APPROVAL_MODE_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                  {APPROVAL_MODE_OPTIONS.map(v => <option key={v} value={v}>{MODE_LABELS[v] || v}</option>)}
                 </select>
               </div>
             )}
           </div>
-          <div>
-            <label style={labelStyle}>Config (JSON)</label>
-            <textarea
-              value={blk.configText}
-              onChange={(e) => onConfigTextChange(e.target.value)}
-              rows={5}
-              style={{
-                ...inputStyle,
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                fontSize: 12,
-                resize: 'vertical',
-              }}
-            />
-            {blk.configError && (
-              <div style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>
-                Invalid JSON: {blk.configError}
-              </div>
-            )}
-          </div>
+
+          {/* Advanced (raw JSON) — hidden by default; most templates never need it */}
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(s => !s)}
+            style={{
+              background: 'none', border: 'none', padding: '2px 0', cursor: 'pointer',
+              color: t.textMuted, fontSize: 11, fontWeight: 600,
+            }}
+          >
+            {showAdvanced ? '▾ Advanced settings' : '▸ Advanced settings'}
+          </button>
+          {showAdvanced && (
+            <div style={{ marginTop: 8 }}>
+              <label style={labelStyle}>Custom config (JSON — optional)</label>
+              <textarea
+                value={blk.configText}
+                onChange={(e) => onConfigTextChange(e.target.value)}
+                rows={5}
+                style={{
+                  ...inputStyle,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 12,
+                  resize: 'vertical',
+                }}
+              />
+              {blk.configError && (
+                <div style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>
+                  Invalid JSON: {blk.configError}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
