@@ -9,6 +9,12 @@
 
 ## ▶ LAST DONE / NEXT UP
 
+- **LAST DONE (2026-09-07, cont.):** **Contract quality — real executed documents.**
+  - Placeholders now render via canonical `renderTemplate`+`buildTemplateData` (was a broken local `fillTemplate`); verified live (`07 September 2026`, company name+address, employee name/email all resolve).
+  - **Signed-document viewer** (`EmployeeDetailModal` OnboardingTab, `openSignedDocument`): branded letterhead using the **official logo** (`public/brand/ap-logo-black.png`; `companyDetails.logoUrl` overrides) + brand-yellow rule; the signature is injected **into the contract's execution block** (regex matches the `Signature:/Date:` line for the signer, `Signature:/Stamp:/Date:` for the company) with name/date/IP + e-sign attestation; opens via Blob URL with Print/Save-as-PDF. Verified live.
+  - **Company counter-signature:** `uploadCompanySignature` (lib/hr) + an **Authorised Signature uploader** in HR Settings → Company Details → `companyDetails.signatureUrl`; viewer stamps it into the "For <company>" block (name/title/date). **HARNESH TODO:** upload his signature there + Save (he said he'll sign from his side); also fill Company Email/Phone.
+  - Note: legal templates render from Firestore `settings/hr.templates` if present (file `DEFAULT_TEMPLATES` only seeds when absent) — the viewer works off whatever is stored (no template migration needed).
+
 - **LAST DONE (2026-09-07):** 🔴 **Onboarding urgent fixes (contractor path) + Phase-2 security scaffolding.**
   - **Contractor onboarding white-screened at step 10** (`ad5b9a7`): the handbook step's contractor branch called `saveAndNext()` **during render** → setState-in-render → infinite re-render → "Application error". Only contractors hit it (Anvit = first contractor). Fixed: auto-skip moved to a `useEffect` (ref-guarded); render shows a passive "Skipping…". **Verified:** Anvit signed the agreement + progressed to T&C.
   - **Contract showed raw `{{placeholders}}`** (`bbfab1f`): OnboardingFlow used its own incomplete local `fillTemplate` (8 keys, no company data) instead of the canonical `renderTemplate`+`buildTemplateData` (`lib/hrRender.js`, all 18 placeholders). Switched to canonical + deleted the duplicate.
