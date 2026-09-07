@@ -414,6 +414,7 @@ export default function SelectionRoundView({
   onRate,
   onColorLabel,
   onToggleSelect,
+  onCreateSnapshot, // login-less client: persist the snapshot server-side (Admin) instead of a direct addDoc
 }) {
   const [lightboxAsset, setLightboxAsset] = useState(null);
   const [filterStar, setFilterStar] = useState(null);   // null | 3 | 4 | 5
@@ -468,28 +469,36 @@ export default function SelectionRoundView({
   const handleSubmit = useCallback(async () => {
     setSubmitting(true);
     try {
-      const snapRef = await addDoc(
-        collection(db, 'projects', project.id, 'selectionSnapshots'),
-        {
-          blockId: block.id,
-          submittedBy: actorId,
-          submittedAt: serverTimestamp(),
-          pickCount: picks.length,
-          assets: picks.map(a => ({
-            id: a.id,
-            name: a.name,
-            colorLabel: a.colorLabel,
-            rating: a.rating,
-            isSelected: a.isSelected,
-          })),
-        }
-      );
-      onBlockAdvance(snapRef.id, picks.length);
+      const snapshot = {
+        blockId: block.id,
+        submittedBy: actorId,
+        pickCount: picks.length,
+        assets: picks.map(a => ({
+          id: a.id,
+          name: a.name,
+          colorLabel: a.colorLabel,
+          rating: a.rating,
+          isSelected: a.isSelected,
+        })),
+      };
+      let snapId;
+      if (onCreateSnapshot) {
+        // Login-less client → server (Admin) writes the snapshot.
+        snapId = await onCreateSnapshot(snapshot);
+      } else {
+        // Authenticated (producer) → direct write.
+        const snapRef = await addDoc(
+          collection(db, 'projects', project.id, 'selectionSnapshots'),
+          { ...snapshot, submittedAt: serverTimestamp() }
+        );
+        snapId = snapRef.id;
+      }
+      onBlockAdvance(snapId, picks.length);
     } catch (err) {
       console.error('[SelectionRoundView] submit error:', err);
     }
     setSubmitting(false);
-  }, [project.id, block.id, actorId, picks, onBlockAdvance]);
+  }, [project.id, block.id, actorId, picks, onBlockAdvance, onCreateSnapshot]);
 
   // Force-submit (producer — submits whatever state exists, even 0 picks)
   const handleForceSubmit = useCallback(async () => {

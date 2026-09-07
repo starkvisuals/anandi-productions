@@ -232,7 +232,7 @@ export default function SharePage({ params }) {
       if (e.key === 'v' || e.key === 'V') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'purple'); }
       if (e.key === 'o' || e.key === 'O') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'orange'); }
       if (e.key === 'k' || e.key === 'K') { e.preventDefault(); await handleColorLabel(selectedAsset.id, 'gray'); }
-      if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (project.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); await updateProjectData(project.id, { assets: updated }); setProject({ ...project, assets: updated }); setSelectedAsset({ ...selectedAsset, colorLabel: null }); }
+      if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const updated = (project.assets || []).map(a => a.id === selectedAsset.id ? { ...a, colorLabel: null } : a); setProject({ ...project, assets: updated }); setSelectedAsset({ ...selectedAsset, colorLabel: null }); try { await mutate('clearLabel', { assetId: selectedAsset.id }); } catch (e2) {} }
       // Escape — close modal
       if (e.key === 'Escape') setSelectedAsset(null);
     };
@@ -240,29 +240,46 @@ export default function SharePage({ params }) {
     return () => window.removeEventListener('keydown', handleKey);
   }, [selectedAsset, project, assets, isClient]);
 
+  // All login-less client writes go through the server (Firebase Admin), which
+  // validates the share token, so the database itself denies anonymous writes.
+  // We send only the token (in the URL) + minimal intent; the server re-derives
+  // and applies the change. Local state is updated optimistically.
+  const mutate = async (action, payload = {}) => {
+    const res = await fetch(`/api/share/${token}/mutate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, payload }),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error || 'Request failed');
+    }
+    return res.json();
+  };
+
   const handleRate = async (assetId, rating) => {
     const updated = (project.assets || []).map(a => a.id === assetId ? { ...a, rating } : a);
-    await updateProjectData(project.id, { assets: updated });
     setProject({ ...project, assets: updated });
     if (selectedAsset?.id === assetId) setSelectedAsset({ ...selectedAsset, rating });
+    try { await mutate('rate', { assetId, rating }); } catch (e) { showToast('Could not save rating', 'error'); }
   };
 
   const handleToggleSelect = async (assetId) => {
     const asset = (project.assets || []).find(a => a.id === assetId);
     const newSelected = !asset?.isSelected;
     const updated = (project.assets || []).map(a => a.id === assetId ? { ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' } : a);
-    await updateProjectData(project.id, { assets: updated });
     setProject({ ...project, assets: updated });
     if (selectedAsset?.id === assetId) setSelectedAsset({ ...selectedAsset, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' });
+    try { await mutate('toggleSelect', { assetId }); } catch (e) { showToast('Could not update selection', 'error'); }
   };
 
   const handleColorLabel = async (assetId, label) => {
     const asset = (project.assets || []).find(a => a.id === assetId);
     const newLabel = asset?.colorLabel === label ? null : label; // toggle off if same
     const updated = (project.assets || []).map(a => a.id === assetId ? { ...a, colorLabel: newLabel } : a);
-    await updateProjectData(project.id, { assets: updated });
     setProject({ ...project, assets: updated });
     if (selectedAsset?.id === assetId) setSelectedAsset({ ...selectedAsset, colorLabel: newLabel });
+    try { await mutate('colorLabel', { assetId, label }); } catch (e) { showToast('Could not update label', 'error'); }
   };
 
   const handleClientSubmit = async (snapshotId, pickCount) => {
@@ -295,21 +312,16 @@ export default function SharePage({ params }) {
 
   const handleClientCorrections = async (correctionItems, correctionCount) => {
     setApprovalSubmitted('corrections');
-    // Persist correction items to Firestore (via updateDoc on the block)
+    // Persist correction items server-side (Admin) on the active ApprovalRound block.
     try {
-      const { doc, updateDoc, arrayUnion } = await import('firebase/firestore');
       const currentBlock = projectBlocks.find(
         b => b.id === project?.currentBlockId && b.status === 'in-progress' && b.type === 'ApprovalRound'
       );
       if (currentBlock) {
-        await updateDoc(doc(db, 'projects', project.id, 'blocks', currentBlock.id), {
-          corrections: arrayUnion({
-            round: currentBlock.revisionRound || 1,
-            items: correctionItems,
-            submittedBy: 'client',
-            submittedAt: new Date().toISOString(),
-            resolved: false,
-          }),
+        await mutate('blockCorrections', {
+          blockId: currentBlock.id,
+          items: correctionItems,
+          round: currentBlock.revisionRound || 1,
         });
       }
     } catch (e) { console.error('[share] corrections persist', e); }
@@ -327,23 +339,28 @@ export default function SharePage({ params }) {
 
   const handleConfirmSelection = async () => {
     setConfirmingSelection(true);
-    const activity = { id: generateId(), type: 'selection', message: `Selection confirmed by ${link.name} (client)`, timestamp: new Date().toISOString() };
-    await updateProjectData(project.id, { selectionConfirmed: true, activityLog: [...(project.activityLog || []), activity] });
-    setProject({ ...project, selectionConfirmed: true });
+    try {
+      await mutate('confirmSelection', {});
+      setProject({ ...project, selectionConfirmed: true });
+      showToast('Selection confirmed! The team has been notified.', 'success');
+    } catch (e) {
+      showToast('Could not confirm selection', 'error');
+    }
     setConfirmingSelection(false);
-    showToast('Selection confirmed! The team has been notified.', 'success');
   };
 
   const handleAddFeedback = async () => {
     if (!newFeedback.trim() || !feedbackName.trim() || !selectedAsset) { showToast('Enter name and feedback', 'error'); return; }
-    const fb = { id: generateId(), text: newFeedback, userName: feedbackName, timestamp: new Date().toISOString(), isExternal: true };
-    const updated = (project.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: [...(a.feedback || []), fb], status: 'changes-requested' } : a);
-    const activity = { id: generateId(), type: 'feedback', message: `Feedback from ${feedbackName} on ${selectedAsset.name}`, timestamp: new Date().toISOString() };
-    await updateProjectData(project.id, { assets: updated, activityLog: [...(project.activityLog || []), activity] });
-    setProject({ ...project, assets: updated });
-    setSelectedAsset({ ...selectedAsset, feedback: [...(selectedAsset.feedback || []), fb], status: 'changes-requested' });
-    setNewFeedback('');
-    showToast('Feedback submitted!', 'success');
+    try {
+      const { feedback: fb } = await mutate('feedback', { assetId: selectedAsset.id, text: newFeedback, userName: feedbackName });
+      const updated = (project.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: [...(a.feedback || []), fb], status: 'changes-requested' } : a);
+      setProject({ ...project, assets: updated });
+      setSelectedAsset({ ...selectedAsset, feedback: [...(selectedAsset.feedback || []), fb], status: 'changes-requested' });
+      setNewFeedback('');
+      showToast('Feedback submitted!', 'success');
+    } catch (e) {
+      showToast('Could not submit feedback', 'error');
+    }
   };
 
   const handleUpload = async () => {
@@ -358,13 +375,26 @@ export default function SharePage({ params }) {
         const task = uploadBytesResumable(sRef, file);
         task.on('state_changed', snap => setUploadProgress(p => ({ ...p, [uid]: { ...p[uid], progress: Math.round((snap.bytesTransferred / snap.totalBytes) * 100) } })), () => { showToast('Failed', 'error'); }, async () => {
           const url = await getDownloadURL(task.snapshot.ref);
-          const newAsset = { id: generateId(), name: file.name, type: getFileType(file), category: cat, url, path, thumbnail: getFileType(file) === 'image' ? url : null, fileSize: file.size, mimeType: file.type, status: 'review-ready', uploadedBy: 'external', uploadedByName: link.name, uploadedAt: new Date().toISOString(), versions: [{ version: 1, url }], currentVersion: 1, feedback: [], rating: 0 };
-          const updatedAssets = [...(project.assets || []), newAsset];
-          const activity = { id: generateId(), type: 'upload', message: `${link.name} uploaded ${file.name}`, timestamp: new Date().toISOString() };
-          await updateProjectData(project.id, { assets: updatedAssets, activityLog: [...(project.activityLog || []), activity] });
-          setProject({ ...project, assets: updatedAssets });
+          // Bytes are in Storage; register the asset record server-side (Admin).
+          try {
+            const { asset: saved } = await mutate('uploadComplete', {
+              asset: {
+                name: file.name,
+                type: getFileType(file),
+                category: cat,
+                url,
+                path,
+                thumbnail: getFileType(file) === 'image' ? url : null,
+                fileSize: file.size,
+                mimeType: file.type,
+              },
+            });
+            setProject(p => ({ ...p, assets: [...(p.assets || []), saved] }));
+            showToast('Uploaded!', 'success');
+          } catch (e) {
+            showToast('Upload saved to storage but could not be registered', 'error');
+          }
           setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
-          showToast('Uploaded!', 'success');
         });
       } catch (e) { showToast('Failed', 'error'); }
     }
@@ -677,6 +707,7 @@ export default function SharePage({ params }) {
                     onRate={handleRate}
                     onColorLabel={handleColorLabel}
                     onToggleSelect={handleToggleSelect}
+                    onCreateSnapshot={async (snap) => (await mutate('selectionSnapshot', { snapshot: snap })).id}
                   />
                 )}
               </div>
