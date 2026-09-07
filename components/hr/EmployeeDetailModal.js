@@ -929,8 +929,8 @@ const OnboardingTab = ({ t, employee }) => {
     const signDate = sig?.signedAt ? new Date(sig.signedAt).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' }) : '';
     const signIP = sig?.ipAddress || '—';
 
-    // The executed signature block that drops into the contract's execution area.
-    const execBlock = `<div class="exec">
+    // Signature block for the person who signed (contractor / employee).
+    const execContractor = `<div class="exec">
 <div class="exec-h">EXECUTED BY THE ${isContractor ? 'INDEPENDENT CONTRACTOR' : 'EMPLOYEE'}</div>
 ${sig?.signatureUrl ? `<img class="sigimg" src="${esc(sig.signatureUrl)}" alt="signature"/>` : '<div class="sigline"></div>'}
 <div class="exec-row"><span class="lbl">Name</span><span class="val">${esc(signName)}</span></div>
@@ -939,26 +939,50 @@ ${sig?.signatureUrl ? `<img class="sigimg" src="${esc(sig.signatureUrl)}" alt="s
 <div class="exec-note">Signed electronically via the Anandi Productions onboarding portal. This electronic signature, together with the timestamp and IP address recorded above, is intended to have the same legal effect as a handwritten signature.</div>
 </div>`;
 
-    // Place the signature INSIDE the contract's execution block by matching the
-    // first "Signature: ____ / Date: ____" pair (the signer's line — the company
-    // countersignature block that follows is left blank for physical sign/stamp).
+    // Company counter-signature block — only when an authorised signature image
+    // has been uploaded in HR Settings; otherwise the template's blank
+    // sign/stamp lines remain for a physical signature.
+    const ownerName = co.ownerName || 'Harnesh Joshi';
+    const ownerTitle = co.ownerTitle || 'Proprietor / Owner';
+    const execCompany = co.signatureUrl ? `<div class="exec">
+<div class="exec-h">EXECUTED FOR AND ON BEHALF OF ${esc(companyName.toUpperCase())}</div>
+<img class="sigimg" src="${esc(co.signatureUrl)}" alt="company signature"/>
+<div class="exec-row"><span class="lbl">Name</span><span class="val">${esc(ownerName)}</span></div>
+<div class="exec-row"><span class="lbl">Title</span><span class="val">${esc(ownerTitle)}</span></div>
+<div class="exec-row"><span class="lbl">Date</span><span class="val">${esc(signDate)}</span></div>
+</div>` : '';
+
+    // Inject each signature at its execution line: the signer's is
+    // "Signature: __ / Date: __"; the company's is "Signature: __ / Stamp: __ /
+    // Date: __". Handles 0, 1 or 2 blocks and keeps them in document order.
     let bodyHtml;
     if (pdfUrl) {
-      bodyHtml = `<iframe src="${esc(pdfUrl)}" style="width:100%;height:560px;border:1px solid #ddd;border-radius:6px;"></iframe>${execBlock}`;
+      bodyHtml = `<iframe src="${esc(pdfUrl)}" style="width:100%;height:560px;border:1px solid #ddd;border-radius:6px;"></iframe>${execContractor}${execCompany}`;
     } else {
-      const m = bodyText.match(/Signature:[ \t]*_+[ \t]*\r?\n[ \t]*Date:[ \t]*_+/);
-      if (m) {
-        const before = bodyText.slice(0, m.index);
-        const after = bodyText.slice(m.index + m[0].length);
-        bodyHtml = `<div class="doc">${esc(before)}</div>${execBlock}<div class="doc">${esc(after)}</div>`;
+      const contractorRe = /Signature:[ \t]*_+[ \t]*\r?\n[ \t]*Date:[ \t]*_+/;
+      const companyRe = /Signature:[ \t]*_+[ \t]*\r?\n[ \t]*Stamp:[ \t]*_+[ \t]*\r?\n[ \t]*Date:[ \t]*_+/;
+      const hits = [];
+      const cm = bodyText.match(contractorRe);
+      if (cm) hits.push({ idx: cm.index, len: cm[0].length, html: execContractor });
+      const om = execCompany ? bodyText.match(companyRe) : null;
+      if (om) hits.push({ idx: om.index, len: om[0].length, html: execCompany });
+      hits.sort((a, b) => a.idx - b.idx);
+      if (hits.length) {
+        let cursor = 0;
+        bodyHtml = '';
+        for (const h of hits) {
+          bodyHtml += `<div class="doc">${esc(bodyText.slice(cursor, h.idx))}</div>${h.html}`;
+          cursor = h.idx + h.len;
+        }
+        bodyHtml += `<div class="doc">${esc(bodyText.slice(cursor))}</div>`;
       } else {
-        bodyHtml = `<div class="doc">${esc(bodyText) || '(document text unavailable)'}</div>${execBlock}`;
+        bodyHtml = `<div class="doc">${esc(bodyText) || '(document text unavailable)'}</div>${execContractor}${execCompany}`;
       }
     }
 
-    const logoHtml = logoUrl
-      ? `<img class="logo" src="${esc(logoUrl)}" alt="${esc(companyName)}"/>`
-      : `<div class="wordmark"><span class="wm-a">ANANDI</span><span class="wm-p">PRODUCTIONS</span></div>`;
+    const appOrigin = (typeof window !== 'undefined' && window.location?.origin) || '';
+    const logoSrc = logoUrl || `${appOrigin}/brand/ap-logo-black.png`;
+    const logoHtml = `<img class="logo" src="${esc(logoSrc)}" alt="${esc(companyName)}"/>`;
 
     // Self-contained HTML opened via a Blob URL (no document.write). Every
     // interpolated value is HTML-escaped.

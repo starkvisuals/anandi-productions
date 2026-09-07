@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { getHrSettings, updateHrSettings, updateHrTemplate, resetHrTemplate, isHrFullAdmin } from '@/lib/hr';
+import { getHrSettings, updateHrSettings, updateHrTemplate, resetHrTemplate, isHrFullAdmin, uploadCompanySignature } from '@/lib/hr';
 
 /**
  * Producer-only HR settings view — company details, CTC structure, and per-template editor.
@@ -19,6 +19,23 @@ export default function HrSettingsView({ t }) {
   const [notice, setNotice]     = useState('');
   const [settings, setSettings] = useState(null);
   const [activeTab, setActiveTab] = useState('company'); // company | templates
+  const [sigUploading, setSigUploading] = useState(false);
+
+  const handleSignatureUpload = async (file) => {
+    if (!file) return;
+    setSigUploading(true);
+    setError('');
+    try {
+      const { url } = await uploadCompanySignature(file);
+      set('companyDetails.signatureUrl', url);
+      setNotice('Signature uploaded — click "Save Settings" to apply it.');
+      setTimeout(() => setNotice(''), 4000);
+    } catch (err) {
+      setError(err.message || 'Signature upload failed');
+    } finally {
+      setSigUploading(false);
+    }
+  };
 
   // Per-template save/reset state: { [slug]: 'saving' | 'saved' | 'resetting' | null }
   const [tplStatus, setTplStatus] = useState({});
@@ -248,6 +265,27 @@ export default function HrSettingsView({ t }) {
                   />
                 </div>
               ))}
+            </div>
+
+            {/* Authorised signatory signature — stamped onto every contract's company block */}
+            <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: `1px solid ${t.border}` }}>
+              <Label>Authorised Signature</Label>
+              <div style={{ fontSize: '11px', color: t.textMuted, marginBottom: '10px' }}>
+                Your signature image (PNG/JPG, transparent background works best). It is placed in the &quot;For {settings.companyDetails?.legalName || 'Anandi Productions'}&quot; block of every generated contract.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                {settings.companyDetails?.signatureUrl ? (
+                  <img src={settings.companyDetails.signatureUrl} alt="Company signature" style={{ height: '60px', maxWidth: '240px', objectFit: 'contain', background: '#fff', border: `1px solid ${t.border}`, borderRadius: '8px', padding: '6px' }} />
+                ) : (
+                  <div style={{ height: '60px', width: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${t.border}`, borderRadius: '8px', color: t.textMuted, fontSize: '11px' }}>No signature yet</div>
+                )}
+                {canEdit && (
+                  <label style={{ padding: '9px 16px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '8px', fontSize: '12px', cursor: sigUploading ? 'wait' : 'pointer', color: t.text }}>
+                    {sigUploading ? 'Uploading…' : (settings.companyDetails?.signatureUrl ? 'Replace signature' : 'Upload signature')}
+                    <input type="file" accept="image/png,image/jpeg" style={{ display: 'none' }} disabled={sigUploading} onChange={e => handleSignatureUpload(e.target.files?.[0])} />
+                  </label>
+                )}
+              </div>
             </div>
           </Card>
 
