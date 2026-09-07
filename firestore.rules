@@ -46,24 +46,25 @@ service cloud.firestore {
       allow get: if true;
     }
 
-    // A shared project: read/update ONE doc by id. `list` is intentionally NOT
-    // granted here, so anonymous users cannot enumerate the collection.
+    // A shared project: anonymous may READ one doc by id (never `list`), but all
+    // writes go through the server (Firebase Admin, which bypasses these rules
+    // after validating the share token) — so anonymous writes are denied here.
     match /projects/{projectId} {
       allow get: if true;
-      allow update: if true;            // ‹PHASE-2› client rate/select/feedback/upload → set `if false`
+      allow update: if false;           // ‹PHASE-2 LOCKED› client writes go via /api/share/[token]/mutate
 
-      // Workflow blocks the client review UI reads + writes (corrections).
+      // Workflow blocks: client review UI reads; corrections written server-side.
       match /blocks/{blockId} {
         allow read: if true;
-        allow write: if true;           // ‹PHASE-2› → set `if false`
+        allow write: if false;          // ‹PHASE-2 LOCKED›
       }
       // Read-only deliverables list shown to the client.
       match /assetRequests/{reqId} {
         allow read: if true;
       }
-      // Client selection submissions (create-only).
+      // Client selection submissions are written server-side now.
       match /selectionSnapshots/{snapId} {
-        allow read, create: if true;    // ‹PHASE-2› → set `if false`
+        allow read, create: if false;   // ‹PHASE-2 LOCKED›
       }
     }
   }
