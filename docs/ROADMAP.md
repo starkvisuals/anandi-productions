@@ -9,6 +9,17 @@
 
 ## ▶ LAST DONE / NEXT UP
 
+- **LAST DONE (2026-09-07):** 🔴 **Onboarding urgent fixes (contractor path) + Phase-2 security scaffolding.**
+  - **Contractor onboarding white-screened at step 10** (`ad5b9a7`): the handbook step's contractor branch called `saveAndNext()` **during render** → setState-in-render → infinite re-render → "Application error". Only contractors hit it (Anvit = first contractor). Fixed: auto-skip moved to a `useEffect` (ref-guarded); render shows a passive "Skipping…". **Verified:** Anvit signed the agreement + progressed to T&C.
+  - **Contract showed raw `{{placeholders}}`** (`bbfab1f`): OnboardingFlow used its own incomplete local `fillTemplate` (8 keys, no company data) instead of the canonical `renderTemplate`+`buildTemplateData` (`lib/hrRender.js`, all 18 placeholders). Switched to canonical + deleted the duplicate.
+  - **Signed docs now snapshot the exact text** (`signatures[key].documentText`) so the record is immutable.
+  - **Admin "View" only opened the signature squiggle** → now **"View / Download"** opens a composed printable signed document (text + signature + signer/date/IP) via Blob URL (falls back to re-rendering for pre-snapshot docs). Skipped handbook shows "Not applicable".
+  - **Resume was mis-mapped** (sent people back, forced re-signing) → rewrote `computeInitialStep` to resume at first incomplete step; contractors skip handbook gate.
+  - Added **Company Email/Phone/Owner** fields to HR Settings (keys `adminEmail`/`phone`/`ownerName` that the contract renderer reads).
+  - **⚠️ HARNESH TODO:** fill **HR Settings → Company Details** (address, email, phone) — otherwise those render blank in the agreement (data gap, not a bug).
+  - **Phase-2 security (dormant, `d5897aa`):** added `firebase-admin` + `lib/firebase-admin.js` + `app/api/share/[token]/mutate` (server gatekeeper for login-less client writes). **Awaiting:** `FIREBASE_SERVICE_ACCOUNT` env in Vercel, then point client at it + flip `‹PHASE-2›` rule lines to `if false`. See `docs/SECURITY.md`.
+  - **Phase-1 security DONE + verified (`b16cd78`/`f79c138`):** rules locked (anon list → 403), share-token index, share-page TDZ fixed. Rules published in Firebase console.
+
 - **LAST DONE (2026-09-05):** 🔴 **SECURITY — Phase 1 (share-token index + fail-safe rules), app side shipped + verified live.**
   - **Confirmed the exposure empirically:** a no-auth public REST read of `/projects` returned **HTTP 200** with every project's `shareLinks` (token + password hash) and `assets`. Rules were `if true` (open r/w).
   - **Root blocker:** the login-less share page listed the WHOLE `projects` collection (`getDocs(collection(db,'projects'))`) to find one token — so rules couldn't be locked without breaking clients.

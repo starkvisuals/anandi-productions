@@ -76,3 +76,15 @@
 - Comments unify onto `feedback[]`; legacy `annotations[]` stays readable, no migration.
 - Work on `main`; one chunk per session; update ROADMAP every time.
 - Cost-sensitive: **no parallel-agent fan-out** unless explicitly asked.
+
+## Trap: setState during render (contractor onboarding white-screen, 2026-09-07)
+A conditional render branch called an async `saveAndNext()` (which does `setSaving(true)`) INLINE during render to "auto-skip" a step. setState-in-render → infinite re-render → React "too many re-renders" → white-screen "Application error". It only fired on a rare path (contractors), so it lurked until the first contractor onboarded. **Rule:** never call a state setter (directly or via a helper) during render. Auto-advance/skip logic belongs in a `useEffect` (guard with a ref so it runs once).
+
+## Trap: duplicate template renderer (onboarding showed raw {{placeholders}})
+`lib/hrRender.js` is the SINGLE source of truth for contract placeholders (`renderTemplate` + `buildTemplateData`, 18 keys incl. company details). OnboardingFlow had its OWN local `fillTemplate` with only 8 keys and no company data, so agreements rendered literal `{{companyLegalName}}` etc. **Rule:** always render HR templates via `lib/hrRender.js`. Don't reimplement placeholder filling.
+
+## Note: company-detail field names for contracts
+`buildTemplateData` reads `companyDetails.{legalName,address,adminEmail,phone,ownerName}`. The HR Settings form must edit those exact keys (it previously only had legalName/address/cin/pan/tan/gstin, so companyEmail/phone were always blank in agreements). Keep settings form keys in sync with buildTemplateData.
+
+## Note: signed-document viewer opens via Blob URL, not document.write
+The security hook blocks `document.write()`. To open a composed HTML doc in a new window, build the string (HTML-escape all interpolated values) → `URL.createObjectURL(new Blob([html],{type:'text/html'}))` → `window.open(url)` → revoke after a timeout. Firebase Storage `getDownloadURL` links are tokened, so images/PDFs load in the unauthenticated popup even under locked Storage rules.
