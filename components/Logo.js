@@ -47,40 +47,16 @@ export default function Logo({
       }
     : {};
 
-  // Bold "AP" mark with a yellow play-triangle accent.
-  // viewBox is generous to allow the triangle to extend right of the "P".
+  // The REAL Anandi Productions mark (AP monogram + yellow play triangle),
+  // exported from the brand kit. White version on dark surfaces, black on light.
+  // The yellow accent is baked into the artwork. Tightly cropped (~1.9:1).
+  const iconSrc = isDark ? '/brand/ap-icon-white.png' : '/brand/ap-icon-black.png';
   const LogoMark = () => (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 120 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-label="Anandi Productions"
-      role="img"
-      style={animationStyles}
-    >
-      {/* A — solid black/white triangle silhouette */}
-      <path
-        d="M5 95 L35 5 L65 95 L52 95 L47 80 L23 80 L18 95 Z"
-        fill={inkColor}
-      />
-      {/* A crossbar negative space already handled by closed path */}
-
-      {/* P — stem */}
-      <rect x="70" y="5" width="14" height="90" fill={inkColor} />
-      {/* P — bowl as a clipped half-circle (a 'D' shape) */}
-      <path
-        d="M84 5 H92 a26 26 0 0 1 0 52 H84 Z"
-        fill={inkColor}
-      />
-
-      {/* Yellow play-triangle accent — protrudes from the P's bowl */}
-      <path
-        d="M96 16 L116 31 L96 46 Z"
-        fill={brandYellow}
-      />
-    </svg>
+    <img
+      src={iconSrc}
+      alt="Anandi Productions"
+      style={{ height: size, width: 'auto', display: 'block', ...animationStyles }}
+    />
   );
 
   const Wordmark = () => (
