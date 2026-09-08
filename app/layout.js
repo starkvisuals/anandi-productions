@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth-context';
 import { ThemeProvider } from '@/lib/theme';
 import { ToastProvider } from '@/components/ui/Toast';
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 import FocusRing from '@/components/ui/FocusRing';
 
 // The design system specifies Inter as the UI typeface, but it was never
@@ -34,9 +35,11 @@ export default function RootLayout({ children }) {
         <ThemeProvider>
           <FocusRing />
           <ToastProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
+            <ConfirmProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+            </ConfirmProvider>
           </ToastProvider>
         </ThemeProvider>
       </body>

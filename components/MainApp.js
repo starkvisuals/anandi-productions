@@ -67,6 +67,7 @@ import OnboardingFlow from './hr/OnboardingFlow';
 import AnnotationCanvas from './AnnotationCanvas';
 import CommentSidebar from './review/CommentSidebar';
 import ReviewViewer from './review/ReviewViewer';
+import { useConfirm } from './ui/ConfirmDialog';
 import ComparePanel from './ComparePanel';
 
 // Dynamic import MuxPlayer to avoid SSR issues
@@ -1018,6 +1019,7 @@ const AppearancePanel = ({ settings, onChange, onClose, theme = 'dark' }) => {
 
 export default function MainApp() {
   const { userProfile, signOut } = useAuth();
+  const askConfirm = useConfirm();
   const [view, setView] = useState('dashboard');
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
@@ -3829,8 +3831,8 @@ export default function MainApp() {
                       />
                     </label>
                     <button
-                      onClick={() => {
-                        if (confirm('Delete this task?')) {
+                      onClick={async () => {
+                        if (await askConfirm({ title: 'Delete this task?', danger: true })) {
                           deleteTask(task.id);
                           setExpandedTask(null);
                         }
@@ -4773,7 +4775,7 @@ export default function MainApp() {
     const handleDeleteProject = async (projId, e) => {
       e.stopPropagation();
       const proj = projects.find(p => p.id === projId);
-      if (!confirm(`Delete "${proj.name}"?\n\nThis will permanently delete the project and all its assets. This action cannot be undone.`)) return;
+      if (!(await askConfirm({ title: `Delete "${proj.name}"?`, message: 'This permanently deletes the project and all its assets. This cannot be undone.', danger: true }))) return;
       try {
         // Free every asset's Storage files first — otherwise they're orphaned in
         // the bucket forever (the leak that filled storage).
@@ -5005,7 +5007,7 @@ export default function MainApp() {
             </button>
           )}
           {isProducer && u.id !== userProfile?.id && (
-            <button onClick={async (e) => { e.stopPropagation(); if (!confirm(`Remove ${u.name}? This will delete their account permanently.`)) return; try { await deleteUser(u.id); await loadData(); showToast(`${u.name} removed`, 'success'); } catch (err) { showToast('Failed to remove user', 'error'); } }} style={{ marginLeft: '8px', padding: '6px 8px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.danger, cursor: 'pointer', fontSize: '11px', transition: 'all 0.2s', opacity: 0.5 }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.5'} title="Remove user">
+            <button onClick={async (e) => { e.stopPropagation(); if (!(await askConfirm({ title: `Remove ${u.name}?`, message: 'This permanently deletes their account.', danger: true, confirmLabel: 'Remove' }))) return; try { await deleteUser(u.id); await loadData(); showToast(`${u.name} removed`, 'success'); } catch (err) { showToast('Failed to remove user', 'error'); } }} style={{ marginLeft: '8px', padding: '6px 8px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '8px', color: t.danger, cursor: 'pointer', fontSize: '11px', transition: 'all 0.2s', opacity: 0.5 }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.5'} title="Remove user">
               {Icons.trash(t.danger)}
             </button>
           )}
@@ -5718,7 +5720,7 @@ export default function MainApp() {
     
     // Delete deck
     const handleDeleteDeck = async (deckId) => {
-      if (!confirm('Delete this presentation?')) return;
+      if (!(await askConfirm({ title: 'Delete this presentation?', message: 'This deck will be permanently removed.', danger: true }))) return;
       const updated = decks.filter(d => d.id !== deckId);
       await updateProject(project.id, { decks: updated });
       onUpdate();
@@ -6844,7 +6846,7 @@ export default function MainApp() {
     };
 
     const handleDeleteCategory = async (catId) => {
-      if (!confirm(`Delete folder "${cats.find(c => c.id === catId)?.name}"? Assets inside will still exist but won't be in this folder.`)) return;
+      if (!(await askConfirm({ title: `Delete folder "${cats.find(c => c.id === catId)?.name}"?`, message: "Assets inside will still exist — they just won't be in this folder.", danger: true }))) return;
       const updated = (selectedProject.categories || []).filter(c => c.id !== catId);
       await updateProject(selectedProject.id, { categories: updated });
       await refreshProject();
@@ -7073,7 +7075,7 @@ export default function MainApp() {
 
     const handleBulkSelect = async (select) => { const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAssets(new Set()); showToast(`${selectedAssets.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
     const handleBulkDelete = async () => {
-      if (!confirm(`Delete ${selectedAssets.size} assets? This cannot be undone.`)) return;
+      if (!(await askConfirm({ title: `Delete ${selectedAssets.size} asset${selectedAssets.size === 1 ? '' : 's'}?`, message: 'This cannot be undone.', danger: true }))) return;
       const deletedAt = new Date().toISOString();
       const toDelete = (selectedProject.assets || []).filter(a => selectedAssets.has(a.id));
       const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, deleted: true, deletedAt } : a);
@@ -8320,7 +8322,7 @@ export default function MainApp() {
                               className="card-delete-btn"
                               onClick={async (e) => { 
                                 e.stopPropagation(); 
-                                if (!confirm(`Delete "${a.name}"?`)) return; 
+                                if (!(await askConfirm({ title: `Delete "${a.name}"?`, message: 'This asset will be moved to deleted.', danger: true }))) return;
                                 const updated = (selectedProject.assets || []).map(x => x.id === a.id ? { ...x, deleted: true, deletedAt: new Date().toISOString() } : x);
                                 await updateProject(selectedProject.id, { assets: updated });
                                 deleteAssetStorageFiles(a); // free its Firebase Storage files
@@ -8446,7 +8448,7 @@ export default function MainApp() {
                                   showToast(`${member.name} added`, 'success');
                                 }} style={{ padding: '4px 8px', background: `${t.primary}15`, border: `1px solid ${t.primary}30`, borderRadius: '6px', color: t.primary, fontSize: '10px', cursor: 'pointer' }}>+ Member</button>
                                 <button onClick={async () => {
-                                  if (!confirm(`Delete group "${group.name}"?`)) return;
+                                  if (!(await askConfirm({ title: `Delete group "${group.name}"?`, danger: true }))) return;
                                   const groups = (selectedProject.teamGroups || []).filter(g => g.id !== group.id);
                                   await updateProject(selectedProject.id, { teamGroups: groups });
                                   await refreshProject();
@@ -8553,7 +8555,7 @@ export default function MainApp() {
                             </div>
                             {isProducer && !m.isOwner && (
                               <button onClick={async () => {
-                                if (!confirm(`Remove ${m.name} from this project?`)) return;
+                                if (!(await askConfirm({ title: `Remove ${m.name} from this project?`, message: 'They will lose access to this project.', danger: true, confirmLabel: 'Remove' }))) return;
                                 const updatedTeam = (selectedProject.assignedTeam || []).filter(t => t.odId !== m.id);
                                 await updateProject(selectedProject.id, { assignedTeam: updatedTeam });
                                 await refreshProject();
@@ -10096,7 +10098,7 @@ export default function MainApp() {
                               )}
                               <a href={selectedAsset.url} download target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '8px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', textDecoration: 'none', color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>↓ Download Preview</a>
                               {isProducer && (
-                                <div onClick={async () => { if (!confirm(`Delete "${selectedAsset.name}"?`)) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); await updateProject(selectedProject.id, { assets: updated }); deleteAssetStorageFiles(selectedAsset); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '8px 10px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑 Delete Asset</div>
+                                <div onClick={async () => { if (!(await askConfirm({ title: `Delete "${selectedAsset.name}"?`, message: 'This asset will be moved to deleted.', danger: true }))) return; const deletedAt = new Date().toISOString(); const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, deleted: true, deletedAt } : a); await updateProject(selectedProject.id, { assets: updated }); deleteAssetStorageFiles(selectedAsset); setSelectedAsset(null); await refreshProject(); showToast('Deleted', 'success'); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '8px 10px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>🗑 Delete Asset</div>
                               )}
                             </div>
                           </div>
