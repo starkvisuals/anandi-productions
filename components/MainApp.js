@@ -2954,10 +2954,13 @@ export default function MainApp() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : (typeGradients[p.type] || 'linear-gradient(135deg, #6366f130, #a855f720)'),
+                        background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : `linear-gradient(160deg, rgba(20,20,22,0.35), rgba(8,8,10,0.72)), ${typeGradients[p.type] || 'linear-gradient(135deg, #ec489930, #a855f720)'}`,
                       }}>
                         {!firstThumb && (
-                          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '1px' }}>{(p.type || 'project').replace(/-/g, ' ')}</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px' }}>
+                            <img src="/brand/ap-icon-white.png" alt="" style={{ height: '20px', width: 'auto', opacity: 0.4 }} />
+                            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '600' }}>{(p.type || 'project').replace(/-/g, ' ')}</span>
+                          </div>
                         )}
                         {/* Status dot */}
                         <div style={{
@@ -4857,8 +4860,13 @@ export default function MainApp() {
               return (
                 <div key={p.id} className="hover-lift hover-glow animate-fadeInUp" onClick={() => { setSelectedProjectId(p.id); setView('projects'); }} style={{ background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, borderRadius: t.cardRadius, border: totalNotifs > 0 ? '1px solid rgba(251,191,36,0.4)' : `1px solid ${t.bgGlassBorder}`, boxShadow: t.shadowGlass, cursor: 'pointer', position: 'relative', overflow: 'hidden', transition: 'all 0.2s ease' }}>
                   {/* Gradient Top Area */}
-                  <div style={{ height: '90px', background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : (typeGradients[p.type] || typeGradients['photoshoot']), position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {!firstThumb && <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '500' }}>{p.type?.replace('-', ' ') || 'Project'}</span>}
+                  <div style={{ height: '90px', background: firstThumb ? `url(${firstThumb.thumbnailUrl}) center/cover` : `linear-gradient(160deg, rgba(20,20,22,0.35), rgba(8,8,10,0.72)), ${typeGradients[p.type] || typeGradients['photoshoot']}`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {!firstThumb && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px' }}>
+                        <img src="/brand/ap-icon-white.png" alt="" style={{ height: '18px', width: 'auto', opacity: 0.4 }} />
+                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '600' }}>{p.type?.replace('-', ' ') || 'Project'}</span>
+                      </div>
+                    )}
                     {/* Status chip top-right */}
                     <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
                       <Badge status={p.status} />
@@ -4892,7 +4900,7 @@ export default function MainApp() {
                     {/* Progress bar */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                       <div style={{ flex: 1, background: t.bgCard, borderRadius: '3px', height: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: `${progressPct}%`, height: '100%', background: progressPct === 100 ? '#22c55e' : `linear-gradient(90deg, ${t.primary}, #a855f7)`, borderRadius: '3px', transition: 'width 0.4s ease' }} />
+                        <div style={{ width: `${progressPct}%`, height: '100%', background: progressPct === 100 ? '#22c55e' : t.brandYellow, borderRadius: '3px', transition: 'width 0.4s ease' }} />
                       </div>
                       <span style={{ fontSize: '10px', color: t.textMuted, fontWeight: '600', minWidth: '28px', textAlign: 'right' }}>{progressPct}%</span>
                     </div>
@@ -7443,8 +7451,8 @@ export default function MainApp() {
         <div style={{ flex: 1 }}>
           {/* Project Banner */}
           <div className="animate-fadeIn" style={{ height: isMobile ? '120px' : '140px', background: bannerGradients[selectedProject.type] || bannerGradients['photoshoot'], position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: isMobile ? '12px 16px' : '20px 24px', overflow: 'hidden' }}>
-            {/* Subtle pattern overlay */}
-            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 80% 20%, rgba(99,102,241,0.15) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(168,85,247,0.1) 0%, transparent 50%)', pointerEvents: 'none' }} />
+            {/* Subtle pattern overlay — brand-yellow spark + soft light (was off-brand indigo/purple) */}
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 85% 18%, rgba(250,204,21,0.12) 0%, transparent 55%), radial-gradient(circle at 12% 95%, rgba(255,255,255,0.05) 0%, transparent 50%)', pointerEvents: 'none' }} />
             {/* Back button */}
             <button onClick={() => { setSelectedProjectId(null); setView('projects'); }} style={{ position: 'absolute', top: isMobile ? '10px' : '16px', left: isMobile ? '12px' : '20px', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', zIndex: 2 }}>
               {Icons.chevronLeft('#fff')} Projects
