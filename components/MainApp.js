@@ -6403,7 +6403,7 @@ export default function MainApp() {
     const team = (selectedProject.assignedTeam || []).map(t => ({ ...users.find(u => u.id === t.odId), isOwner: t.isOwner })).filter(m => m?.id);
     const shareLinks = (selectedProject.shareLinks || []).filter(l => l.active);
     const editors = [...coreTeam, ...freelancers].filter(u => Object.keys(TEAM_ROLES).includes(u.role));
-    const availableTeam = [...coreTeam, ...freelancers].filter(u => !team.find(m => m.id === u.id));
+    const availableTeam = [...coreTeam, ...freelancers].filter(u => !team.find(m => m.id === u.id) && u.employmentStatus !== 'terminated' && u.employmentStatus !== 'resigned');
 
     const getAssets = () => {
       let a = (selectedProject.assets || []).filter(x => !x.deleted);
@@ -7296,7 +7296,9 @@ export default function MainApp() {
       color: '#6366f1',
       replies: (fb.replies || []).map(r => ({ id: r.id, text: r.text, author: r.userName, userId: r.userId, createdAt: r.timestamp })),
     }));
-    const reviewMentionables = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()].map(m => ({ id: m.id, name: m.name }));
+    const reviewMentionables = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()]
+      .filter(m => m.employmentStatus !== 'terminated' && m.employmentStatus !== 'resigned')
+      .map(m => ({ id: m.id, name: m.name }));
     // Persist a new feedback[] array to the selected asset (local + Firestore).
     const persistFeedback = async (updatedFeedback) => {
       const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback } : a);
@@ -7569,8 +7571,11 @@ export default function MainApp() {
                 approvalWorkflow: selectedProject.approvalWorkflow || 'producer',
                 notifyOnUpload: selectedProject.notifyOnUpload ?? true, notifyOnVersion: selectedProject.notifyOnVersion ?? true,
                 notifyOnApproval: selectedProject.notifyOnApproval ?? true, notifyOnDeadline: selectedProject.notifyOnDeadline ?? true,
+                // Open the modal straight on the Deliverables tab. `editTab` is derived
+                // from `_tab` (setEditTab is scoped to the modal, not reachable here).
+                _tab: 'deliverables',
               });
-              setEditTab('deliverables'); setShowEditProject(true);
+              setShowEditProject(true);
             };
             if (reqFormats.length === 0 && reqSizes.length === 0) {
               return (
@@ -8799,7 +8804,11 @@ export default function MainApp() {
           const setEditTab = (tab) => setEditProjectData(d => ({ ...d, _tab: tab }));
           const projectTeam = selectedProject.assignedTeam || [];
           const allMembers = [...users, ...freelancers, ...coreTeam].filter((m, i, arr) => m?.id && arr.findIndex(x => x?.id === m.id) === i);
-          const availableMembers = allMembers.filter(m => !projectTeam.some(t => t.odId === m.id));
+          // The "Add member" picker offers only ACTIVE people — never terminated/
+          // resigned staff. (Anyone already on the project still shows in the list
+          // above with a Remove button, even if they later left.)
+          const isFormerMember = (u) => u?.employmentStatus === 'terminated' || u?.employmentStatus === 'resigned';
+          const availableMembers = allMembers.filter(m => !projectTeam.some(t => t.odId === m.id) && !isFormerMember(m));
 
           return (
           <Modal theme={theme} title="Edit Project" onClose={() => setShowEditProject(false)} size="lg">
