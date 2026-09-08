@@ -19,9 +19,24 @@
 body {
   background: var(--background);
   color: #e4e4e7;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Inter (loaded via next/font in app/layout.js) is the design-system UI face;
+     falls back to the system sans until it swaps in. */
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
   min-height: 100vh;
 }
+
+/* Headings tighten slightly (design-system tracking) wherever real heading tags
+   are used. Inline-styled headings inherit the face + smoothing above. */
+h1, h2, h3 { letter-spacing: -0.02em; }
+
+/* Brand selection — a small spark of yellow everywhere text is highlighted. */
+::selection { background: #FACC15; color: #0A0A0A; }
+::-moz-selection { background: #FACC15; color: #0A0A0A; }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
@@ -48,17 +63,28 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--primary) !important;
 }
 
-/* Button transitions */
+/* Button transitions — design-system easing (fast start, smooth landing), and
+   only animate paint/transform props (never layout) to avoid jank. */
 button {
-  transition: all 0.2s ease;
+  transition:
+    background-color 0.18s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.18s cubic-bezier(0.2, 0, 0, 1),
+    color 0.18s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.18s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.14s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.1s cubic-bezier(0.2, 0, 0, 1);
 }
 
 button:hover {
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
 button:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:active { transform: none; }
 }
 
 /* Loading spinner */
