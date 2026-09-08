@@ -2877,15 +2877,17 @@ export default function MainApp() {
         {/* 2. Pulse Bar */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '28px', padding: '20px 0 16px', flexWrap: 'wrap' }}>
           {[
+            // Only a non-zero value lights up; zeros stay muted so the eye lands
+            // on what actually needs attention (signal over noise).
             { label: 'Active Projects', value: activeProjects.length, color: t.brandYellow },
             { label: 'Due This Week', value: dueThisWeek.length, color: '#f59e0b' },
-            { label: 'Overdue', value: overdueAssets.length, color: overdueAssets.length > 0 ? '#ef4444' : '#64748b' },
+            { label: 'Overdue', value: overdueAssets.length, color: '#ef4444' },
             { label: 'Pending Review', value: pendingReview.length, color: '#a855f7' },
             { label: 'In Progress', value: inProgress.length, color: '#22c55e' },
-            { label: 'Completed', value: completedProjects.length, color: '#64748b' },
+            { label: 'Completed', value: completedProjects.length, color: '#22c55e' },
           ].map(m => (
             <div key={m.label} style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: 700, color: m.color, lineHeight: 1 }}>{m.value}</div>
+              <div style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: 700, color: m.value > 0 ? m.color : t.textMuted, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{m.value}</div>
               <div style={{ fontSize: '11px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>{m.label}</div>
             </div>
           ))}
@@ -2930,8 +2932,8 @@ export default function MainApp() {
                     <div
                       key={p.id}
                       onClick={() => { setSelectedProjectId(p.id); setView('projects'); }}
-                      onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = t.border; }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = 'rgba(250,204,21,0.45)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = t.bgGlassBorder; }}
                       style={{
                         width: isMobile ? '160px' : '200px',
                         borderRadius: t.cardRadius,
@@ -2961,7 +2963,7 @@ export default function MainApp() {
                         <div style={{
                           position: 'absolute', top: '8px', right: '8px',
                           width: '8px', height: '8px', borderRadius: '50%',
-                          background: p.status === 'active' ? '#22c55e' : '#6366f1',
+                          background: p.status === 'active' ? '#22c55e' : t.textMuted,
                         }} />
                         {/* Notification badge */}
                         {pendingCount > 0 && (
@@ -3004,9 +3006,10 @@ export default function MainApp() {
               </div>
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {attentionItems.length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
-                    {Icons.check('#22c55e')}
-                    <div style={{ fontSize: '13px', color: t.textMuted, marginTop: '8px' }}>Nothing needs your attention</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '44px 24px', background: t.bgGlass, backdropFilter: t.blur, WebkitBackdropFilter: t.blur, border: `1px solid ${t.bgGlassBorder}`, borderRadius: t.cardRadius }}>
+                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px' }}>{Icons.check('#22c55e')}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: t.text }}>You&apos;re all caught up</div>
+                    <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '4px' }}>Nothing needs your attention right now.</div>
                   </div>
                 ) : (
                   attentionItems.map((item, idx) => {

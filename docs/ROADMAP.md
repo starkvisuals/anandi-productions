@@ -9,6 +9,13 @@
 
 ## ▶ LAST DONE / NEXT UP
 
+- **LAST DONE (2026-09-09):** **Brand logo fix + whole-app polish (started) + Plan-A bugs.**
+  - 🔴 **Real logo:** `components/Logo.js` was drawing a FAKE approximated AP mark. Replaced `LogoMark` with the real exported monogram (`public/brand/ap-icon-{white,black}.png`, theme-switched; yellow triangle baked in). All call sites (sidebar/login/splash/onboarding/share/vendor) now correct. Verified live. (Follow-up: real favicon from `faviconAP.ai`; wordmark font is still Inter, not code-pro.)
+  - **Whole-app polish slice 1 (foundation, cascades):** loaded **Inter** via next/font (was never loaded — app ran on system sans) + font-smoothing + brand `::selection` + design-system button easing. Verified live (`document.fonts.check('600 16px Inter')`=true).
+  - **Dashboard polish:** stat row mutes zero values (signal>noise) + tabular-nums; project-card hover/status-dot indigo→brand/neutral; empty "Needs Attention" → an intentional contained card ("You're all caught up").
+  - **Plan-A bugs fixed + verified:** delivery-checklist Edit button (out-of-scope `setEditTab` → `_tab`); terminated staff hidden from team picker / project add-modal / @mention list.
+  - **NEXT (whole-app polish, per Harnesh):** continue screen-by-screen — Project view, then Review lightbox. Also queued: Deadline Reminders; branded client Delivery Room; MainApp modularization (gradual). Emoji stage-icons → drawn SVG later.
+
 - **LAST DONE (2026-09-08):** **Workflow builder redesign — plain-language stages.** `WorkflowTemplateEditor` no longer shows engine jargon (UploadBlock/SelectionRound, role code-values, a raw JSON textarea). Added a `STAGE_META` vocabulary (friendly name + icon + one-liner + who-does-it) mapped over the SAME `block.type` values (zero engine risk). 'Add Block' composer → a one-click 'Add a stage' card picker; each stage row shows icon + plain name + owner; expanded settings use plain labels; raw JSON hidden behind 'Advanced settings'. **Verified live:** clicked 📥 Upload files + ✅ Client review → clean stage rows. **NEXT (optional):** starter templates a producer can pick instead of building; tidy leftover 'block' wording in `WorkflowTemplatesView` (subtitle + 'N block' count).
 - **LAST DONE (2026-09-07/08):** 🔒 **SECURITY COMPLETE (Phase 1 + 2), verified.** Anonymous list/read/write all locked (403); client writes route through `/api/share/[token]/mutate` (Admin). Plus onboarding: contractor crash fix, real executed contracts (placeholders, branded letterhead w/ official logo, signature-in-execution-block, company counter-signature uploader), seamless resume. See git log + docs/SECURITY.md.
 
