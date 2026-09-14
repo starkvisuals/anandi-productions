@@ -1030,6 +1030,9 @@ export default function MainApp() {
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [toast, setToast] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  // Shared, cross-user notifications from the pipeline engine (Firestore-backed),
+  // kept separate from the local per-browser reminders above and merged for the bell.
+  const [serverNotifications, setServerNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   
   // Sidebar Collapsed State
@@ -1188,6 +1191,22 @@ export default function MainApp() {
     }
   }, [userProfile?.id]);
 
+  // Live subscription to shared engine notifications addressed to this user.
+  // These are written by teammates/the engine when a stage becomes this user's
+  // turn (or goes overdue), so they must come from Firestore — localStorage
+  // can't cross browsers/users. Fails soft (empty) if the query needs an index.
+  useEffect(() => {
+    if (!userProfile?.id) { setServerNotifications([]); return; }
+    let unsub = () => {};
+    let active = true;
+    (async () => {
+      const { subscribeNotifications } = await import('@/lib/notifications');
+      if (!active) return;
+      unsub = subscribeNotifications(userProfile.id, setServerNotifications, 40);
+    })();
+    return () => { active = false; try { unsub(); } catch (e) {} };
+  }, [userProfile?.id]);
+
   // Save notifications to localStorage
   const saveNotifications = (notifs) => {
     setNotifications(notifs);
@@ -1219,6 +1238,11 @@ export default function MainApp() {
   const markAllAsRead = () => {
     const updated = notifications.map(n => ({ ...n, read: true }));
     saveNotifications(updated);
+    // Also clear the shared engine notifications (optimistic + persisted).
+    setServerNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    if (userProfile?.id) {
+      import('@/lib/notifications').then(m => m.markAllNotificationsRead(userProfile.id)).catch(() => {});
+    }
   };
 
   // Clear all notifications
@@ -1730,8 +1754,37 @@ export default function MainApp() {
 
   // Notification Panel Component
   const NotificationPanel = () => {
-    const unreadCount = notifications.filter(n => !n.read).length;
-    
+    // Merge shared engine notifications (Firestore) with local reminders, newest first.
+    const tsOf = (v) => {
+      if (!v) return 0;
+      if (typeof v.toDate === 'function') return v.toDate().getTime();
+      const d = new Date(v); return isNaN(d) ? 0 : d.getTime();
+    };
+    const mergedNotifs = [
+      ...serverNotifications.map(n => ({
+        id: n.id,
+        __server: true,
+        title: n.title,
+        message: n.body,
+        read: !!n.read,
+        type: n.type,
+        projectId: n.projectId,
+        href: n.href,
+        timestamp: n.createdAt,
+        _ts: tsOf(n.createdAt),
+      })),
+      ...notifications.map(n => ({ ...n, _ts: tsOf(n.timestamp) })),
+    ].sort((a, b) => b._ts - a._ts);
+    const unreadCount = mergedNotifs.filter(n => !n.read).length;
+    const markOneRead = (notif) => {
+      if (notif.__server) {
+        setServerNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+        import('@/lib/notifications').then(m => m.markNotificationRead(notif.id)).catch(() => {});
+      } else {
+        markAsRead(notif.id);
+      }
+    };
+
     return (
       <div style={{ position: 'relative' }}>
         {/* Bell Icon */}
@@ -1810,17 +1863,17 @@ export default function MainApp() {
               
               {/* Notifications List */}
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {notifications.length === 0 ? (
+                {mergedNotifs.length === 0 ? (
                   <div style={{ padding: '40px 20px', textAlign: 'center', color: t.textMuted }}>
                     <div style={{ marginBottom: '10px', opacity: 0.4 }}>{Icons.bell(t.textMuted)}</div>
                     <div style={{ fontSize: '13px' }}>No notifications</div>
                   </div>
                 ) : (
-                  notifications.map(notif => (
-                    <div 
+                  mergedNotifs.map(notif => (
+                    <div
                       key={notif.id}
                       onClick={() => {
-                        markAsRead(notif.id);
+                        markOneRead(notif);
                         if (notif.projectId) {
                           setSelectedProjectId(notif.projectId);
                           setView('projects');
