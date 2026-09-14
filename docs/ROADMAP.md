@@ -69,6 +69,27 @@
 
 ---
 
+## ▶ PIPELINE ENGINE — LOCKED SPEC (with Harnesh, 2026-09-15)
+
+**Goal:** the software RUNS each project through its workflow so Harnesh never manually checks whether team/vendors/client are doing their job. Different pipelines for different work types.
+
+**Engine reality (diagnosed 2026-09-15):** `lib/workflow/helpers.js` is SOLID, do NOT rebuild. Blocks = subcollection `projects/{id}/blocks` (no 1MB risk). Already has: gating (LOCKED→PENDING→IN_PROGRESS→DONE via `advanceProject`), owner per stage (`assignedRole`/`assignedUserId`), per-stage deadline (`slaHours`→`dueDate` set on unlock), cross-project inbox query (`getInboxForUser`). `runner.js` = onEnter/onExit rules. Builder UI + block views all exist. The "broken" feeling = (a) templates collection empty → seed starter pipelines; (b) the automation layer below was never built.
+
+**BUILD (3 pieces on top of the working engine):**
+1. **Notify on "your turn"** — hook `advanceProject`: when a stage becomes PENDING, notify its owner. Channels: **Email (existing `sendEmailNotification`→/api/send-email) + in-app**. ⚠️ In-app notifs are currently **localStorage-only per browser** (MainApp ~1183-1210) — MUST move to a shared Firestore `notifications` collection ({userId,type,title,body,link,read,createdAt}) so an engine event can reach ANOTHER user's screen. Bell reads from Firestore.
+2. **Hold-ups board** — producer screen: every active project, current stage, owner, and on-time/due-soon/overdue flag. Built on existing block queries.
+3. **Auto-chase + delivery reminders** — scheduled job (few×/day): finds stages/deliveries where `dueDate` is (a) **coming soon → heads-up email BEFORE** ("due in 2 days"), (b) **overdue → chase**, escalate to Harnesh if still ignored. Covers both internal stage deadlines AND client-facing delivery dates. (Confirmed to Harnesh: due-soon reminder emails ARE included.)
+- Alongside: **seed 1–2 starter pipelines** (e.g. his "Video Adaptation": Client upload → Team edit/adapt → Make versions → Internal check → Team approval → Client review/approve → Deliver), editable in the existing builder.
+
+**VISIBILITY MODEL (locked):**
+- **Your team:** sees EVERYTHING — every stage, every individual, internal notes, all vendors.
+- **Clients:** see the **vendor's name** + internal work as **TEAM/FUNCTION labels** ("VFX Team", "Image Edit Team") — NOT individual internal staff names, NOT internal chatter. Clean, professional client-servicing view.
+- **Vendors:** only their own link — their task, the deadline, where to upload. No login, no visibility into anything else.
+
+**Recommended order:** ① Notifications → ② Hold-ups board → ③ Auto-chase + delivery reminders (+ seed pipelines). Client-visibility model applies to the client-facing views (share page + client review).
+
+---
+
 ## Per-chunk discipline (do this every time)
 1. Read this + ARCHITECTURE + PLAYBOOK → find NEXT UP + relevant traps/knowledge. 2. Do exactly that chunk. 3. `npx esbuild <file> --bundle=false --loader:.js=jsx` clean. 4. Commit + push `main`. 5. Update LAST DONE / NEXT UP + tick the box. 6. If a trap/lesson surfaced → append to PLAYBOOK.
 Rules: one file / tight feature per chunk (>3 files → split). Reuse `generateId`/`updateProject` (lib/firestore), `formatTimecode` (MainApp), `components/ui/*`, `useTheme`/`useToast`. Read colors from tokens, never hardcode hex.
