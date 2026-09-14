@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Component } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { getProjects, getProject, getProjectsForUser, createProject, updateProject, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
+import { getProjects, getProject, getProjectsForUser, createProject, updateProject, mutateProject, mutateAsset, deleteProject, getUsers, getFreelancers, getClients, getCoreTeam, createUser, deleteUser, createShareLink, TEAM_ROLES, CORE_ROLES, STATUS, generateId } from '@/lib/firestore';
 import { useKeyboardShortcuts, SHORTCUT_GROUPS } from '@/lib/useKeyboardShortcuts';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, storage, db as firestoreDb } from '@/lib/firebase';
@@ -6092,7 +6092,7 @@ export default function MainApp() {
             const updatedAssets = (selectedProject.assets || []).map(x => x.id === a.id ? { ...x, ...patch } : x);
             setSelectedAsset(prev => (prev && prev.id === a.id ? { ...prev, ...patch } : prev));
             setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updatedAssets } : p));
-            try { await updateProject(selectedProject.id, { assets: updatedAssets }); } catch (e) { console.error('Persist muxPlaybackId failed:', e); }
+            try { await mutateAsset(selectedProject.id, a.id, (x) => ({ ...x, ...patch })); } catch (e) { console.error('Persist muxPlaybackId failed:', e); }
             return; // done
           }
         } catch (e) { /* still processing / transient — keep polling */ }
@@ -6589,15 +6589,15 @@ export default function MainApp() {
               gdriveLink: ''
             };
             
-            // Fetch fresh project data before updating to avoid race conditions
-            const freshProjects = await getProjects();
-            const freshProject = freshProjects.find(p => p.id === selectedProject.id);
-            const currentAssets = freshProject?.assets || [];
-            
-            const updatedAssets = [...currentAssets, newAsset];
             const catName = cats.find(c => c.id === cat)?.name || cat;
             const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
-            await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(freshProject?.activityLog || []), activity] });
+            // Atomic append — re-reads the freshest project inside a transaction,
+            // so a simultaneous upload / comment / status change from anyone else
+            // (team, client or vendor) is merged, never silently overwritten.
+            await mutateProject(selectedProject.id, (proj) => ({
+              assets: [...(proj.assets || []), newAsset],
+              activityLog: [...(proj.activityLog || []), activity],
+            }));
             await refreshProject();
             setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
             showToast(useMux ? `Video uploaded! HLS ready in ~30s` : `Video uploaded!`, 'success');
@@ -6670,15 +6670,13 @@ export default function MainApp() {
                       gdriveLink: '' 
                     };
                     
-                    // Fetch fresh project data before updating to avoid race conditions
-                    const freshProjects = await getProjects();
-                    const freshProject = freshProjects.find(p => p.id === selectedProject.id);
-                    const currentAssets = freshProject?.assets || [];
-                    
-                    const updatedAssets = [...currentAssets, newAsset];
                     const catName = cats.find(c => c.id === cat)?.name || cat;
                     const activity = { id: generateId(), type: 'upload', message: `${userProfile.name} uploaded ${file.name} to ${catName}`, timestamp: new Date().toISOString() };
-                    await updateProject(selectedProject.id, { assets: updatedAssets, activityLog: [...(freshProject?.activityLog || []), activity] });
+                    // Atomic append (see video branch) — concurrent uploads/comments never clobber.
+                    await mutateProject(selectedProject.id, (proj) => ({
+                      assets: [...(proj.assets || []), newAsset],
+                      activityLog: [...(proj.activityLog || []), activity],
+                    }));
                     await refreshProject();
                     setUploadProgress(p => { const n = { ...p }; delete n[uid]; return n; });
                     resolve();
@@ -6969,14 +6967,16 @@ export default function MainApp() {
       document.addEventListener('mouseup', onUp);
     };
 
-    const handleRate = async (assetId, rating) => { const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, rating } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
-    const handleToggleSelect = async (assetId) => { const asset = (selectedProject.assets || []).find(a => a.id === assetId); const newSelected = !asset?.isSelected; const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); };
+    // Per-asset edits go through mutateAsset: each re-reads the freshest project
+    // inside a transaction and rewrites only that one asset, so two people rating
+    // / selecting / labelling different assets at the same time never collide.
+    const handleRate = async (assetId, rating) => { await mutateAsset(selectedProject.id, assetId, (a) => ({ ...a, rating })); await refreshProject(); };
+    const handleToggleSelect = async (assetId) => { await mutateAsset(selectedProject.id, assetId, (a) => { const newSelected = !a.isSelected; return { ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' }; }); await refreshProject(); };
     const handleColorLabel = async (assetId, label) => {
       const asset = (selectedProject.assets || []).find(a => a.id === assetId);
       const newLabel = asset?.colorLabel === label ? null : label; // toggle off if same
-      const updated = (selectedProject.assets || []).map(a => a.id === assetId ? { ...a, colorLabel: newLabel } : a);
       setSelectedAsset(prev => prev?.id === assetId ? { ...prev, colorLabel: newLabel } : prev);
-      await updateProject(selectedProject.id, { assets: updated });
+      await mutateAsset(selectedProject.id, assetId, (a) => ({ ...a, colorLabel: a.colorLabel === label ? null : label }));
       await refreshProject();
     };
     const handleBlockAdvance = useCallback(async (snapshotId, pickCount) => {
@@ -7073,7 +7073,7 @@ export default function MainApp() {
       } catch (err) { console.error('[handleGrantExtraRound]', err); }
     }, [projectBlocks, selectedProject]);
 
-    const handleBulkSelect = async (select) => { const updated = (selectedProject.assets || []).map(a => selectedAssets.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a); await updateProject(selectedProject.id, { assets: updated }); await refreshProject(); setSelectedAssets(new Set()); showToast(`${selectedAssets.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
+    const handleBulkSelect = async (select) => { const ids = selectedAssets; await mutateProject(selectedProject.id, (proj) => ({ assets: (proj.assets || []).map(a => ids.has(a.id) ? { ...a, isSelected: select, status: select ? 'selected' : 'pending' } : a) })); await refreshProject(); setSelectedAssets(new Set()); showToast(`${ids.size} assets ${select ? 'selected' : 'deselected'}`, 'success'); };
     const handleBulkDelete = async () => {
       if (!(await askConfirm({ title: `Delete ${selectedAssets.size} asset${selectedAssets.size === 1 ? '' : 's'}?`, message: 'This cannot be undone.', danger: true }))) return;
       const deletedAt = new Date().toISOString();
@@ -7248,10 +7248,15 @@ export default function MainApp() {
       setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback, status: 'changes-requested', turnaroundDeadline });
       setNewFeedback('');
       setShowMentions(false);
-      // Then update database in background with activity log
-      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback, status: 'changes-requested', turnaroundDeadline } : a);
+      // Then persist atomically: append THIS comment onto the freshest feedback[]
+      // inside a transaction, so a comment someone else posts on the same asset at
+      // the same moment is preserved rather than overwritten.
       const activity = { id: generateId(), type: 'feedback', message: `${userProfile.name} added feedback on ${selectedAsset.name}${mentions.length > 0 ? ` (mentioned ${mentions.map(m => m.name).join(', ')})` : ''}`, timestamp: new Date().toISOString() };
-      await updateProject(selectedProject.id, { assets: updated, activityLog: [...(selectedProject.activityLog || []), activity] }); 
+      const targetAssetId = selectedAsset.id;
+      await mutateProject(selectedProject.id, (proj) => ({
+        assets: (proj.assets || []).map(a => a.id === targetAssetId ? { ...a, feedback: [...(a.feedback || []), fb], status: 'changes-requested', turnaroundDeadline } : a),
+        activityLog: [...(proj.activityLog || []), activity],
+      }));
       
       // Auto-create revision task from feedback (for clients and producers)
       if (isClientView || isProducer) {
@@ -7275,22 +7280,23 @@ export default function MainApp() {
     const handleToggleFeedbackDone = async (feedbackId, e) => {
       if (e) e.stopPropagation();
       const updatedFeedback = (selectedAsset.feedback || []).map(fb => fb.id === feedbackId ? { ...fb, isDone: !fb.isDone } : fb);
-      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback } : a);
       // Update local state first to prevent modal closing
       setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback });
-      // Then update database in background
-      await updateProject(selectedProject.id, { assets: updated });
+      // Then persist atomically against the freshest feedback[] (preserves concurrent comments).
+      const targetAssetId = selectedAsset.id;
+      await mutateAsset(selectedProject.id, targetAssetId, (a) => ({ ...a, feedback: (a.feedback || []).map(fb => fb.id === feedbackId ? { ...fb, isDone: !fb.isDone } : fb) }));
     };
 
     const handleAddReply = async (feedbackId) => {
       if (!replyText.trim()) return;
       const reply = { id: generateId(), text: replyText, userId: userProfile.id, userName: userProfile.name, timestamp: new Date().toISOString() };
       const updatedFeedback = (selectedAsset.feedback || []).map(fb => fb.id === feedbackId ? { ...fb, replies: [...(fb.replies || []), reply] } : fb);
-      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback } : a);
       setSelectedAsset({ ...selectedAsset, feedback: updatedFeedback });
       setReplyText('');
       setReplyingTo(null);
-      await updateProject(selectedProject.id, { assets: updated });
+      // Persist atomically against the freshest feedback[] so concurrent comments/replies survive.
+      const targetAssetId = selectedAsset.id;
+      await mutateAsset(selectedProject.id, targetAssetId, (a) => ({ ...a, feedback: (a.feedback || []).map(fb => fb.id === feedbackId ? { ...fb, replies: [...(fb.replies || []), reply] } : fb) }));
     };
 
     // ── A1.5: adapter between the stored feedback[] shape and <CommentSidebar> ──
@@ -7312,26 +7318,29 @@ export default function MainApp() {
     const reviewMentionables = [...new Map([...team, ...freelancers, ...coreTeam].map(m => [m.id, m])).values()]
       .filter(m => m.employmentStatus !== 'terminated' && m.employmentStatus !== 'resigned')
       .map(m => ({ id: m.id, name: m.name }));
-    // Persist a new feedback[] array to the selected asset (local + Firestore).
-    const persistFeedback = async (updatedFeedback) => {
-      const updated = (selectedProject.assets || []).map(a => a.id === selectedAsset.id ? { ...a, feedback: updatedFeedback } : a);
-      setSelectedAsset(prev => ({ ...prev, feedback: updatedFeedback }));
-      setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: updated } : p));
-      try { await updateProject(selectedProject.id, { assets: updated }); } catch (e) { console.error('Save feedback error:', e); }
+    // Persist a feedback TRANSFORM to the selected asset (local + Firestore).
+    // `transform(freshFeedback) => newFeedback` runs against the freshest list
+    // inside a transaction, so a comment someone else adds on the same asset at
+    // the same moment is preserved instead of being clobbered.
+    const persistFeedback = async (transform) => {
+      const optimistic = transform(selectedAsset.feedback || []);
+      const targetAssetId = selectedAsset.id;
+      setSelectedAsset(prev => ({ ...prev, feedback: optimistic }));
+      setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, assets: (p.assets || []).map(a => a.id === targetAssetId ? { ...a, feedback: optimistic } : a) } : p));
+      try { await mutateAsset(selectedProject.id, targetAssetId, (a) => ({ ...a, feedback: transform(a.feedback || []) })); } catch (e) { console.error('Save feedback error:', e); }
     };
     // Edit text / toggle resolved / add reply — maps the sidebar patch back to feedback shape.
     const handleReviewUpdate = (id, patch) => {
-      const updatedFeedback = (selectedAsset.feedback || []).map(fb => {
+      persistFeedback((fbList) => fbList.map(fb => {
         if (fb.id !== id) return fb;
         const next = { ...fb };
         if (patch.text !== undefined) next.text = patch.text;
         if (patch.resolved !== undefined) next.isDone = patch.resolved;
         if (patch.replies !== undefined) next.replies = patch.replies.map(r => ({ id: r.id, text: r.text, userId: r.userId, userName: r.author || r.userName, timestamp: r.createdAt || r.timestamp }));
         return next;
-      });
-      persistFeedback(updatedFeedback);
+      }));
     };
-    const handleReviewDelete = (id) => persistFeedback((selectedAsset.feedback || []).filter(fb => fb.id !== id));
+    const handleReviewDelete = (id) => persistFeedback((fbList) => fbList.filter(fb => fb.id !== id));
     const handleReviewSeek = (seconds) => { if (videoRef.current) { videoRef.current.currentTime = seconds; videoRef.current.pause(); setVideoPlaying(false); } };
     const handleReviewSelect = (id) => { setHighlightedFeedbackId(id); };
 

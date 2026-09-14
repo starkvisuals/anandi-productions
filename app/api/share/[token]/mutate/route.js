@@ -45,10 +45,22 @@ export async function POST(request, { params }) {
     }
     const { db, project, link } = resolved;
     const ref = db.collection('projects').doc(project.id);
-    const assets = Array.isArray(project.assets) ? project.assets : [];
 
-    const mapAsset = (id, fn) => assets.map((a) => (a.id === id ? fn(a) : a));
     const activity = (message, type) => ({ id: genId(), type, message, timestamp: new Date().toISOString() });
+
+    // Every asset-array write runs in a transaction that re-reads the FRESHEST
+    // project, so a login-less client's action never clobbers a simultaneous
+    // team-member or vendor write (last-write-wins → silent data loss). `build`
+    // receives the current project and returns the update patch (or falsy to skip).
+    const txMutate = (build) =>
+      db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new Error('Project gone');
+        const proj = { id: snap.id, ...snap.data() };
+        const patch = build(proj);
+        if (patch) tx.update(ref, patch);
+        return patch;
+      });
 
     switch (action) {
       // ---- CLIENT review actions ----
@@ -56,42 +68,48 @@ export async function POST(request, { params }) {
         if (!isClientLink(link)) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
         const { assetId, rating } = payload;
         const r = Math.max(0, Math.min(5, Number(rating) || 0));
-        await ref.update({ assets: mapAsset(assetId, (a) => ({ ...a, rating: r })) });
+        await txMutate((proj) => ({ assets: (proj.assets || []).map((a) => (a.id === assetId ? { ...a, rating: r } : a)) }));
         return NextResponse.json({ ok: true, rating: r });
       }
       case 'toggleSelect': {
         if (!isClientLink(link)) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
         const { assetId } = payload;
-        const cur = assets.find((a) => a.id === assetId);
-        const newSelected = !cur?.isSelected;
-        await ref.update({
-          assets: mapAsset(assetId, (a) => ({ ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' })),
+        let newSelected;
+        await txMutate((proj) => {
+          const cur = (proj.assets || []).find((a) => a.id === assetId);
+          newSelected = !cur?.isSelected;
+          return { assets: (proj.assets || []).map((a) => (a.id === assetId ? { ...a, isSelected: newSelected, status: newSelected ? 'selected' : 'pending' } : a)) };
         });
         return NextResponse.json({ ok: true, isSelected: newSelected });
       }
       case 'colorLabel': {
         if (!isClientLink(link)) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
         const { assetId, label } = payload;
-        const cur = assets.find((a) => a.id === assetId);
-        const newLabel = cur?.colorLabel === label ? null : label;
-        await ref.update({ assets: mapAsset(assetId, (a) => ({ ...a, colorLabel: newLabel })) });
+        let newLabel;
+        await txMutate((proj) => {
+          const cur = (proj.assets || []).find((a) => a.id === assetId);
+          newLabel = cur?.colorLabel === label ? null : label;
+          return { assets: (proj.assets || []).map((a) => (a.id === assetId ? { ...a, colorLabel: newLabel } : a)) };
+        });
         return NextResponse.json({ ok: true, colorLabel: newLabel });
       }
       case 'clearLabel': {
         if (!isClientLink(link)) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
         const { assetId } = payload;
-        await ref.update({ assets: mapAsset(assetId, (a) => ({ ...a, colorLabel: null })) });
+        await txMutate((proj) => ({ assets: (proj.assets || []).map((a) => (a.id === assetId ? { ...a, colorLabel: null } : a)) }));
         return NextResponse.json({ ok: true });
       }
       case 'feedback': {
         if (!isClientLink(link)) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
         const { assetId, text, userName } = payload;
         if (!text || !userName) return NextResponse.json({ error: 'text and userName required' }, { status: 400 });
-        const asset = assets.find((a) => a.id === assetId);
         const fb = { id: genId(), text: String(text).slice(0, 500), userName: String(userName).slice(0, 80), timestamp: new Date().toISOString(), isExternal: true };
-        await ref.update({
-          assets: mapAsset(assetId, (a) => ({ ...a, feedback: [...(a.feedback || []), fb], status: 'changes-requested' })),
-          activityLog: FieldValue.arrayUnion(activity(`Feedback from ${fb.userName} on ${asset?.name || 'asset'}`, 'feedback')),
+        await txMutate((proj) => {
+          const asset = (proj.assets || []).find((a) => a.id === assetId);
+          return {
+            assets: (proj.assets || []).map((a) => (a.id === assetId ? { ...a, feedback: [...(a.feedback || []), fb], status: 'changes-requested' } : a)),
+            activityLog: FieldValue.arrayUnion(activity(`Feedback from ${fb.userName} on ${asset?.name || 'asset'}`, 'feedback')),
+          };
         });
         return NextResponse.json({ ok: true, feedback: fb });
       }
@@ -146,10 +164,10 @@ export async function POST(request, { params }) {
           feedback: [],
           rating: 0,
         };
-        await ref.update({
-          assets: [...assets, safe],
+        await txMutate((proj) => ({
+          assets: [...(proj.assets || []), safe],
           activityLog: FieldValue.arrayUnion(activity(`${link.name || 'external'} uploaded ${safe.name}`, 'upload')),
-        });
+        }));
         return NextResponse.json({ ok: true, asset: safe });
       }
 
